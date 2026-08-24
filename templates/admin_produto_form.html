@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Admin · {{ 'Editar' if produto else 'Novo' }} produto — Voxxel{% endblock %}
+{% block content %}
+<section style="padding-top:var(--space-3);">
+  <div class="wrap admin-shell">
+    <div class="admin-bar">
+      <div class="admin-tabs">
+        <a href="{{ url_for('admin_produtos') }}">← Voltar</a>
+      </div>
+    </div>
+
+    <div class="section-head fade-up" style="text-align:left; align-items:flex-start; margin-bottom:var(--space-2);">
+      <div class="eyebrow">Produto</div>
+      <h2>{{ 'Editar produto' if produto else 'Novo produto' }}</h2>
+    </div>
+
+    <form method="post" class="form-card">
+      <div class="field">
+        <label>Nome</label>
+        <input type="text" name="nome" value="{{ produto['nome'] if produto else '' }}" required>
+      </div>
+      <div class="field">
+        <label>Categoria</label>
+        <select name="categoria">
+          {% for chave, nome in categorias.items() %}
+            <option value="{{ chave }}" {{ 'selected' if produto and produto['categoria'] == chave }}>{{ nome }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field">
+        <label>Preço (R$)</label>
+        <input type="number" step="0.01" name="preco" value="{{ produto['preco'] if produto else '' }}" required>
+      </div>
+      <div class="field">
+        <label>Descrição</label>
+        <textarea name="descricao" rows="3">{{ produto['descricao'] if produto else '' }}</textarea>
+      </div>
+      <div class="field">
+        <label>Ângulo da textura (visual, ex: 45deg)</label>
+        <input type="text" name="imagem_ang" value="{{ produto['imagem_ang'] if produto else '0deg' }}">
+      </div>
+      <div class="field" style="display:flex; align-items:center; gap:10px;">
+        <input type="checkbox" name="ativo" id="ativo" style="width:auto;" {{ 'checked' if not produto or produto['ativo'] }}>
+        <label for="ativo" style="margin:0;">Produto ativo na loja</label>
+      </div>
+      <button type="submit" class="btn btn-primary btn-block">{{ 'Salvar alterações' if produto else 'Criar produto' }}</button>
+    </form>
+  </div>
+</section>
+{% endblock %}

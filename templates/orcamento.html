@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+{% block title %}Orçamento — Voxxel{% endblock %}
+{% block content %}
+
+<section style="padding-top:var(--space-3);">
+  <div class="wrap">
+    <div class="section-head fade-up">
+      <div class="eyebrow">Estimativa de produção</div>
+      <h2>Solicite um orçamento técnico</h2>
+      <p>O valor é calculado a partir do peso do material, do tempo de máquina e da complexidade da peça — a mesma metodologia usada para orçar cada projeto na Voxxel.</p>
+    </div>
+
+    <form method="post" action="{{ url_for('orcamento') }}" id="form-orcamento">
+      <div class="calc fade-up">
+        <div class="calc-form">
+          <div class="field">
+            <label>Categoria</label>
+            <select name="categoria" id="categoria">
+              {% for chave, nome in categorias.items() %}
+                <option value="{{ chave }}" {{ 'selected' if form.categoria == chave }}>{{ nome }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="field">
+            <label>Dimensões estimadas da peça (cm)</label>
+            <div class="field-row">
+              <input type="number" name="altura" id="altura" min="1" value="{{ form.altura }}">
+              <input type="number" name="largura" id="largura" min="1" value="{{ form.largura }}">
+              <input type="number" name="profundidade" id="profundidade" min="1" value="{{ form.profundidade }}">
+            </div>
+          </div>
+
+          <div class="field">
+            <label>Material</label>
+            <div class="chip-group" id="material" data-name="material">
+              {% for chave, m in materiais.items() %}
+                <button type="button" class="chip {{ 'active' if form.material == chave }}" data-val="{{ chave }}">{{ m.nome }}</button>
+              {% endfor %}
+            </div>
+            <input type="hidden" name="material" id="material-input" value="{{ form.material }}">
+          </div>
+
+          <div class="field">
+            <label>Qualidade / detalhamento</label>
+            <div class="chip-group" id="qualidade" data-name="qualidade">
+              <button type="button" class="chip {{ 'active' if form.qualidade == 'rascunho' }}" data-val="rascunho">Rascunho</button>
+              <button type="button" class="chip {{ 'active' if form.qualidade == 'padrao' }}" data-val="padrao">Padrão</button>
+              <button type="button" class="chip {{ 'active' if form.qualidade == 'detalhado' }}" data-val="detalhado">Alto detalhe</button>
+            </div>
+            <input type="hidden" name="qualidade" id="qualidade-input" value="{{ form.qualidade }}">
+          </div>
+
+          <div class="field-row" style="grid-template-columns:1fr 1fr;">
+            <div class="field">
+              <label>Quantidade</label>
+              <input type="number" name="quantidade" id="quantidade" min="1" value="{{ form.quantidade }}">
+            </div>
+            <div class="field">
+              <label>Complexidade (suportes/infill)</label>
+              <select name="complexidade" id="complexidade">
+                <option value="baixa" {{ 'selected' if form.complexidade == 'baixa' }}>Baixa</option>
+                <option value="media" {{ 'selected' if form.complexidade == 'media' }}>Média</option>
+                <option value="alta" {{ 'selected' if form.complexidade == 'alta' }}>Alta</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="calc-result">
+          <div class="result-label">Estimativa</div>
+          <div class="result-price" id="preco">
+            {{ 'R$ ' ~ ("%.2f"|format(resultado.preco_total)|replace('.', ',')) if resultado else 'R$ 0,00' }}
+          </div>
+          <div class="result-sub" id="tempo">
+            {% if resultado %}Tempo estimado: {{ resultado.tempo_formatado }} · Peso estimado: {{ resultado.peso_total_g }}g{% else %}Preencha os campos ao lado{% endif %}
+          </div>
+          <div class="result-breakdown">
+            <div>Material <span class="v" id="b-material">{{ 'R$ ' ~ ("%.2f"|format(resultado.custo_material)|replace('.', ',')) if resultado else 'R$ 0,00' }}</span></div>
+            <div>Máquina / tempo <span class="v" id="b-maquina">{{ 'R$ ' ~ ("%.2f"|format(resultado.custo_maquina)|replace('.', ',')) if resultado else 'R$ 0,00' }}</span></div>
+            <div>Acabamento & mão de obra <span class="v" id="b-acabamento">{{ 'R$ ' ~ ("%.2f"|format(resultado.custo_acabamento)|replace('.', ',')) if resultado else 'R$ 0,00' }}</span></div>
+          </div>
+          <button type="submit" name="acao" value="enviar" class="btn btn-primary btn-block">Solicitar este orçamento no WhatsApp</button>
+          <p class="disclaimer">Estimativa baseada no peso do material e no tempo de impressão da peça. O valor final é confirmado pela Voxxel após análise técnica do modelo enviado.</p>
+        </div>
+      </div>
+    </form>
+  </div>
+</section>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Mesma fórmula do calculadora.py — só para dar o preview instantâneo antes de enviar ao servidor.
+  const MATERIAIS = {{ materiais_js | safe }};
+  const QUALIDADE = {{ qualidade_js | safe }};
+  const COMPLEXIDADE = {{ complexidade_js | safe }};
+  const SHELL_FRACTION = 0.15, HORA_MAQUINA = 9;
+  const CAT_ACABAMENTO = { tecnica: 6, cosplay: 14, decoracao: 8 };
+
+  const $ = id => document.getElementById(id);
+
+  document.querySelectorAll('.chip-group').forEach(group=>{
+    group.addEventListener('click', (e)=>{
+      if(e.target.classList.contains('chip')){
+        group.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
+        e.target.classList.add('active');
+        $(group.dataset.name + '-input').value = e.target.dataset.val;
+        calcular();
+      }
+    });
+  });
+
+  ['altura','largura','profundidade','quantidade','categoria','complexidade'].forEach(id=>{
+    $(id).addEventListener('input', calcular);
+    $(id).addEventListener('change', calcular);
+  });
+
+  function getActive(groupId){ return document.querySelector('#'+groupId+' .chip.active').dataset.val; }
+
+  function formatarHoras(h){
+    if(h < 1) return Math.round(h*60) + ' min';
+    const horas = Math.floor(h);
+    const min = Math.round((h - horas)*60);
+    return horas + 'h' + (min>0 ? ' ' + min + 'min' : '');
+  }
+
+  function calcular(){
+    const alt = parseFloat($('altura').value) || 0;
+    const larg = parseFloat($('largura').value) || 0;
+    const prof = parseFloat($('profundidade').value) || 0;
+    const qtd = Math.max(1, parseInt($('quantidade').value) || 1);
+    const categoria = $('categoria').value;
+    const complexidade = $('complexidade').value;
+    const materialKey = getActive('material');
+    const qualidadeKey = getActive('qualidade');
+
+    const mat = MATERIAIS[materialKey], qual = QUALIDADE[qualidadeKey], comp = COMPLEXIDADE[complexidade];
+
+    const volumeCaixa = alt * larg * prof;
+    const fracaoSolida = SHELL_FRACTION + comp.infill * (1 - SHELL_FRACTION);
+    const volumeImpresso = volumeCaixa * fracaoSolida;
+
+    const pesoGramas = volumeImpresso * mat.densidade;
+    const custoMaterial = (pesoGramas / 1000) * mat.preco_kg;
+
+    const horasImpressao = (volumeImpresso / qual.velocidade) * comp.tempo_mult;
+    const custoMaquina = horasImpressao * HORA_MAQUINA;
+    const custoAcabamento = CAT_ACABAMENTO[categoria] * qual.mult;
+
+    const precoUnitario = custoMaterial + custoMaquina + custoAcabamento;
+    const precoTotal = precoUnitario * qtd;
+    const horasTotal = horasImpressao * qtd;
+    const pesoTotal = pesoGramas * qtd;
+
+    $('preco').textContent = 'R$ ' + precoTotal.toFixed(2).replace('.', ',');
+    $('tempo').textContent = `Tempo estimado: ${formatarHoras(horasTotal)} · Peso estimado: ${pesoTotal.toFixed(0)}g`;
+    $('b-material').textContent = 'R$ ' + (custoMaterial*qtd).toFixed(2).replace('.', ',');
+    $('b-maquina').textContent = 'R$ ' + (custoMaquina*qtd).toFixed(2).replace('.', ',');
+    $('b-acabamento').textContent = 'R$ ' + (custoAcabamento*qtd).toFixed(2).replace('.', ',');
+  }
+
+  calcular();
+</script>
+{% endblock %}

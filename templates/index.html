@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Voxxel — Impressão 3D em São José dos Pinhais{% endblock %}
+{% block content %}
+
+<section class="hero">
+  <div class="wrap">
+    <div class="eyebrow">Manufatura aditiva de precisão</div>
+    <h1 style="margin-top:18px;">Da ideia ao objeto<br>físico, com <span class="accent">precisão</span></h1>
+    <p>Peças técnicas, réplicas de cosplay e objetos de decoração projetados e produzidos sob medida — com controle de qualidade em cada etapa, do modelo 3D ao acabamento final.</p>
+    <div class="hero-ctas">
+      <a class="btn btn-primary" href="{{ url_for('orcamento') }}">Solicitar orçamento</a>
+      <a class="btn btn-outline" href="{{ url_for('loja') }}">Ver catálogo</a>
+    </div>
+  </div>
+</section>
+
+<div class="wrap"><div class="facet-divider"></div></div>
+
+<section id="categorias">
+  <div class="wrap">
+    <div class="section-head fade-up">
+      <div class="eyebrow">Especialidades</div>
+      <h2>Três especialidades, um padrão de precisão</h2>
+      <p>Cada projeto segue o mesmo processo de engenharia — do modelo 3D à peça finalizada, sem produção genérica em série.</p>
+    </div>
+    <div class="cats">
+      <div class="cat-card fade-up">
+        <div class="cat-inner">
+          <div class="cat-icon">⚙️</div>
+          <h3>Peças Técnicas</h3>
+          <p>Protótipos funcionais, componentes de reposição e peças dimensionadas com precisão para uso real.</p>
+        </div>
+      </div>
+      <div class="cat-card fade-up">
+        <div class="cat-inner">
+          <div class="cat-icon">🎭</div>
+          <h3>Cosplay & Acessórios</h3>
+          <p>Réplicas fiéis e acessórios modelados a partir de referência, com acabamento pronto para pintura.</p>
+        </div>
+      </div>
+      <div class="cat-card fade-up">
+        <div class="cat-inner">
+          <div class="cat-icon">🏺</div>
+          <h3>Decoração & Utilitários</h3>
+          <p>Objetos autorais com geometria exclusiva e acabamento refinado para casa e escritório.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="sobre">
+  <div class="wrap">
+    <div class="section-head fade-up">
+      <div class="eyebrow">Processo & qualidade</div>
+      <h2>Precisão em cada camada</h2>
+    </div>
+    <div class="showcase fade-up">
+      <div class="poly-piece" style="--ang:20deg"></div>
+      <div class="poly-piece" style="--ang:90deg"></div>
+      <div class="poly-piece" style="--ang:160deg"></div>
+      <div class="poly-piece" style="--ang:250deg"></div>
+      <div class="poly-piece" style="--ang:310deg"></div>
+    </div>
+  </div>
+</section>
+
+{% endblock %}

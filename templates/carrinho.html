@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Carrinho — Voxxel{% endblock %}
+{% block content %}
+
+<section style="padding-top:var(--space-3);">
+  <div class="wrap cart-page">
+    <div class="section-head fade-up" style="margin-bottom:var(--space-2);">
+      <div class="eyebrow">Carrinho</div>
+      <h2>Seus itens</h2>
+    </div>
+
+    {% if itens %}
+      {% for i in itens %}
+      <div class="cart-row">
+        <div>
+          <div class="cart-row-name">{{ i.produto['nome'] }}</div>
+          <div class="cart-row-meta">{{ i.qtd }}x · R$ {{ "%.2f"|format(i.subtotal)|replace('.', ',') }}</div>
+        </div>
+        <form method="post" action="{{ url_for('carrinho_remover', produto_id=i.produto['id']) }}">
+          <button type="submit" class="btn-danger">remover</button>
+        </form>
+      </div>
+      {% endfor %}
+
+      <div class="cart-summary">
+        <span style="color:var(--muted); font-size:.9rem;">Total</span>
+        <span class="cart-total-value">R$ {{ "%.2f"|format(total)|replace('.', ',') }}</span>
+      </div>
+
+      <form method="post" action="{{ url_for('carrinho_finalizar') }}" style="margin-top:26px;">
+        <button type="submit" class="btn btn-primary btn-block">Finalizar no WhatsApp</button>
+      </form>
+    {% else %}
+      <div class="empty-state">
+        Seu carrinho está vazio.<br><br>
+        <a class="btn btn-outline" href="{{ url_for('loja') }}">Ver produtos</a>
+      </div>
+    {% endif %}
+  </div>
+</section>
+
+{% endblock %}

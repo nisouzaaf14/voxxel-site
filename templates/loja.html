@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Catálogo — Voxxel{% endblock %}
+{% block content %}
+
+<section style="padding-top:var(--space-3);">
+  <div class="wrap">
+    <div class="section-head fade-up">
+      <div class="eyebrow">Catálogo</div>
+      <h2>Peças prontas em estoque</h2>
+      <p>Itens já produzidos e revisados, disponíveis para envio imediato.</p>
+    </div>
+
+    <div class="filtros fade-up">
+      <a class="chip {{ 'active' if categoria_ativa == 'todos' }}" href="{{ url_for('loja') }}">Todos</a>
+      {% for chave, nome in categorias.items() %}
+        <a class="chip {{ 'active' if categoria_ativa == chave }}" href="{{ url_for('loja', categoria=chave) }}">{{ nome }}s</a>
+      {% endfor %}
+    </div>
+
+    {% if produtos %}
+    <div class="produtos fade-up">
+      {% for p in produtos %}
+      <div class="produto-card">
+        <div class="produto-thumb" style="--ang:{{ p['imagem_ang'] }}"></div>
+        <div class="produto-info">
+          <div class="produto-cat">{{ categorias[p['categoria']] }}</div>
+          <h4>{{ p['nome'] }}</h4>
+          <p class="desc">{{ p['descricao'] }}</p>
+          <div class="produto-foot">
+            <span class="produto-preco">R$ {{ "%.2f"|format(p['preco'])|replace('.', ',') }}</span>
+            <form method="post" action="{{ url_for('carrinho_adicionar', produto_id=p['id']) }}">
+              <button type="submit" class="btn btn-ghost">Adicionar</button>
+            </form>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">Nenhum produto nessa categoria por enquanto.</div>
+    {% endif %}
+  </div>
+</section>
+
+{% endblock %}

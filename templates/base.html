@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% block title %}Voxxel — Manufatura Aditiva de Precisão{% endblock %}</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+<header>
+  <div class="nav">
+    <a href="{{ url_for('home') }}" class="logo">
+      <div class="mark"></div><span class="wordmark">VOX<span class="gold">X</span>EL</span>
+    </a>
+    <nav class="navlinks">
+      <a href="{{ url_for('home') }}#categorias">Categorias</a>
+      <a href="{{ url_for('loja') }}" class="{{ 'active' if request.endpoint == 'loja' }}">Catálogo</a>
+      <a href="{{ url_for('orcamento') }}" class="{{ 'active' if request.endpoint == 'orcamento' }}">Orçamento</a>
+      <a href="{{ url_for('home') }}#sobre">Sobre</a>
+    </nav>
+    <div class="nav-actions">
+      <a class="icon-btn cart-btn" href="{{ url_for('carrinho') }}" aria-label="Carrinho">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+        <span class="cart-badge">{{ qtd_carrinho }}</span>
+      </a>
+      <a class="icon-btn icon-btn-wa" href="https://wa.me/{{ whatsapp_numero }}" target="_blank" rel="noopener" aria-label="Falar no WhatsApp">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+        <span class="label">WhatsApp</span>
+      </a>
+      <button class="menu-toggle" id="menu-toggle" aria-label="Abrir menu" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </div>
+
+  <div class="mobile-menu" id="mobile-menu">
+    <a href="{{ url_for('home') }}#categorias">Categorias</a>
+    <a href="{{ url_for('loja') }}">Catálogo</a>
+    <a href="{{ url_for('orcamento') }}">Orçamento</a>
+    <a href="{{ url_for('home') }}#sobre">Sobre</a>
+    <div class="mobile-menu-divider"></div>
+    <a href="{{ url_for('admin_login') }}">Login</a>
+  </div>
+</header>
+
+{% with mensagens = get_flashed_messages() %}
+  {% if mensagens %}
+  <div class="wrap" style="padding-top:18px;">
+    {% for m in mensagens %}<div class="flash">{{ m }}</div>{% endfor %}
+  </div>
+  {% endif %}
+{% endwith %}
+
+<main>
+{% block content %}{% endblock %}
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="logo"><div class="mark"></div><span class="wordmark">VOX<span class="gold">X</span>EL</span></div>
+    <div class="footer-line">São José dos Pinhais · (41) 99852-6355</div>
+    <div class="footer-tagline">IMAGINE · PROJETE · IMPRIMA · REALIZE</div>
+    <div class="footer-contact">
+      <a href="https://wa.me/{{ whatsapp_numero }}" target="_blank" rel="noopener">Falar com a Voxxel no WhatsApp →</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+  const items = document.querySelectorAll('.fade-up');
+  const io = new IntersectionObserver((entries)=>{
+    entries.forEach(e=>{ if(e.isIntersecting){ e.target.classList.add('in'); } });
+  }, {threshold:.12});
+  items.forEach(i=>io.observe(i));
+
+  const menuToggle = document.getElementById('menu-toggle');
+  const mobileMenu = document.getElementById('mobile-menu');
+  if(menuToggle && mobileMenu){
+    menuToggle.addEventListener('click', ()=>{
+      const aberto = mobileMenu.classList.toggle('open');
+      menuToggle.classList.toggle('open', aberto);
+      menuToggle.setAttribute('aria-expanded', aberto ? 'true' : 'false');
+    });
+    mobileMenu.querySelectorAll('a').forEach(link=>{
+      link.addEventListener('click', ()=>{
+        mobileMenu.classList.remove('open');
+        menuToggle.classList.remove('open');
+        menuToggle.setAttribute('aria-expanded', 'false');
+      });
+    });
+  }
+</script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

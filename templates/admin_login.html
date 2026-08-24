@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Admin — Voxxel{% endblock %}
+{% block content %}
+<section style="padding-top:var(--space-3);">
+  <div class="wrap" style="max-width:400px;">
+    <div class="section-head fade-up" style="margin-bottom:var(--space-2);">
+      <div class="eyebrow">Painel</div>
+      <h2>Entrar</h2>
+    </div>
+    {% if erro %}<div class="flash" style="border-color:var(--err); color:var(--err);">{{ erro }}</div>{% endif %}
+    <form method="post" class="form-card">
+      <div class="field">
+        <label>Senha de administrador</label>
+        <input type="password" name="senha" autofocus>
+      </div>
+      <button type="submit" class="btn btn-primary btn-block">Entrar</button>
+    </form>
+  </div>
+</section>
+{% endblock %}
