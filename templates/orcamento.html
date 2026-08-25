@@ -80,7 +80,7 @@
             <div>Máquina / tempo <span class="v" id="b-maquina">{{ 'R$ ' ~ ("%.2f"|format(resultado.custo_maquina)|replace('.', ',')) if resultado else 'R$ 0,00' }}</span></div>
             <div>Acabamento & mão de obra <span class="v" id="b-acabamento">{{ 'R$ ' ~ ("%.2f"|format(resultado.custo_acabamento)|replace('.', ',')) if resultado else 'R$ 0,00' }}</span></div>
           </div>
-          <button type="submit" name="acao" value="enviar" class="btn btn-primary btn-block">Solicitar este orçamento no WhatsApp</button>
+          <button type="submit" name="acao" value="enviar" class="btn btn-primary btn-block">Solicitar este orçamento</button>
           <p class="disclaimer">Estimativa baseada no peso do material e no tempo de impressão da peça. O valor final é confirmado pela Voxxel após análise técnica do modelo enviado.</p>
         </div>
       </div>

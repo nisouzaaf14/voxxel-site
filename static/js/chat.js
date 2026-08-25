@@ -138,9 +138,7 @@ const WEBHOOK_URL = "COLE_AQUI_A_URL_DO_SEU_WEBHOOK_N8N";
   bubble.addEventListener("click", () => toggle());
   closeBtn.addEventListener("click", () => toggle(false));
 
-  form.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const texto = input.value.trim();
+  async function enviarMensagem(texto) {
     if (!texto) return;
 
     if (!WEBHOOK_URL || WEBHOOK_URL.includes("COLE_AQUI")) {
@@ -150,7 +148,6 @@ const WEBHOOK_URL = "COLE_AQUI_A_URL_DO_SEU_WEBHOOK_N8N";
 
     addMessage(texto, "user");
     historico.push({ autor: "user", texto });
-    input.value = "";
     sendBtn.disabled = true;
     const loadingEl = addMessage("digitando...", "bot loading");
 
@@ -172,6 +169,14 @@ const WEBHOOK_URL = "COLE_AQUI_A_URL_DO_SEU_WEBHOOK_N8N";
     } finally {
       sendBtn.disabled = false;
     }
+  }
+
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const texto = input.value.trim();
+    if (!texto) return;
+    input.value = "";
+    enviarMensagem(texto);
   });
 
   input.addEventListener("keydown", (e) => {
@@ -180,4 +185,10 @@ const WEBHOOK_URL = "COLE_AQUI_A_URL_DO_SEU_WEBHOOK_N8N";
       form.requestSubmit();
     }
   });
+
+  // ---------- abertura automática após finalizar pedido/orçamento ----------
+  if (window.VOXXEL_CHAT_AUTO_MESSAGE) {
+    toggle(true);
+    enviarMensagem(window.VOXXEL_CHAT_AUTO_MESSAGE);
+  }
 })();
