@@ -28,6 +28,10 @@
     <label>Descrição</label>
     <textarea name="descricao" rows="3">{{ produto['descricao'] if produto else '' }}</textarea>
   </div>
+  <div class="field">
+    <label>Estoque (deixe vazio para ilimitado / sob encomenda)</label>
+    <input type="number" name="estoque" min="0" value="{{ produto['estoque'] if produto and produto['estoque'] is not none else '' }}" placeholder="ilimitado">
+  </div>
 
   <div class="field">
     <label>Foto do produto</label>

@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %}{{ p['nome'] }} — Voxxel{% endblock %}
+{% block content %}
+
+<section style="padding-top:var(--space-3);">
+  <div class="wrap">
+    <div class="breadcrumb fade-up">
+      <a href="{{ url_for('loja') }}">Catálogo</a>
+      <span>/</span>
+      <a href="{{ url_for('loja', categoria=p['categoria']) }}">{{ categorias[p['categoria']] }}</a>
+      <span>/</span>
+      <span class="breadcrumb-atual">{{ p['nome'] }}</span>
+    </div>
+
+    <div class="pdp fade-up">
+      <div class="pdp-media" style="--ang:{{ p['imagem_ang'] }}" {% if p['tem_imagem'] %}data-tem-foto="1"{% endif %}>
+        {% if p['tem_imagem'] %}
+          <img src="{{ url_for('produto_imagem', produto_id=p['id']) }}" alt="{{ p['nome'] }}">
+        {% endif %}
+      </div>
+
+      <div class="pdp-info">
+        <div class="produto-cat">{{ categorias[p['categoria']] }}</div>
+        <h1 class="pdp-title">{{ p['nome'] }}</h1>
+        <div class="pdp-price">R$ {{ "%.2f"|format(p['preco'])|replace('.', ',') }}</div>
+
+        {% if p['estoque'] is not none and p['estoque'] <= 0 %}
+          <div class="pdp-stock pdp-stock-out">Esgotado no momento — fale com a gente para encomendar.</div>
+        {% elif p['estoque'] is not none and p['estoque'] <= 3 %}
+          <div class="pdp-stock">Só {{ p['estoque'] }} unidade{{ 's' if p['estoque'] != 1 }} em estoque.</div>
+        {% else %}
+          <div class="pdp-stock pdp-stock-ok">Pronta entrega.</div>
+        {% endif %}
+
+        <p class="pdp-desc">{{ p['descricao'] or 'Peça produzida sob demanda com controle de qualidade Voxxel.' }}</p>
+
+        {% if p['estoque'] is none or p['estoque'] > 0 %}
+        <form method="post" action="{{ url_for('carrinho_adicionar', produto_id=p['id']) }}" class="pdp-add">
+          <div class="qty-picker">
+            <button type="button" class="qty-btn" data-qty="menos">−</button>
+            <input type="number" name="quantidade" id="pdp-qtd" value="1" min="1" {% if p['estoque'] is not none %}max="{{ p['estoque'] }}"{% endif %}>
+            <button type="button" class="qty-btn" data-qty="mais">+</button>
+          </div>
+          <button type="submit" class="btn btn-primary">Adicionar ao carrinho</button>
+        </form>
+        {% endif %}
+
+        <div class="pdp-trust">
+          <div><span>✓</span> Controle de qualidade em cada peça</div>
+          <div><span>✓</span> Pagamento via Pix na hora</div>
+          <div><span>✓</span> Produzido em São José dos Pinhais</div>
+        </div>
+      </div>
+    </div>
+
+    {% if relacionados %}
+    <div class="section-head fade-up" style="margin-top:var(--space-4); text-align:left; align-items:flex-start;">
+      <div class="eyebrow">Você também pode gostar</div>
+      <h2 style="font-size:1.4rem;">Mais de {{ categorias[p['categoria']] }}</h2>
+    </div>
+    <div class="produtos fade-up">
+      {% for r in relacionados %}
+      <div class="produto-card">
+        <a href="{{ url_for('produto_detalhe', produto_id=r['id']) }}" class="produto-thumb" style="--ang:{{ r['imagem_ang'] }}" {% if r['tem_imagem'] %}data-tem-foto="1"{% endif %}>
+          {% if r['tem_imagem'] %}<img src="{{ url_for('produto_imagem', produto_id=r['id']) }}" alt="{{ r['nome'] }}" loading="lazy">{% endif %}
+        </a>
+        <div class="produto-info">
+          <div class="produto-cat">{{ categorias[r['categoria']] }}</div>
+          <h4><a href="{{ url_for('produto_detalhe', produto_id=r['id']) }}">{{ r['nome'] }}</a></h4>
+          <div class="produto-foot">
+            <span class="produto-preco">R$ {{ "%.2f"|format(r['preco'])|replace('.', ',') }}</span>
+            <a class="btn btn-ghost" href="{{ url_for('produto_detalhe', produto_id=r['id']) }}">Ver</a>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+</section>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const qtdInput = document.getElementById('pdp-qtd');
+  document.querySelectorAll('.qty-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const max = qtdInput.getAttribute('max');
+      let valor = parseInt(qtdInput.value) || 1;
+      valor += btn.dataset.qty === 'mais' ? 1 : -1;
+      valor = Math.max(1, valor);
+      if (max) valor = Math.min(valor, parseInt(max));
+      qtdInput.value = valor;
+    });
+  });
+</script>
+{% endblock %}

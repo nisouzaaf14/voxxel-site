@@ -2,8 +2,9 @@ import os
 import json
 from flask import Flask, render_template, request, redirect, url_for, session, flash, g, Response
 
-from database import init_db, get_db, CATEGORIAS, to_blob
+from database import init_db, get_db, CATEGORIAS, to_blob, criar_pedido, get_configs, set_configs
 from calculadora import calcular_orcamento, formatar_horas, MATERIAIS, QUALIDADE, COMPLEXIDADE
+import pix
 
 ADMIN_PASSWORD = os.environ.get("VOXXEL_ADMIN_PASSWORD", "voxxel123")
 
@@ -69,7 +70,7 @@ def home():
 # imagem inteiro só pra mostrar a lista de produtos -- só um indicador
 # booleano (tem_imagem) que a rota /produto/<id>/imagem resolve de verdade.
 COLUNAS_PRODUTO_LISTA = """
-    id, nome, categoria, preco, descricao, imagem_ang, ativo,
+    id, nome, categoria, preco, descricao, imagem_ang, ativo, estoque,
     (imagem_mimetype IS NOT NULL) AS tem_imagem
 """
 
@@ -91,11 +92,47 @@ def loja():
     return render_template("loja.html", produtos=produtos, categoria_ativa=categoria)
 
 
+@app.route("/produto/<int:produto_id>")
+def produto_detalhe(produto_id):
+    conn = get_db()
+    produto = conn.execute(
+        f"SELECT {COLUNAS_PRODUTO_LISTA} FROM produtos WHERE id = ? AND ativo = 1", (produto_id,)
+    ).fetchone()
+    relacionados = []
+    if produto:
+        relacionados = conn.execute(
+            f"""SELECT {COLUNAS_PRODUTO_LISTA} FROM produtos
+                WHERE ativo = 1 AND categoria = ? AND id != ? ORDER BY id DESC LIMIT 3""",
+            (produto["categoria"], produto_id),
+        ).fetchall()
+    conn.close()
+    if not produto:
+        flash("Esse produto não está mais disponível.")
+        return redirect(url_for("loja"))
+    return render_template("produto_detalhe.html", p=produto, relacionados=relacionados)
+
+
 @app.route("/carrinho/adicionar/<int:produto_id>", methods=["POST"])
 def carrinho_adicionar(produto_id):
+    conn = get_db()
+    produto = conn.execute("SELECT estoque FROM produtos WHERE id = ? AND ativo = 1", (produto_id,)).fetchone()
+    conn.close()
+    if not produto:
+        flash("Esse produto não está mais disponível.")
+        return redirect(request.referrer or url_for("loja"))
+
+    quantidade_pedida = max(1, int(request.form.get("quantidade", 1) or 1))
     carrinho = carrinho_sessao()
     pid = str(produto_id)
-    carrinho[pid] = carrinho.get(pid, 0) + 1
+    nova_qtd = carrinho.get(pid, 0) + quantidade_pedida
+
+    if produto["estoque"] is not None:
+        if produto["estoque"] <= 0:
+            flash("Esse produto está esgotado no momento.")
+            return redirect(request.referrer or url_for("loja"))
+        nova_qtd = min(nova_qtd, produto["estoque"])
+
+    carrinho[pid] = nova_qtd
     session["carrinho"] = carrinho
     session.modified = True
     flash("Produto adicionado ao carrinho.")
@@ -119,34 +156,99 @@ def carrinho():
     return render_template("carrinho.html", itens=itens, total=total)
 
 
-@app.route("/carrinho/finalizar", methods=["POST"])
-def carrinho_finalizar():
+@app.route("/checkout", methods=["GET", "POST"])
+def checkout():
     conn = get_db()
     itens, total = carrinho_detalhado(conn)
     if not itens:
         conn.close()
         return redirect(url_for("loja"))
 
-    linhas = [f"{i['qtd']}x {i['produto']['nome']} - R$ {i['subtotal']:.2f}".replace(".", ",") for i in itens]
-    detalhes = "\n".join(linhas)
+    if request.method == "POST":
+        nome = request.form.get("nome", "").strip()
+        telefone = request.form.get("telefone", "").strip()
+        forma_pagamento = request.form.get("forma_pagamento", "pix")
 
-    conn.execute(
-        "INSERT INTO pedidos (tipo, detalhes, valor_estimado) VALUES (?, ?, ?)",
-        ("loja", detalhes, total),
-    )
-    conn.commit()
+        if not nome or not telefone:
+            flash("Preencha nome e telefone para finalizar o pedido.")
+            conn.close()
+            return render_template("checkout.html", itens=itens, total=total)
+
+        linhas = [f"{i['qtd']}x {i['produto']['nome']} - R$ {i['subtotal']:.2f}".replace(".", ",") for i in itens]
+        detalhes = "\n".join(linhas)
+
+        pedido_id = criar_pedido(conn, "loja", detalhes, total, nome, telefone, forma_pagamento)
+        conn.close()
+
+        session["carrinho"] = {}
+        session.modified = True
+
+        return redirect(url_for("pedido_pagamento", pedido_id=pedido_id))
+
     conn.close()
+    return render_template("checkout.html", itens=itens, total=total)
 
-    session["carrinho"] = {}
 
-    msg = "Olá! Acabei de finalizar esse pedido no site da Voxxel 🙂\n\n"
-    msg += "\n".join(linhas)
-    msg += f"\n\nTotal: R$ {total:.2f}".replace(".", ",")
-    session["voxxel_chat_auto"] = msg
-    session.modified = True
+@app.route("/pedido/<int:pedido_id>/pagamento")
+def pedido_pagamento(pedido_id):
+    conn = get_db()
+    pedido = conn.execute("SELECT * FROM pedidos WHERE id = ?", (pedido_id,)).fetchone()
+    config = get_configs(conn)
+    conn.close()
+    if not pedido:
+        return redirect(url_for("home"))
 
-    flash("Pedido recebido! Confira os detalhes com nosso assistente virtual.")
-    return redirect(url_for("loja"))
+    pix_disponivel = bool(config["pix_chave"].strip()) and pedido["forma_pagamento"] == "pix"
+    pix_payload = ""
+    if pix_disponivel:
+        pix_payload = pix.gerar_payload(
+            config["pix_chave"], config["pix_nome"], config["pix_cidade"],
+            pedido["valor_estimado"], txid=f"VOXXEL{pedido_id}",
+        )
+    return render_template(
+        "pagamento.html", pedido=pedido, pix_disponivel=pix_disponivel,
+        pix_payload=pix_payload, config=config,
+    )
+
+
+@app.route("/pedido/<int:pedido_id>/pix.png")
+def pedido_pix_png(pedido_id):
+    conn = get_db()
+    pedido = conn.execute("SELECT valor_estimado FROM pedidos WHERE id = ?", (pedido_id,)).fetchone()
+    config = get_configs(conn)
+    conn.close()
+    if not pedido or not config["pix_chave"].strip():
+        return "", 404
+
+    payload = pix.gerar_payload(
+        config["pix_chave"], config["pix_nome"], config["pix_cidade"],
+        pedido["valor_estimado"], txid=f"VOXXEL{pedido_id}",
+    )
+    png = pix.gerar_qrcode_png(payload)
+    resposta = Response(png, mimetype="image/png")
+    resposta.headers["Cache-Control"] = "no-store"
+    return resposta
+
+
+@app.route("/pedido/<int:pedido_id>/confirmar-pagamento", methods=["POST"])
+def pedido_confirmar_pagamento(pedido_id):
+    conn = get_db()
+    pedido = conn.execute("SELECT * FROM pedidos WHERE id = ?", (pedido_id,)).fetchone()
+    if pedido:
+        conn.execute("UPDATE pedidos SET status_pagamento = 'informado' WHERE id = ?", (pedido_id,))
+        conn.commit()
+
+        linhas = pedido["detalhes"]
+        msg = (
+            f"Olá! Acabei de fazer o pagamento do pedido #{pedido_id} no site da Voxxel 🙂\n\n"
+            f"{linhas}\n\n"
+            f"Total: R$ {pedido['valor_estimado']:.2f}".replace(".", ",")
+        )
+        session["voxxel_chat_auto"] = msg
+        session.modified = True
+        flash("Pagamento informado! Confirme com nosso assistente virtual.")
+    conn.close()
+    return redirect(url_for("pedido_pagamento", pedido_id=pedido_id))
 
 
 @app.route("/orcamento", methods=["GET", "POST"])
@@ -175,7 +277,18 @@ def orcamento():
         resultado["tempo_formatado"] = formatar_horas(resultado["horas_total"])
 
         if request.form.get("acao") == "enviar":
-            conn = get_db()
+            nome = request.form.get("nome", "").strip()
+            telefone = request.form.get("telefone", "").strip()
+
+            if not nome or not telefone:
+                flash("Preencha nome e telefone para enviar o orçamento.")
+                return render_template(
+                    "orcamento.html", form=form, resultado=resultado,
+                    materiais=MATERIAIS, qualidades=QUALIDADE, complexidades=COMPLEXIDADE,
+                    materiais_js=json.dumps(MATERIAIS), qualidade_js=json.dumps(QUALIDADE),
+                    complexidade_js=json.dumps(COMPLEXIDADE),
+                )
+
             detalhes = (
                 f"Categoria: {resultado['categoria_nome']}\n"
                 f"Dimensões: {form['altura']}x{form['largura']}x{form['profundidade']} cm\n"
@@ -183,26 +296,12 @@ def orcamento():
                 f"Qualidade: {form['qualidade']}\n"
                 f"Quantidade: {form['quantidade']}"
             )
-            conn.execute(
-                "INSERT INTO pedidos (tipo, detalhes, valor_estimado) VALUES (?, ?, ?)",
-                ("orcamento", detalhes, resultado["preco_total"]),
-            )
-            conn.commit()
+            conn = get_db()
+            pedido_id = criar_pedido(conn, "orcamento", detalhes, resultado["preco_total"], nome, telefone, "pix")
             conn.close()
 
-            msg = (
-                "Olá! Acabei de pedir esse orçamento no site da Voxxel 🙂\n\n"
-                f"Categoria: {resultado['categoria_nome']}\n"
-                f"Dimensões: {form['altura']}x{form['largura']}x{form['profundidade']} cm\n"
-                f"Material: {resultado['material_nome']}\n"
-                f"Qualidade: {form['qualidade']}\n"
-                f"Quantidade: {form['quantidade']}\n"
-                f"Estimativa automática: R$ {resultado['preco_total']:.2f}".replace(".", ",")
-            )
-            session["voxxel_chat_auto"] = msg
-
-            flash("Orçamento recebido! Confira os detalhes com nosso assistente virtual.")
-            return redirect(url_for("orcamento"))
+            flash("Orçamento recebido! Você pode adiantar o pagamento por Pix ou combinar direto com a gente.")
+            return redirect(url_for("pedido_pagamento", pedido_id=pedido_id))
 
     return render_template(
         "orcamento.html", form=form, resultado=resultado,
@@ -220,7 +319,7 @@ def admin_login():
     if request.method == "POST":
         if request.form.get("senha") == ADMIN_PASSWORD:
             session["admin_logado"] = True
-            return redirect(url_for("admin_produtos"))
+            return redirect(url_for("admin_dashboard"))
         erro = "Senha incorreta."
     return render_template("admin_login.html", erro=erro)
 
@@ -229,6 +328,56 @@ def admin_login():
 def admin_logout():
     session.pop("admin_logado", None)
     return redirect(url_for("home"))
+
+
+@app.route("/admin")
+def admin_dashboard():
+    if not admin_requerido():
+        return redirect(url_for("admin_login"))
+    conn = get_db()
+    pedidos = conn.execute("SELECT * FROM pedidos ORDER BY id DESC").fetchall()
+    produtos = conn.execute("SELECT id, ativo, estoque FROM produtos").fetchall()
+    config = get_configs(conn)
+    conn.close()
+
+    receita_confirmada = sum(p["valor_estimado"] for p in pedidos if p["status_pagamento"] == "informado")
+    pedidos_novos = sum(1 for p in pedidos if p["status"] == "novo")
+    total_pedidos = len(pedidos)
+    ticket_medio = (sum(p["valor_estimado"] for p in pedidos) / total_pedidos) if total_pedidos else 0
+    produtos_ativos = sum(1 for p in produtos if p["ativo"])
+    produtos_esgotados = sum(1 for p in produtos if p["estoque"] is not None and p["estoque"] <= 0)
+
+    return render_template(
+        "admin_dashboard.html",
+        receita_confirmada=receita_confirmada,
+        pedidos_novos=pedidos_novos,
+        total_pedidos=total_pedidos,
+        ticket_medio=ticket_medio,
+        produtos_ativos=produtos_ativos,
+        produtos_esgotados=produtos_esgotados,
+        pix_configurado=bool(config["pix_chave"].strip()),
+        ultimos_pedidos=pedidos[:5],
+    )
+
+
+@app.route("/admin/configuracoes", methods=["GET", "POST"])
+def admin_configuracoes():
+    if not admin_requerido():
+        return redirect(url_for("admin_login"))
+    conn = get_db()
+    if request.method == "POST":
+        set_configs(conn, {
+            "pix_chave": request.form.get("pix_chave", "").strip(),
+            "pix_nome": request.form.get("pix_nome", "").strip() or "Voxxel Impressao 3D",
+            "pix_cidade": request.form.get("pix_cidade", "").strip() or "Sao Jose dos Pinhais",
+            "whatsapp": request.form.get("whatsapp", "").strip(),
+        })
+        flash("Configurações salvas.")
+        conn.close()
+        return redirect(url_for("admin_configuracoes"))
+    config = get_configs(conn)
+    conn.close()
+    return render_template("admin_configuracoes.html", config=config)
 
 
 @app.route("/admin/produtos")
@@ -255,6 +404,17 @@ def processar_upload_imagem(arquivo):
     return dados, arquivo.mimetype
 
 
+def ler_estoque_formulario():
+    """Campo de estoque é opcional: vazio = estoque ilimitado (None)."""
+    bruto = request.form.get("estoque", "").strip()
+    if bruto == "":
+        return None
+    try:
+        return max(0, int(bruto))
+    except ValueError:
+        return None
+
+
 @app.route("/admin/produtos/novo", methods=["GET", "POST"])
 def admin_produto_novo():
     if not admin_requerido():
@@ -265,13 +425,13 @@ def admin_produto_novo():
         imagem_dados, imagem_mimetype = resultado_imagem if resultado_imagem else (None, None)
         conn.execute(
             """INSERT INTO produtos
-               (nome, categoria, preco, descricao, imagem_ang, ativo, imagem_dados, imagem_mimetype)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+               (nome, categoria, preco, descricao, imagem_ang, ativo, imagem_dados, imagem_mimetype, estoque)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 request.form["nome"], request.form["categoria"], float(request.form["preco"]),
                 request.form.get("descricao", ""), request.form.get("imagem_ang", "0deg"),
                 1 if request.form.get("ativo") else 0,
-                to_blob(imagem_dados), imagem_mimetype,
+                to_blob(imagem_dados), imagem_mimetype, ler_estoque_formulario(),
             ),
         )
         conn.commit()
@@ -287,39 +447,40 @@ def admin_produto_editar(produto_id):
     conn = get_db()
     if request.method == "POST":
         resultado_imagem = processar_upload_imagem(request.files.get("imagem"))
+        estoque = ler_estoque_formulario()
 
         if resultado_imagem:
             # Nova imagem enviada: substitui a anterior
             imagem_dados, imagem_mimetype = resultado_imagem
             conn.execute(
                 """UPDATE produtos SET nome=?, categoria=?, preco=?, descricao=?, imagem_ang=?, ativo=?,
-                   imagem_dados=?, imagem_mimetype=? WHERE id=?""",
+                   imagem_dados=?, imagem_mimetype=?, estoque=? WHERE id=?""",
                 (
                     request.form["nome"], request.form["categoria"], float(request.form["preco"]),
                     request.form.get("descricao", ""), request.form.get("imagem_ang", "0deg"),
                     1 if request.form.get("ativo") else 0,
-                    to_blob(imagem_dados), imagem_mimetype, produto_id,
+                    to_blob(imagem_dados), imagem_mimetype, estoque, produto_id,
                 ),
             )
         elif request.form.get("remover_imagem"):
             # Usuário marcou pra remover a imagem atual, sem enviar outra
             conn.execute(
                 """UPDATE produtos SET nome=?, categoria=?, preco=?, descricao=?, imagem_ang=?, ativo=?,
-                   imagem_dados=NULL, imagem_mimetype=NULL WHERE id=?""",
+                   imagem_dados=NULL, imagem_mimetype=NULL, estoque=? WHERE id=?""",
                 (
                     request.form["nome"], request.form["categoria"], float(request.form["preco"]),
                     request.form.get("descricao", ""), request.form.get("imagem_ang", "0deg"),
-                    1 if request.form.get("ativo") else 0, produto_id,
+                    1 if request.form.get("ativo") else 0, estoque, produto_id,
                 ),
             )
         else:
             # Mantém a imagem que já existia
             conn.execute(
-                "UPDATE produtos SET nome=?, categoria=?, preco=?, descricao=?, imagem_ang=?, ativo=? WHERE id=?",
+                "UPDATE produtos SET nome=?, categoria=?, preco=?, descricao=?, imagem_ang=?, ativo=?, estoque=? WHERE id=?",
                 (
                     request.form["nome"], request.form["categoria"], float(request.form["preco"]),
                     request.form.get("descricao", ""), request.form.get("imagem_ang", "0deg"),
-                    1 if request.form.get("ativo") else 0, produto_id,
+                    1 if request.form.get("ativo") else 0, estoque, produto_id,
                 ),
             )
         conn.commit()

@@ -26,10 +26,24 @@
     <div class="order-card-main">
       <div class="order-card-id">Pedido #{{ p['id'] }} · {{ p['criado_em'] }}</div>
       <div class="order-card-tipo">{{ 'Loja' if p['tipo'] == 'loja' else 'Orçamento' }}</div>
+      {% if p['cliente_nome'] or p['cliente_telefone'] %}
+      <div class="order-card-cliente">
+        {{ p['cliente_nome'] or 'Cliente sem nome' }}
+        {% if p['cliente_telefone'] %}
+        · <a href="https://wa.me/55{{ p['cliente_telefone']|replace('(','')|replace(')','')|replace('-','')|replace(' ','') }}" target="_blank" rel="noopener">{{ p['cliente_telefone'] }}</a>
+        {% endif %}
+      </div>
+      {% endif %}
       <div class="order-card-detalhes">{{ p['detalhes'] }}</div>
     </div>
     <div class="order-card-side">
       <div class="order-card-valor">R$ {{ "%.2f"|format(p['valor_estimado'])|replace('.', ',') }}</div>
+      <div class="order-card-pag">
+        <span class="badge {{ 'badge-concluido' if p['status_pagamento'] == 'informado' else 'badge-novo' }}">
+          {{ 'Pago (informado)' if p['status_pagamento'] == 'informado' else 'Aguardando pagamento' }}
+        </span>
+        <span class="pag-metodo">{{ 'Pix' if p['forma_pagamento'] == 'pix' else 'Combinado' }}</span>
+      </div>
       <form method="post" action="{{ url_for('admin_pedido_status', pedido_id=p['id']) }}">
         <select name="status" onchange="this.form.submit()" class="badge badge-{{ p['status'] }}">
           <option value="novo" {{ 'selected' if p['status']=='novo' }}>Novo</option>

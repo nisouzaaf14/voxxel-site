@@ -1,0 +1,72 @@
+{% extends "admin_base.html" %}
+{% block title %}Painel — Voxxel{% endblock %}
+{% block eyebrow %}Visão geral{% endblock %}
+{% block page_title %}Painel{% endblock %}
+{% block topbar_actions %}
+<a class="btn btn-primary" href="{{ url_for('admin_produto_novo') }}">+ Novo produto</a>
+{% endblock %}
+
+{% block admin_content %}
+
+{% if not pix_configurado %}
+<div class="flash" style="border-color:var(--gold); margin-bottom:26px;">
+  Seu Pix ainda não está configurado — os clientes não vão conseguir pagar por QR Code até você
+  <a href="{{ url_for('admin_configuracoes') }}" style="text-decoration:underline;">cadastrar sua chave Pix aqui</a>.
+</div>
+{% endif %}
+
+<div class="stat-grid">
+  <div class="stat-card">
+    <div class="stat-label">Recebido confirmado</div>
+    <div class="stat-value">R$ {{ "%.2f"|format(receita_confirmada)|replace('.', ',') }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Pedidos novos</div>
+    <div class="stat-value">{{ pedidos_novos }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Total de pedidos</div>
+    <div class="stat-value">{{ total_pedidos }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Ticket médio</div>
+    <div class="stat-value">R$ {{ "%.2f"|format(ticket_medio)|replace('.', ',') }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Produtos ativos</div>
+    <div class="stat-value">{{ produtos_ativos }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Produtos esgotados</div>
+    <div class="stat-value">{{ produtos_esgotados }}</div>
+  </div>
+</div>
+
+<div class="section-head" style="text-align:left; align-items:flex-start; margin:var(--space-3) 0 16px;">
+  <h2 style="font-size:1.15rem;">Últimos pedidos</h2>
+</div>
+
+{% if ultimos_pedidos %}
+<div class="order-list">
+  {% for p in ultimos_pedidos %}
+  <div class="order-card">
+    <div class="order-card-main">
+      <div class="order-card-id">Pedido #{{ p['id'] }} · {{ p['criado_em'] }}</div>
+      <div class="order-card-tipo">{{ 'Loja' if p['tipo'] == 'loja' else 'Orçamento' }} · {{ p['cliente_nome'] or 'sem nome' }}</div>
+      <div class="order-card-detalhes">{{ p['detalhes'] }}</div>
+    </div>
+    <div class="order-card-side">
+      <div class="order-card-valor">R$ {{ "%.2f"|format(p['valor_estimado'])|replace('.', ',') }}</div>
+      <span class="badge badge-{{ p['status'] }}">{{ p['status'] }}</span>
+      <span class="badge {{ 'badge-concluido' if p['status_pagamento'] == 'informado' else 'badge-novo' }}">
+        {{ 'Pago' if p['status_pagamento'] == 'informado' else 'Aguardando' }}
+      </span>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">Nenhum pedido registrado ainda.</div>
+{% endif %}
+
+{% endblock %}

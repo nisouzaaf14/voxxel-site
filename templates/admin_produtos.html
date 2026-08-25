@@ -23,7 +23,7 @@
 
 <table class="seller-table" id="tabela-produtos">
   <thead>
-    <tr><th>Produto</th><th>Preço</th><th>Status</th><th></th></tr>
+    <tr><th>Produto</th><th>Preço</th><th>Estoque</th><th>Status</th><th></th></tr>
   </thead>
   <tbody>
     {% for p in produtos %}
@@ -42,6 +42,17 @@
         </div>
       </td>
       <td>R$ {{ "%.2f"|format(p['preco'])|replace('.', ',') }}</td>
+      <td>
+        {% if p['estoque'] is none %}
+          <span class="estoque-tag estoque-ilimitado">Ilimitado</span>
+        {% elif p['estoque'] <= 0 %}
+          <span class="estoque-tag estoque-zerado">Esgotado</span>
+        {% elif p['estoque'] <= 3 %}
+          <span class="estoque-tag estoque-baixo">{{ p['estoque'] }} un.</span>
+        {% else %}
+          <span class="estoque-tag">{{ p['estoque'] }} un.</span>
+        {% endif %}
+      </td>
       <td>
         <form method="post" action="{{ url_for('admin_produto_toggle', produto_id=p['id']) }}">
           <label class="switch">

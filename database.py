@@ -20,6 +20,13 @@ CATEGORIAS = {
     "decoracao": "Decoração & Utilitário",
 }
 
+CONFIG_PADRAO = {
+    "pix_chave": "",
+    "pix_nome": "Voxxel Impressao 3D",
+    "pix_cidade": "Sao Jose dos Pinhais",
+    "whatsapp": "5541998526355",
+}
+
 PRODUTOS_SEED = [
     ("Suporte Geométrico para Plantas", "decoracao", 59.90, "Vaso facetado em PLA, acabamento fosco.", "15deg"),
     ("Porta Talheres Poligonal", "decoracao", 44.90, "Organizador de bancada com design low poly.", "80deg"),
@@ -107,10 +114,11 @@ def init_db():
             """
         )
         conn.commit()
-        # Migração: adiciona as colunas de imagem se o banco já existia antes
-        # dessa funcionalidade (não afeta bancos criados do zero).
+        # Migração: adiciona colunas novas se o banco já existia antes delas
+        # (não afeta bancos criados do zero).
         conn.execute("ALTER TABLE produtos ADD COLUMN IF NOT EXISTS imagem_dados BYTEA")
         conn.execute("ALTER TABLE produtos ADD COLUMN IF NOT EXISTS imagem_mimetype TEXT")
+        conn.execute("ALTER TABLE produtos ADD COLUMN IF NOT EXISTS estoque INTEGER")
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS pedidos (
@@ -120,6 +128,19 @@ def init_db():
                 detalhes TEXT NOT NULL,
                 valor_estimado REAL NOT NULL,
                 status TEXT DEFAULT 'novo'
+            )
+            """
+        )
+        conn.commit()
+        conn.execute("ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS cliente_nome TEXT DEFAULT ''")
+        conn.execute("ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS cliente_telefone TEXT DEFAULT ''")
+        conn.execute("ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS forma_pagamento TEXT DEFAULT 'combinar'")
+        conn.execute("ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS status_pagamento TEXT DEFAULT 'aguardando'")
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS configuracoes (
+                chave TEXT PRIMARY KEY,
+                valor TEXT NOT NULL
             )
             """
         )
@@ -142,11 +163,12 @@ def init_db():
             )
             """
         )
-        # Migração: adiciona as colunas de imagem se o banco local já existia
-        # antes dessa funcionalidade (ignora erro se a coluna já existir).
+        # Migração: adiciona colunas novas se o banco local já existia antes
+        # delas (ignora erro se a coluna já existir).
         for coluna_sql in (
             "ALTER TABLE produtos ADD COLUMN imagem_dados BLOB",
             "ALTER TABLE produtos ADD COLUMN imagem_mimetype TEXT",
+            "ALTER TABLE produtos ADD COLUMN estoque INTEGER",
         ):
             try:
                 conn.execute(coluna_sql)
@@ -164,6 +186,24 @@ def init_db():
             )
             """
         )
+        for coluna_sql in (
+            "ALTER TABLE pedidos ADD COLUMN cliente_nome TEXT DEFAULT ''",
+            "ALTER TABLE pedidos ADD COLUMN cliente_telefone TEXT DEFAULT ''",
+            "ALTER TABLE pedidos ADD COLUMN forma_pagamento TEXT DEFAULT 'combinar'",
+            "ALTER TABLE pedidos ADD COLUMN status_pagamento TEXT DEFAULT 'aguardando'",
+        ):
+            try:
+                conn.execute(coluna_sql)
+            except sqlite3.OperationalError:
+                pass
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS configuracoes (
+                chave TEXT PRIMARY KEY,
+                valor TEXT NOT NULL
+            )
+            """
+        )
         conn.commit()
         precisa_seed = is_new_sqlite
 
@@ -174,4 +214,61 @@ def init_db():
         )
         conn.commit()
 
+    # Garante que toda chave de configuração padrão exista (não sobrescreve
+    # o que o admin já tiver salvo).
+    existentes = {row["chave"] for row in conn.execute("SELECT chave FROM configuracoes").fetchall()}
+    faltando = [(chave, valor) for chave, valor in CONFIG_PADRAO.items() if chave not in existentes]
+    if faltando:
+        conn.executemany("INSERT INTO configuracoes (chave, valor) VALUES (?, ?)", faltando)
+        conn.commit()
+
     conn.close()
+
+
+def criar_pedido(conn, tipo, detalhes, valor_estimado, cliente_nome="", cliente_telefone="", forma_pagamento="combinar"):
+    """Insere um pedido (venda da loja ou orçamento) e devolve o id gerado,
+    já lidando com a diferença de sintaxe entre SQLite e Postgres."""
+    params = (tipo, detalhes, valor_estimado, cliente_nome, cliente_telefone, forma_pagamento)
+    if USING_POSTGRES:
+        cur = conn.execute(
+            """INSERT INTO pedidos (tipo, detalhes, valor_estimado, cliente_nome, cliente_telefone, forma_pagamento)
+               VALUES (?, ?, ?, ?, ?, ?) RETURNING id""",
+            params,
+        )
+        novo_id = cur.fetchone()["id"]
+    else:
+        cur = conn.execute(
+            """INSERT INTO pedidos (tipo, detalhes, valor_estimado, cliente_nome, cliente_telefone, forma_pagamento)
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            params,
+        )
+        novo_id = cur.lastrowid
+    conn.commit()
+    return novo_id
+
+
+def get_configs(conn):
+    """Devolve um dict com todas as configurações da loja (chave -> valor),
+    já com os padrões aplicados por baixo caso alguma chave esteja ausente."""
+    config = dict(CONFIG_PADRAO)
+    for row in conn.execute("SELECT chave, valor FROM configuracoes").fetchall():
+        config[row["chave"]] = row["valor"]
+    return config
+
+
+def set_configs(conn, valores):
+    """Salva/atualiza várias chaves de configuração de uma vez.
+    `valores` é um dict {chave: valor}."""
+    for chave, valor in valores.items():
+        if USING_POSTGRES:
+            conn.execute(
+                """INSERT INTO configuracoes (chave, valor) VALUES (?, ?)
+                   ON CONFLICT (chave) DO UPDATE SET valor = EXCLUDED.valor""",
+                (chave, valor),
+            )
+        else:
+            conn.execute(
+                "INSERT OR REPLACE INTO configuracoes (chave, valor) VALUES (?, ?)",
+                (chave, valor),
+            )
+    conn.commit()

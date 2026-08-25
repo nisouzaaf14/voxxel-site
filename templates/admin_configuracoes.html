@@ -1,0 +1,36 @@
+{% extends "admin_base.html" %}
+{% block title %}Configurações — Painel Voxxel{% endblock %}
+{% block eyebrow %}Loja{% endblock %}
+{% block page_title %}Configurações{% endblock %}
+
+{% block admin_content %}
+<form method="post" class="form-card">
+  <div class="eyebrow" style="margin-bottom:16px;">Pagamento Pix</div>
+  <p style="color:var(--muted); font-size:.85rem; margin-bottom:22px; line-height:1.6;">
+    Cadastre sua chave Pix aqui para que o site gere automaticamente o QR Code de pagamento
+    com o valor certo em cada pedido. Sem chave cadastrada, os clientes só verão a opção de
+    combinar o pagamento pelo assistente virtual.
+  </p>
+
+  <div class="field">
+    <label>Sua chave Pix (CPF, CNPJ, e-mail, telefone ou chave aleatória)</label>
+    <input type="text" name="pix_chave" value="{{ config.pix_chave }}" placeholder="ex: 41999998888 ou seuemail@exemplo.com">
+  </div>
+  <div class="field">
+    <label>Nome do recebedor (como aparece no Pix)</label>
+    <input type="text" name="pix_nome" value="{{ config.pix_nome }}" maxlength="25">
+  </div>
+  <div class="field">
+    <label>Cidade do recebedor</label>
+    <input type="text" name="pix_cidade" value="{{ config.pix_cidade }}" maxlength="15">
+  </div>
+
+  <div class="eyebrow" style="margin:28px 0 16px;">WhatsApp</div>
+  <div class="field">
+    <label>Número com DDI e DDD (só números, ex: 5541999998888)</label>
+    <input type="text" name="whatsapp" value="{{ config.whatsapp }}" placeholder="5541999998888">
+  </div>
+
+  <button type="submit" class="btn btn-primary btn-block">Salvar configurações</button>
+</form>
+{% endblock %}

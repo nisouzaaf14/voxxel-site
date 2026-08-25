@@ -21,21 +21,30 @@
     <div class="produtos fade-up">
       {% for p in produtos %}
       <div class="produto-card">
-        <div class="produto-thumb" style="--ang:{{ p['imagem_ang'] }}"
-             {% if p['tem_imagem'] %}data-tem-foto="1"{% endif %}>
+        <a href="{{ url_for('produto_detalhe', produto_id=p['id']) }}" class="produto-thumb" style="--ang:{{ p['imagem_ang'] }}"
+           {% if p['tem_imagem'] %}data-tem-foto="1"{% endif %}>
           {% if p['tem_imagem'] %}
             <img src="{{ url_for('produto_imagem', produto_id=p['id']) }}" alt="{{ p['nome'] }}" loading="lazy">
           {% endif %}
-        </div>
+          {% if p['estoque'] is not none and p['estoque'] <= 0 %}
+            <span class="stock-flag stock-flag-out">Esgotado</span>
+          {% elif p['estoque'] is not none and p['estoque'] <= 3 %}
+            <span class="stock-flag">Últimas {{ p['estoque'] }} un.</span>
+          {% endif %}
+        </a>
         <div class="produto-info">
           <div class="produto-cat">{{ categorias[p['categoria']] }}</div>
-          <h4>{{ p['nome'] }}</h4>
+          <h4><a href="{{ url_for('produto_detalhe', produto_id=p['id']) }}">{{ p['nome'] }}</a></h4>
           <p class="desc">{{ p['descricao'] }}</p>
           <div class="produto-foot">
             <span class="produto-preco">R$ {{ "%.2f"|format(p['preco'])|replace('.', ',') }}</span>
+            {% if p['estoque'] is not none and p['estoque'] <= 0 %}
+              <button type="button" class="btn btn-ghost" disabled>Esgotado</button>
+            {% else %}
             <form method="post" action="{{ url_for('carrinho_adicionar', produto_id=p['id']) }}">
               <button type="submit" class="btn btn-ghost">Adicionar</button>
             </form>
+            {% endif %}
           </div>
         </div>
       </div>

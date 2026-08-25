@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}Finalizar pedido — Voxxel{% endblock %}
+{% block content %}
+
+<section style="padding-top:var(--space-3);">
+  <div class="wrap">
+    <div class="section-head fade-up" style="margin-bottom:var(--space-2);">
+      <div class="eyebrow">Checkout</div>
+      <h2>Finalizar pedido</h2>
+    </div>
+
+    <form method="post" action="{{ url_for('checkout') }}">
+      <div class="calc fade-up">
+        <div class="calc-form">
+          <div class="field">
+            <label>Nome completo</label>
+            <input type="text" name="nome" required placeholder="Seu nome">
+          </div>
+          <div class="field">
+            <label>WhatsApp / telefone</label>
+            <input type="text" name="telefone" required placeholder="(41) 9XXXX-XXXX">
+          </div>
+          <div class="field">
+            <label>Forma de pagamento</label>
+            <div class="chip-group" id="pagamento" data-name="forma_pagamento">
+              <button type="button" class="chip active" data-val="pix">Pix (na hora)</button>
+              <button type="button" class="chip" data-val="combinar">Combinar no WhatsApp</button>
+            </div>
+            <input type="hidden" name="forma_pagamento" id="forma_pagamento-input" value="pix">
+          </div>
+        </div>
+
+        <div class="calc-result">
+          <div class="result-label">Resumo do pedido</div>
+          <div class="checkout-itens">
+            {% for i in itens %}
+            <div class="checkout-item">
+              <span>{{ i.qtd }}x {{ i.produto['nome'] }}</span>
+              <span>R$ {{ "%.2f"|format(i.subtotal)|replace('.', ',') }}</span>
+            </div>
+            {% endfor %}
+          </div>
+          <div class="result-price" style="margin-top:18px;">R$ {{ "%.2f"|format(total)|replace('.', ',') }}</div>
+          <button type="submit" class="btn btn-primary btn-block" style="margin-top:20px;">Confirmar pedido</button>
+          <p class="disclaimer">Ao confirmar, você recebe na hora o QR Code Pix (ou o combinado direto com a gente pelo assistente virtual).</p>
+        </div>
+      </div>
+    </form>
+  </div>
+</section>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.querySelectorAll('.chip-group').forEach(group=>{
+    group.addEventListener('click', (e)=>{
+      if(e.target.classList.contains('chip')){
+        group.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
+        e.target.classList.add('active');
+        document.getElementById(group.dataset.name + '-input').value = e.target.dataset.val;
+      }
+    });
+  });
+</script>
+{% endblock %}

@@ -27,9 +27,7 @@
         <span class="cart-total-value">R$ {{ "%.2f"|format(total)|replace('.', ',') }}</span>
       </div>
 
-      <form method="post" action="{{ url_for('carrinho_finalizar') }}" style="margin-top:26px;">
-        <button type="submit" class="btn btn-primary btn-block">Finalizar pedido</button>
-      </form>
+      <a href="{{ url_for('checkout') }}" class="btn btn-primary btn-block" style="margin-top:26px;">Finalizar pedido</a>
     {% else %}
       <div class="empty-state">
         Seu carrinho está vazio.<br><br>
