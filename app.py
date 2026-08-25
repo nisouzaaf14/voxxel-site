@@ -6,7 +6,6 @@ from database import init_db, get_db, CATEGORIAS, to_blob
 from calculadora import calcular_orcamento, formatar_horas, MATERIAIS, QUALIDADE, COMPLEXIDADE
 
 ADMIN_PASSWORD = os.environ.get("VOXXEL_ADMIN_PASSWORD", "voxxel123")
-WHATSAPP_NUMERO = "5541998526355"
 
 TIPOS_IMAGEM_PERMITIDOS = {
     "image/jpeg": "jpg",
@@ -55,7 +54,8 @@ def admin_requerido():
 @app.context_processor
 def inject_globals():
     qtd_carrinho = sum(carrinho_sessao().values())
-    return dict(categorias=CATEGORIAS, whatsapp_numero=WHATSAPP_NUMERO, qtd_carrinho=qtd_carrinho)
+    chat_auto_message = session.pop("voxxel_chat_auto", None)
+    return dict(categorias=CATEGORIAS, qtd_carrinho=qtd_carrinho, chat_auto_message=chat_auto_message)
 
 
 # ---------- páginas públicas ----------
@@ -138,12 +138,15 @@ def carrinho_finalizar():
     conn.close()
 
     session["carrinho"] = {}
+
+    msg = "Olá! Acabei de finalizar esse pedido no site da Voxxel 🙂\n\n"
+    msg += "\n".join(linhas)
+    msg += f"\n\nTotal: R$ {total:.2f}".replace(".", ",")
+    session["voxxel_chat_auto"] = msg
     session.modified = True
 
-    msg = "Olá! Quero fechar esse pedido na Voxxel 🙂%0A%0A"
-    msg += "%0A".join(l.replace(" ", "%20") for l in linhas)
-    msg += f"%0A%0A*Total:* R$ {total:.2f}".replace(".", ",")
-    return redirect(f"https://wa.me/{WHATSAPP_NUMERO}?text={msg}")
+    flash("Pedido recebido! Confira os detalhes com nosso assistente virtual.")
+    return redirect(url_for("loja"))
 
 
 @app.route("/orcamento", methods=["GET", "POST"])
@@ -188,15 +191,18 @@ def orcamento():
             conn.close()
 
             msg = (
-                "Olá! Quero um orçamento na Voxxel 🙂%0A%0A"
-                f"*Categoria:* {resultado['categoria_nome']}%0A"
-                f"*Dimensões:* {form['altura']}x{form['largura']}x{form['profundidade']} cm%0A"
-                f"*Material:* {resultado['material_nome']}%0A"
-                f"*Qualidade:* {form['qualidade']}%0A"
-                f"*Quantidade:* {form['quantidade']}%0A"
-                f"*Estimativa automática:* R$ {resultado['preco_total']:.2f}".replace(".", ",")
+                "Olá! Acabei de pedir esse orçamento no site da Voxxel 🙂\n\n"
+                f"Categoria: {resultado['categoria_nome']}\n"
+                f"Dimensões: {form['altura']}x{form['largura']}x{form['profundidade']} cm\n"
+                f"Material: {resultado['material_nome']}\n"
+                f"Qualidade: {form['qualidade']}\n"
+                f"Quantidade: {form['quantidade']}\n"
+                f"Estimativa automática: R$ {resultado['preco_total']:.2f}".replace(".", ",")
             )
-            return redirect(f"https://wa.me/{WHATSAPP_NUMERO}?text={msg}")
+            session["voxxel_chat_auto"] = msg
+
+            flash("Orçamento recebido! Confira os detalhes com nosso assistente virtual.")
+            return redirect(url_for("orcamento"))
 
     return render_template(
         "orcamento.html", form=form, resultado=resultado,
