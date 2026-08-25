@@ -1,18 +1,31 @@
 import os
 import json
-from flask import Flask, render_template, request, redirect, url_for, session, flash, g
+from flask import Flask, render_template, request, redirect, url_for, session, flash, g, Response
 
-from database import init_db, get_db, CATEGORIAS
+from database import init_db, get_db, CATEGORIAS, to_blob
 from calculadora import calcular_orcamento, formatar_horas, MATERIAIS, QUALIDADE, COMPLEXIDADE
 
 ADMIN_PASSWORD = os.environ.get("VOXXEL_ADMIN_PASSWORD", "voxxel123")
 WHATSAPP_NUMERO = "5541998526355"
 
+TIPOS_IMAGEM_PERMITIDOS = {
+    "image/jpeg": "jpg",
+    "image/png": "png",
+    "image/webp": "webp",
+}
+
 app = Flask(__name__)
 app.secret_key = os.environ.get("VOXXEL_SECRET_KEY", "troque-esta-chave-em-producao")
+app.config["MAX_CONTENT_LENGTH"] = 5 * 1024 * 1024  # limite de 5MB por upload
 
 with app.app_context():
     init_db()
+
+
+@app.errorhandler(413)
+def imagem_grande_demais(e):
+    flash("A imagem enviada é grande demais. O limite é 5MB.")
+    return redirect(request.referrer or url_for("admin_produtos"))
 
 
 # ---------- helpers ----------
@@ -25,7 +38,9 @@ def carrinho_detalhado(conn):
     itens = []
     total = 0.0
     for pid, qtd in carrinho_sessao().items():
-        row = conn.execute("SELECT * FROM produtos WHERE id = ?", (pid,)).fetchone()
+        row = conn.execute(
+            f"SELECT {COLUNAS_PRODUTO_LISTA} FROM produtos WHERE id = ?", (int(pid),)
+        ).fetchone()
         if row:
             subtotal = row["preco"] * qtd
             total += subtotal
@@ -50,15 +65,27 @@ def home():
     return render_template("index.html")
 
 
+# Colunas usadas nas listagens (loja e admin): evita carregar o BLOB da
+# imagem inteiro só pra mostrar a lista de produtos -- só um indicador
+# booleano (tem_imagem) que a rota /produto/<id>/imagem resolve de verdade.
+COLUNAS_PRODUTO_LISTA = """
+    id, nome, categoria, preco, descricao, imagem_ang, ativo,
+    (imagem_mimetype IS NOT NULL) AS tem_imagem
+"""
+
+
 @app.route("/loja")
 def loja():
     conn = get_db()
     categoria = request.args.get("categoria", "todos")
     if categoria == "todos":
-        produtos = conn.execute("SELECT * FROM produtos WHERE ativo = 1 ORDER BY id DESC").fetchall()
+        produtos = conn.execute(
+            f"SELECT {COLUNAS_PRODUTO_LISTA} FROM produtos WHERE ativo = 1 ORDER BY id DESC"
+        ).fetchall()
     else:
         produtos = conn.execute(
-            "SELECT * FROM produtos WHERE ativo = 1 AND categoria = ? ORDER BY id DESC", (categoria,)
+            f"SELECT {COLUNAS_PRODUTO_LISTA} FROM produtos WHERE ativo = 1 AND categoria = ? ORDER BY id DESC",
+            (categoria,),
         ).fetchall()
     conn.close()
     return render_template("loja.html", produtos=produtos, categoria_ativa=categoria)
@@ -203,9 +230,23 @@ def admin_produtos():
     if not admin_requerido():
         return redirect(url_for("admin_login"))
     conn = get_db()
-    produtos = conn.execute("SELECT * FROM produtos ORDER BY id DESC").fetchall()
+    produtos = conn.execute(f"SELECT {COLUNAS_PRODUTO_LISTA} FROM produtos ORDER BY id DESC").fetchall()
     conn.close()
     return render_template("admin_produtos.html", produtos=produtos)
+
+
+def processar_upload_imagem(arquivo):
+    """Lê o arquivo enviado no formulário e valida formato/conteúdo.
+    Retorna (bytes, mimetype) ou None se não veio nenhum arquivo."""
+    if not arquivo or not arquivo.filename:
+        return None
+    if arquivo.mimetype not in TIPOS_IMAGEM_PERMITIDOS:
+        flash("Formato de imagem não suportado. Envie um JPG, PNG ou WEBP.")
+        return None
+    dados = arquivo.read()
+    if not dados:
+        return None
+    return dados, arquivo.mimetype
 
 
 @app.route("/admin/produtos/novo", methods=["GET", "POST"])
@@ -214,12 +255,17 @@ def admin_produto_novo():
         return redirect(url_for("admin_login"))
     if request.method == "POST":
         conn = get_db()
+        resultado_imagem = processar_upload_imagem(request.files.get("imagem"))
+        imagem_dados, imagem_mimetype = resultado_imagem if resultado_imagem else (None, None)
         conn.execute(
-            "INSERT INTO produtos (nome, categoria, preco, descricao, imagem_ang, ativo) VALUES (?, ?, ?, ?, ?, ?)",
+            """INSERT INTO produtos
+               (nome, categoria, preco, descricao, imagem_ang, ativo, imagem_dados, imagem_mimetype)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 request.form["nome"], request.form["categoria"], float(request.form["preco"]),
                 request.form.get("descricao", ""), request.form.get("imagem_ang", "0deg"),
                 1 if request.form.get("ativo") else 0,
+                to_blob(imagem_dados), imagem_mimetype,
             ),
         )
         conn.commit()
@@ -234,20 +280,64 @@ def admin_produto_editar(produto_id):
         return redirect(url_for("admin_login"))
     conn = get_db()
     if request.method == "POST":
-        conn.execute(
-            "UPDATE produtos SET nome=?, categoria=?, preco=?, descricao=?, imagem_ang=?, ativo=? WHERE id=?",
-            (
-                request.form["nome"], request.form["categoria"], float(request.form["preco"]),
-                request.form.get("descricao", ""), request.form.get("imagem_ang", "0deg"),
-                1 if request.form.get("ativo") else 0, produto_id,
-            ),
-        )
+        resultado_imagem = processar_upload_imagem(request.files.get("imagem"))
+
+        if resultado_imagem:
+            # Nova imagem enviada: substitui a anterior
+            imagem_dados, imagem_mimetype = resultado_imagem
+            conn.execute(
+                """UPDATE produtos SET nome=?, categoria=?, preco=?, descricao=?, imagem_ang=?, ativo=?,
+                   imagem_dados=?, imagem_mimetype=? WHERE id=?""",
+                (
+                    request.form["nome"], request.form["categoria"], float(request.form["preco"]),
+                    request.form.get("descricao", ""), request.form.get("imagem_ang", "0deg"),
+                    1 if request.form.get("ativo") else 0,
+                    to_blob(imagem_dados), imagem_mimetype, produto_id,
+                ),
+            )
+        elif request.form.get("remover_imagem"):
+            # Usuário marcou pra remover a imagem atual, sem enviar outra
+            conn.execute(
+                """UPDATE produtos SET nome=?, categoria=?, preco=?, descricao=?, imagem_ang=?, ativo=?,
+                   imagem_dados=NULL, imagem_mimetype=NULL WHERE id=?""",
+                (
+                    request.form["nome"], request.form["categoria"], float(request.form["preco"]),
+                    request.form.get("descricao", ""), request.form.get("imagem_ang", "0deg"),
+                    1 if request.form.get("ativo") else 0, produto_id,
+                ),
+            )
+        else:
+            # Mantém a imagem que já existia
+            conn.execute(
+                "UPDATE produtos SET nome=?, categoria=?, preco=?, descricao=?, imagem_ang=?, ativo=? WHERE id=?",
+                (
+                    request.form["nome"], request.form["categoria"], float(request.form["preco"]),
+                    request.form.get("descricao", ""), request.form.get("imagem_ang", "0deg"),
+                    1 if request.form.get("ativo") else 0, produto_id,
+                ),
+            )
         conn.commit()
         conn.close()
         return redirect(url_for("admin_produtos"))
-    produto = conn.execute("SELECT * FROM produtos WHERE id = ?", (produto_id,)).fetchone()
+    produto = conn.execute(
+        f"SELECT {COLUNAS_PRODUTO_LISTA} FROM produtos WHERE id = ?", (produto_id,)
+    ).fetchone()
     conn.close()
     return render_template("admin_produto_form.html", produto=produto)
+
+
+@app.route("/produto/<int:produto_id>/imagem")
+def produto_imagem(produto_id):
+    conn = get_db()
+    row = conn.execute(
+        "SELECT imagem_dados, imagem_mimetype FROM produtos WHERE id = ?", (produto_id,)
+    ).fetchone()
+    conn.close()
+    if not row or not row["imagem_mimetype"] or not row["imagem_dados"]:
+        return "", 404
+    resposta = Response(bytes(row["imagem_dados"]), mimetype=row["imagem_mimetype"])
+    resposta.headers["Cache-Control"] = "public, max-age=86400"
+    return resposta
 
 
 @app.route("/admin/produtos/<int:produto_id>/excluir", methods=["POST"])

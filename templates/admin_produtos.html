@@ -14,11 +14,18 @@
 
     <table class="admin-table">
       <thead>
-        <tr><th>Produto</th><th>Categoria</th><th>Preço</th><th>Status</th><th></th></tr>
+        <tr><th></th><th>Produto</th><th>Categoria</th><th>Preço</th><th>Status</th><th></th></tr>
       </thead>
       <tbody>
         {% for p in produtos %}
         <tr>
+          <td>
+            {% if p['tem_imagem'] %}
+              <div class="admin-thumb" style="background-image:url('{{ url_for('produto_imagem', produto_id=p['id']) }}');"></div>
+            {% else %}
+              <div class="admin-thumb admin-thumb-vazio" style="--ang:{{ p['imagem_ang'] }}"></div>
+            {% endif %}
+          </td>
           <td>{{ p['nome'] }}</td>
           <td>{{ categorias.get(p['categoria'], p['categoria']) }}</td>
           <td>R$ {{ "%.2f"|format(p['preco'])|replace('.', ',') }}</td>

@@ -21,7 +21,12 @@
     <div class="produtos fade-up">
       {% for p in produtos %}
       <div class="produto-card">
-        <div class="produto-thumb" style="--ang:{{ p['imagem_ang'] }}"></div>
+        <div class="produto-thumb" style="--ang:{{ p['imagem_ang'] }}"
+             {% if p['tem_imagem'] %}data-tem-foto="1"{% endif %}>
+          {% if p['tem_imagem'] %}
+            <img src="{{ url_for('produto_imagem', produto_id=p['id']) }}" alt="{{ p['nome'] }}" loading="lazy">
+          {% endif %}
+        </div>
         <div class="produto-info">
           <div class="produto-cat">{{ categorias[p['categoria']] }}</div>
           <h4>{{ p['nome'] }}</h4>

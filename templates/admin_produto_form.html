@@ -14,7 +14,7 @@
       <h2>{{ 'Editar produto' if produto else 'Novo produto' }}</h2>
     </div>
 
-    <form method="post" class="form-card">
+    <form method="post" class="form-card" enctype="multipart/form-data">
       <div class="field">
         <label>Nome</label>
         <input type="text" name="nome" value="{{ produto['nome'] if produto else '' }}" required>
@@ -35,8 +35,37 @@
         <label>Descrição</label>
         <textarea name="descricao" rows="3">{{ produto['descricao'] if produto else '' }}</textarea>
       </div>
+
       <div class="field">
-        <label>Ângulo da textura (visual, ex: 45deg)</label>
+        <label>Foto do produto</label>
+        <div class="img-upload" id="img-upload">
+          <input type="file" name="imagem" id="imagem-input" accept="image/png,image/jpeg,image/webp" hidden>
+          <div class="img-upload-preview" id="img-upload-preview"
+               {% if produto and produto['tem_imagem'] %}
+               style="background-image:url('{{ url_for('produto_imagem', produto_id=produto['id']) }}');"
+               {% endif %}>
+            <div class="img-upload-empty" id="img-upload-empty" {% if produto and produto['tem_imagem'] %}style="display:none;"{% endif %}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+              <span>Arraste uma imagem aqui ou clique pra escolher</span>
+              <span class="img-upload-hint">JPG, PNG ou WEBP · até 5MB</span>
+            </div>
+          </div>
+          <div class="img-upload-actions">
+            <button type="button" class="btn-ghost" id="img-upload-trocar" style="padding:6px 12px; font-size:.8rem;">
+              {{ 'Trocar imagem' if produto and produto['tem_imagem'] else 'Escolher imagem' }}
+            </button>
+            {% if produto and produto['tem_imagem'] %}
+            <label class="img-upload-remover">
+              <input type="checkbox" name="remover_imagem" id="remover_imagem" style="width:auto;">
+              Remover imagem atual
+            </label>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Cor de fundo (usada só quando não há foto, ex: 45deg)</label>
         <input type="text" name="imagem_ang" value="{{ produto['imagem_ang'] if produto else '0deg' }}">
       </div>
       <div class="field" style="display:flex; align-items:center; gap:10px;">
@@ -47,4 +76,50 @@
     </form>
   </div>
 </section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const input = document.getElementById('imagem-input');
+  const dropzone = document.getElementById('img-upload');
+  const preview = document.getElementById('img-upload-preview');
+  const empty = document.getElementById('img-upload-empty');
+  const trocarBtn = document.getElementById('img-upload-trocar');
+  const removerCheckbox = document.getElementById('remover_imagem');
+
+  function mostrarPreview(arquivo) {
+    if (!arquivo) return;
+    const leitor = new FileReader();
+    leitor.onload = (e) => {
+      preview.style.backgroundImage = `url('${e.target.result}')`;
+      empty.style.display = 'none';
+      if (removerCheckbox) removerCheckbox.checked = false;
+    };
+    leitor.readAsDataURL(arquivo);
+  }
+
+  trocarBtn.addEventListener('click', () => input.click());
+  dropzone.addEventListener('click', (e) => {
+    if (e.target === trocarBtn || (removerCheckbox && e.target === removerCheckbox)) return;
+    input.click();
+  });
+
+  input.addEventListener('change', () => {
+    if (input.files && input.files[0]) mostrarPreview(input.files[0]);
+  });
+
+  ['dragenter', 'dragover'].forEach(evt =>
+    dropzone.addEventListener(evt, (e) => { e.preventDefault(); dropzone.classList.add('dragover'); })
+  );
+  ['dragleave', 'drop'].forEach(evt =>
+    dropzone.addEventListener(evt, (e) => { e.preventDefault(); dropzone.classList.remove('dragover'); })
+  );
+  dropzone.addEventListener('drop', (e) => {
+    const arquivo = e.dataTransfer.files[0];
+    if (arquivo) {
+      input.files = e.dataTransfer.files;
+      mostrarPreview(arquivo);
+    }
+  });
+</script>
 {% endblock %}

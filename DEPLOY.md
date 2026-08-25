@@ -41,20 +41,40 @@ atualizar o código.
 Em alguns minutos o Render te dá uma URL tipo `https://voxxel.onrender.com` —
 esse já é o site no ar, pronto pra você mandar pros clientes.
 
-## Um ponto de atenção: o banco de dados
+## Banco de dados: usando Postgres (recomendado)
 
-O plano gratuito do Render **não guarda arquivos de forma permanente** —
-toda vez que o serviço reinicia (o que acontece de tempos em tempos no plano
-free), o arquivo `voxxel.db` volta ao estado inicial, com os 9 produtos de
-exemplo, e você perde produtos/pedidos que tiver cadastrado depois.
+O `database.py` já está preparado para os dois modos:
+- **Sem** a variável `DATABASE_URL` → usa SQLite local (`voxxel.db`), bom só
+  pra testar rápido no seu computador.
+- **Com** `DATABASE_URL` → usa Postgres automaticamente, com dados
+  permanentes (não some quando o serviço reinicia).
 
-Isso não é um problema pra testar e mostrar o site agora. Mas quando você
-for usar de verdade com clientes, tem duas saídas simples:
-- Assinar o **Disco Persistente** do Render (pago, mas barato) pra manter o
-  `voxxel.db` entre reinicializações;
-- Ou trocar o SQLite por um banco de dados online gratuito (o próprio Render
-  oferece PostgreSQL grátis por um tempo) — isso exige um ajuste no
-  `database.py`, e posso te ajudar quando chegar a hora.
+### Passo a passo no Render
+
+1. No painel do Render, clique em **New +** → **PostgreSQL**.
+   - Dê um nome (ex: `voxxel-db`), deixe o plano **Free**, e crie.
+   - Espere o banco ficar com status "Available" (leva 1-2 minutos).
+2. Volte no seu **Web Service** (`voxxel`) → aba **Environment**.
+3. Clique em **Add Environment Variable** e escolha a opção de **linkar um
+   banco existente** ("Link a database" / "Add from Database") — o Render
+   preenche `DATABASE_URL` sozinho com a Internal Database URL do banco que
+   você criou. (Se essa opção não aparecer na sua versão do painel, copie a
+   **Internal Database URL** da página do banco Postgres e cole manualmente
+   como variável `DATABASE_URL` no Web Service.)
+4. Clique em **Save Changes** — o Render reimplanta o serviço sozinho.
+5. Pronto: na próxima subida, o site cria as tabelas e os 9 produtos de
+   exemplo dentro do Postgres, e esses dados agora **persistem** entre
+   reinicializações e deploys.
+
+> Atenção: o Postgres free do Render expira depois de um tempo (atualmente
+> ~30 dias de banco gratuito, verifique as condições atuais no site deles).
+> Depois disso ele cobra um valor baixo mensal pra manter o banco ativo.
+
+### Se preferir continuar só com SQLite por enquanto
+
+Não precisa fazer nada — sem a variável `DATABASE_URL`, o site continua
+funcionando com SQLite normalmente (só que sem persistir dados no plano
+free do Render, como explicado antes).
 
 ## Alternativas ao Render
 
