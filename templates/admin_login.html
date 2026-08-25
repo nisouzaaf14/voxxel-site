@@ -1,20 +1,34 @@
-{% extends "base.html" %}
-{% block title %}Admin — Voxxel{% endblock %}
-{% block content %}
-<section style="padding-top:var(--space-3);">
-  <div class="wrap" style="max-width:400px;">
-    <div class="section-head fade-up" style="margin-bottom:var(--space-2);">
-      <div class="eyebrow">Painel</div>
-      <h2>Entrar</h2>
-    </div>
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Entrar — Painel Voxxel</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+<div class="admin-login-shell">
+  <div class="admin-login-card">
+    <a href="{{ url_for('home') }}" class="logo" style="justify-content:center; margin-bottom:26px;">
+      <div class="mark"></div><span class="wordmark">VOX<span class="gold">X</span>EL</span>
+    </a>
+    <div class="eyebrow" style="justify-content:center; margin-bottom:10px;">Painel do vendedor</div>
+    <h2 style="text-align:center; margin-bottom:26px;">Entrar</h2>
+
     {% if erro %}<div class="flash" style="border-color:var(--err); color:var(--err);">{{ erro }}</div>{% endif %}
-    <form method="post" class="form-card">
+
+    <form method="post">
       <div class="field">
         <label>Senha de administrador</label>
         <input type="password" name="senha" autofocus>
       </div>
       <button type="submit" class="btn btn-primary btn-block">Entrar</button>
     </form>
+
+    <a href="{{ url_for('home') }}" class="admin-login-back">← Voltar para o site</a>
   </div>
-</section>
-{% endblock %}
+</div>
+
+</body>
+</html>

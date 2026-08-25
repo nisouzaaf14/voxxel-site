@@ -1,45 +1,109 @@
-{% extends "base.html" %}
-{% block title %}Admin · Produtos — Voxxel{% endblock %}
-{% block content %}
-<section style="padding-top:var(--space-3);">
-  <div class="wrap admin-shell">
-    <div class="admin-bar">
-      <div class="admin-tabs">
-        <a href="{{ url_for('admin_produtos') }}" class="active">Produtos</a>
-        <a href="{{ url_for('admin_pedidos') }}">Pedidos</a>
-        <a href="{{ url_for('admin_logout') }}">Sair</a>
-      </div>
-      <a class="btn btn-primary" href="{{ url_for('admin_produto_novo') }}">+ Novo produto</a>
-    </div>
+{% extends "admin_base.html" %}
+{% block title %}Produtos — Painel Voxxel{% endblock %}
+{% block eyebrow %}Catálogo{% endblock %}
+{% block page_title %}Produtos{% endblock %}
+{% block topbar_actions %}
+<a class="btn btn-primary" href="{{ url_for('admin_produto_novo') }}">+ Novo produto</a>
+{% endblock %}
 
-    <table class="admin-table">
-      <thead>
-        <tr><th></th><th>Produto</th><th>Categoria</th><th>Preço</th><th>Status</th><th></th></tr>
-      </thead>
-      <tbody>
-        {% for p in produtos %}
-        <tr>
-          <td>
-            {% if p['tem_imagem'] %}
-              <div class="admin-thumb" style="background-image:url('{{ url_for('produto_imagem', produto_id=p['id']) }}');"></div>
-            {% else %}
-              <div class="admin-thumb admin-thumb-vazio" style="--ang:{{ p['imagem_ang'] }}"></div>
-            {% endif %}
-          </td>
-          <td>{{ p['nome'] }}</td>
-          <td>{{ categorias.get(p['categoria'], p['categoria']) }}</td>
-          <td>R$ {{ "%.2f"|format(p['preco'])|replace('.', ',') }}</td>
-          <td>{% if p['ativo'] %}<span class="badge badge-concluido">ativo</span>{% else %}<span class="badge">inativo</span>{% endif %}</td>
-          <td style="display:flex; gap:8px;">
-            <a class="btn-ghost" style="padding:6px 12px; font-size:.8rem;" href="{{ url_for('admin_produto_editar', produto_id=p['id']) }}">editar</a>
-            <form method="post" action="{{ url_for('admin_produto_excluir', produto_id=p['id']) }}" onsubmit="return confirm('Excluir este produto?');">
-              <button type="submit" class="btn-danger">excluir</button>
-            </form>
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+{% block admin_content %}
+{% if produtos %}
+<div class="admin-controls">
+  <div class="admin-search">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+    <input type="text" id="busca-produto" placeholder="Buscar produto...">
   </div>
-</section>
+  <div class="admin-filter-chips" id="filtro-categoria">
+    <button type="button" class="chip active" data-cat="todas">Todas</button>
+    {% for chave, nome in categorias.items() %}
+    <button type="button" class="chip" data-cat="{{ chave }}">{{ nome }}</button>
+    {% endfor %}
+  </div>
+</div>
+
+<table class="seller-table" id="tabela-produtos">
+  <thead>
+    <tr><th>Produto</th><th>Preço</th><th>Status</th><th></th></tr>
+  </thead>
+  <tbody>
+    {% for p in produtos %}
+    <tr data-nome="{{ p['nome']|lower }}" data-cat="{{ p['categoria'] }}">
+      <td>
+        <div class="seller-row-product">
+          {% if p['tem_imagem'] %}
+          <div class="admin-thumb" style="background-image:url('{{ url_for('produto_imagem', produto_id=p['id']) }}');"></div>
+          {% else %}
+          <div class="admin-thumb admin-thumb-vazio" style="--ang:{{ p['imagem_ang'] }}"></div>
+          {% endif %}
+          <div>
+            <div class="name">{{ p['nome'] }}</div>
+            <div class="cat">{{ categorias.get(p['categoria'], p['categoria']) }}</div>
+          </div>
+        </div>
+      </td>
+      <td>R$ {{ "%.2f"|format(p['preco'])|replace('.', ',') }}</td>
+      <td>
+        <form method="post" action="{{ url_for('admin_produto_toggle', produto_id=p['id']) }}">
+          <label class="switch">
+            <input type="checkbox" onchange="this.form.submit()" {{ 'checked' if p['ativo'] }}>
+            <span class="track"></span>
+            <span class="switch-label">{{ 'Ativo' if p['ativo'] else 'Pausado' }}</span>
+          </label>
+        </form>
+      </td>
+      <td>
+        <div class="seller-actions">
+          <a class="icon-action" href="{{ url_for('admin_produto_editar', produto_id=p['id']) }}" aria-label="Editar produto">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
+          </a>
+          <form method="post" action="{{ url_for('admin_produto_excluir', produto_id=p['id']) }}" onsubmit="return confirm('Excluir este produto?');">
+            <button type="submit" class="icon-action icon-action-danger" aria-label="Excluir produto">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+            </button>
+          </form>
+        </div>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+<div class="empty-state" id="produtos-sem-resultado" style="display:none;">Nenhum produto encontrado.</div>
+{% else %}
+<div class="empty-state">Nenhum produto cadastrado ainda.</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const busca = document.getElementById('busca-produto');
+  const chips = document.querySelectorAll('#filtro-categoria .chip');
+  const linhas = document.querySelectorAll('#tabela-produtos tbody tr');
+  const semResultado = document.getElementById('produtos-sem-resultado');
+  const tabela = document.getElementById('tabela-produtos');
+  let catAtiva = 'todas';
+
+  function aplicarFiltro() {
+    const termo = busca ? busca.value.trim().toLowerCase() : '';
+    let visiveis = 0;
+    linhas.forEach(linha => {
+      const bateCategoria = catAtiva === 'todas' || linha.dataset.cat === catAtiva;
+      const bateBusca = !termo || linha.dataset.nome.includes(termo);
+      const mostrar = bateCategoria && bateBusca;
+      linha.style.display = mostrar ? '' : 'none';
+      if (mostrar) visiveis++;
+    });
+    if (tabela) tabela.style.display = visiveis ? '' : 'none';
+    if (semResultado) semResultado.style.display = visiveis ? 'none' : '';
+  }
+
+  if (busca) busca.addEventListener('input', aplicarFiltro);
+  chips.forEach(chip => {
+    chip.addEventListener('click', () => {
+      chips.forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      catAtiva = chip.dataset.cat;
+      aplicarFiltro();
+    });
+  });
+</script>
 {% endblock %}

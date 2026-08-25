@@ -1,81 +1,72 @@
-{% extends "base.html" %}
+{% extends "admin_base.html" %}
 {% block title %}Admin · {{ 'Editar' if produto else 'Novo' }} produto — Voxxel{% endblock %}
-{% block content %}
-<section style="padding-top:var(--space-3);">
-  <div class="wrap admin-shell">
-    <div class="admin-bar">
-      <div class="admin-tabs">
-        <a href="{{ url_for('admin_produtos') }}">← Voltar</a>
-      </div>
-    </div>
+{% block eyebrow %}Produto{% endblock %}
+{% block page_title %}{{ 'Editar produto' if produto else 'Novo produto' }}{% endblock %}
+{% block topbar_actions %}
+<a class="btn-ghost" href="{{ url_for('admin_produtos') }}">← Voltar</a>
+{% endblock %}
 
-    <div class="section-head fade-up" style="text-align:left; align-items:flex-start; margin-bottom:var(--space-2);">
-      <div class="eyebrow">Produto</div>
-      <h2>{{ 'Editar produto' if produto else 'Novo produto' }}</h2>
-    </div>
+{% block admin_content %}
+<form method="post" class="form-card" enctype="multipart/form-data">
+  <div class="field">
+    <label>Nome</label>
+    <input type="text" name="nome" value="{{ produto['nome'] if produto else '' }}" required>
+  </div>
+  <div class="field">
+    <label>Categoria</label>
+    <select name="categoria">
+      {% for chave, nome in categorias.items() %}
+        <option value="{{ chave }}" {{ 'selected' if produto and produto['categoria'] == chave }}>{{ nome }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="field">
+    <label>Preço (R$)</label>
+    <input type="number" step="0.01" name="preco" value="{{ produto['preco'] if produto else '' }}" required>
+  </div>
+  <div class="field">
+    <label>Descrição</label>
+    <textarea name="descricao" rows="3">{{ produto['descricao'] if produto else '' }}</textarea>
+  </div>
 
-    <form method="post" class="form-card" enctype="multipart/form-data">
-      <div class="field">
-        <label>Nome</label>
-        <input type="text" name="nome" value="{{ produto['nome'] if produto else '' }}" required>
-      </div>
-      <div class="field">
-        <label>Categoria</label>
-        <select name="categoria">
-          {% for chave, nome in categorias.items() %}
-            <option value="{{ chave }}" {{ 'selected' if produto and produto['categoria'] == chave }}>{{ nome }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div class="field">
-        <label>Preço (R$)</label>
-        <input type="number" step="0.01" name="preco" value="{{ produto['preco'] if produto else '' }}" required>
-      </div>
-      <div class="field">
-        <label>Descrição</label>
-        <textarea name="descricao" rows="3">{{ produto['descricao'] if produto else '' }}</textarea>
-      </div>
-
-      <div class="field">
-        <label>Foto do produto</label>
-        <div class="img-upload" id="img-upload">
-          <input type="file" name="imagem" id="imagem-input" accept="image/png,image/jpeg,image/webp" hidden>
-          <div class="img-upload-preview" id="img-upload-preview"
-               {% if produto and produto['tem_imagem'] %}
-               style="background-image:url('{{ url_for('produto_imagem', produto_id=produto['id']) }}');"
-               {% endif %}>
-            <div class="img-upload-empty" id="img-upload-empty" {% if produto and produto['tem_imagem'] %}style="display:none;"{% endif %}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
-              <span>Arraste uma imagem aqui ou clique pra escolher</span>
-              <span class="img-upload-hint">JPG, PNG ou WEBP · até 5MB</span>
-            </div>
-          </div>
-          <div class="img-upload-actions">
-            <button type="button" class="btn-ghost" id="img-upload-trocar" style="padding:6px 12px; font-size:.8rem;">
-              {{ 'Trocar imagem' if produto and produto['tem_imagem'] else 'Escolher imagem' }}
-            </button>
-            {% if produto and produto['tem_imagem'] %}
-            <label class="img-upload-remover">
-              <input type="checkbox" name="remover_imagem" id="remover_imagem" style="width:auto;">
-              Remover imagem atual
-            </label>
-            {% endif %}
-          </div>
+  <div class="field">
+    <label>Foto do produto</label>
+    <div class="img-upload" id="img-upload">
+      <input type="file" name="imagem" id="imagem-input" accept="image/png,image/jpeg,image/webp" hidden>
+      <div class="img-upload-preview" id="img-upload-preview"
+           {% if produto and produto['tem_imagem'] %}
+           style="background-image:url('{{ url_for('produto_imagem', produto_id=produto['id']) }}');"
+           {% endif %}>
+        <div class="img-upload-empty" id="img-upload-empty" {% if produto and produto['tem_imagem'] %}style="display:none;"{% endif %}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+          <span>Arraste uma imagem aqui ou clique pra escolher</span>
+          <span class="img-upload-hint">JPG, PNG ou WEBP · até 5MB</span>
         </div>
       </div>
-
-      <div class="field">
-        <label>Cor de fundo (usada só quando não há foto, ex: 45deg)</label>
-        <input type="text" name="imagem_ang" value="{{ produto['imagem_ang'] if produto else '0deg' }}">
+      <div class="img-upload-actions">
+        <button type="button" class="btn-ghost" id="img-upload-trocar" style="padding:6px 12px; font-size:.8rem;">
+          {{ 'Trocar imagem' if produto and produto['tem_imagem'] else 'Escolher imagem' }}
+        </button>
+        {% if produto and produto['tem_imagem'] %}
+        <label class="img-upload-remover">
+          <input type="checkbox" name="remover_imagem" id="remover_imagem" style="width:auto;">
+          Remover imagem atual
+        </label>
+        {% endif %}
       </div>
-      <div class="field" style="display:flex; align-items:center; gap:10px;">
-        <input type="checkbox" name="ativo" id="ativo" style="width:auto;" {{ 'checked' if not produto or produto['ativo'] }}>
-        <label for="ativo" style="margin:0;">Produto ativo na loja</label>
-      </div>
-      <button type="submit" class="btn btn-primary btn-block">{{ 'Salvar alterações' if produto else 'Criar produto' }}</button>
-    </form>
+    </div>
   </div>
-</section>
+
+  <div class="field">
+    <label>Cor de fundo (usada só quando não há foto, ex: 45deg)</label>
+    <input type="text" name="imagem_ang" value="{{ produto['imagem_ang'] if produto else '0deg' }}">
+  </div>
+  <div class="field" style="display:flex; align-items:center; gap:10px;">
+    <input type="checkbox" name="ativo" id="ativo" style="width:auto;" {{ 'checked' if not produto or produto['ativo'] }}>
+    <label for="ativo" style="margin:0;">Produto ativo na loja</label>
+  </div>
+  <button type="submit" class="btn btn-primary btn-block">{{ 'Salvar alterações' if produto else 'Criar produto' }}</button>
+</form>
 {% endblock %}
 
 {% block scripts %}

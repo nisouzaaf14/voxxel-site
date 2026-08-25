@@ -332,6 +332,20 @@ def admin_produto_editar(produto_id):
     return render_template("admin_produto_form.html", produto=produto)
 
 
+@app.route("/admin/produtos/<int:produto_id>/toggle", methods=["POST"])
+def admin_produto_toggle(produto_id):
+    if not admin_requerido():
+        return redirect(url_for("admin_login"))
+    conn = get_db()
+    row = conn.execute("SELECT ativo FROM produtos WHERE id = ?", (produto_id,)).fetchone()
+    if row is not None:
+        novo_status = 0 if row["ativo"] else 1
+        conn.execute("UPDATE produtos SET ativo = ? WHERE id = ?", (novo_status, produto_id))
+        conn.commit()
+    conn.close()
+    return redirect(url_for("admin_produtos"))
+
+
 @app.route("/produto/<int:produto_id>/imagem")
 def produto_imagem(produto_id):
     conn = get_db()
@@ -361,10 +375,24 @@ def admin_produto_excluir(produto_id):
 def admin_pedidos():
     if not admin_requerido():
         return redirect(url_for("admin_login"))
+    status_filtro = request.args.get("status", "todos")
     conn = get_db()
-    pedidos = conn.execute("SELECT * FROM pedidos ORDER BY id DESC").fetchall()
+    todos = conn.execute("SELECT * FROM pedidos ORDER BY id DESC").fetchall()
     conn.close()
-    return render_template("admin_pedidos.html", pedidos=pedidos)
+
+    contagens = {"todos": len(todos), "novo": 0, "andamento": 0, "concluido": 0}
+    for p in todos:
+        contagens[p["status"]] = contagens.get(p["status"], 0) + 1
+
+    if status_filtro in ("novo", "andamento", "concluido"):
+        pedidos = [p for p in todos if p["status"] == status_filtro]
+    else:
+        status_filtro = "todos"
+        pedidos = todos
+
+    return render_template(
+        "admin_pedidos.html", pedidos=pedidos, status_filtro=status_filtro, contagens=contagens
+    )
 
 
 @app.route("/admin/pedidos/<int:pedido_id>/status", methods=["POST"])

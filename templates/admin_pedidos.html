@@ -1,44 +1,47 @@
-{% extends "base.html" %}
-{% block title %}Admin · Pedidos — Voxxel{% endblock %}
-{% block content %}
-<section style="padding-top:var(--space-3);">
-  <div class="wrap admin-shell">
-    <div class="admin-bar">
-      <div class="admin-tabs">
-        <a href="{{ url_for('admin_produtos') }}">Produtos</a>
-        <a href="{{ url_for('admin_pedidos') }}" class="active">Pedidos</a>
-        <a href="{{ url_for('admin_logout') }}">Sair</a>
-      </div>
-    </div>
+{% extends "admin_base.html" %}
+{% block title %}Pedidos — Painel Voxxel{% endblock %}
+{% block eyebrow %}Vendas{% endblock %}
+{% block page_title %}Pedidos{% endblock %}
 
-    {% if pedidos %}
-    <table class="admin-table">
-      <thead>
-        <tr><th>#</th><th>Tipo</th><th>Detalhes</th><th>Valor</th><th>Status</th></tr>
-      </thead>
-      <tbody>
-        {% for p in pedidos %}
-        <tr>
-          <td>{{ p['id'] }}</td>
-          <td>{{ 'Loja' if p['tipo'] == 'loja' else 'Orçamento' }}</td>
-          <td style="white-space:pre-line; font-size:.82rem; color:var(--muted); max-width:320px;">{{ p['detalhes'] }}</td>
-          <td>R$ {{ "%.2f"|format(p['valor_estimado'])|replace('.', ',') }}</td>
-          <td>
-            <form method="post" action="{{ url_for('admin_pedido_status', pedido_id=p['id']) }}">
-              <select name="status" onchange="this.form.submit()" class="badge badge-{{ p['status'] }}" style="width:auto; padding:5px 10px;">
-                <option value="novo" {{ 'selected' if p['status']=='novo' }}>Novo</option>
-                <option value="andamento" {{ 'selected' if p['status']=='andamento' }}>Em andamento</option>
-                <option value="concluido" {{ 'selected' if p['status']=='concluido' }}>Concluído</option>
-              </select>
-            </form>
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-    {% else %}
-    <div class="empty-state">Nenhum pedido registrado ainda.</div>
-    {% endif %}
+{% block admin_content %}
+<div class="admin-filter-chips" style="margin-bottom:24px;">
+  <a class="chip {{ 'active' if status_filtro == 'todos' }}" href="{{ url_for('admin_pedidos') }}">
+    Todos <span class="chip-count">{{ contagens.todos }}</span>
+  </a>
+  <a class="chip {{ 'active' if status_filtro == 'novo' }}" href="{{ url_for('admin_pedidos', status='novo') }}">
+    Novo <span class="chip-count">{{ contagens.novo }}</span>
+  </a>
+  <a class="chip {{ 'active' if status_filtro == 'andamento' }}" href="{{ url_for('admin_pedidos', status='andamento') }}">
+    Em andamento <span class="chip-count">{{ contagens.andamento }}</span>
+  </a>
+  <a class="chip {{ 'active' if status_filtro == 'concluido' }}" href="{{ url_for('admin_pedidos', status='concluido') }}">
+    Concluído <span class="chip-count">{{ contagens.concluido }}</span>
+  </a>
+</div>
+
+{% if pedidos %}
+<div class="order-list">
+  {% for p in pedidos %}
+  <div class="order-card">
+    <div class="order-card-main">
+      <div class="order-card-id">Pedido #{{ p['id'] }} · {{ p['criado_em'] }}</div>
+      <div class="order-card-tipo">{{ 'Loja' if p['tipo'] == 'loja' else 'Orçamento' }}</div>
+      <div class="order-card-detalhes">{{ p['detalhes'] }}</div>
+    </div>
+    <div class="order-card-side">
+      <div class="order-card-valor">R$ {{ "%.2f"|format(p['valor_estimado'])|replace('.', ',') }}</div>
+      <form method="post" action="{{ url_for('admin_pedido_status', pedido_id=p['id']) }}">
+        <select name="status" onchange="this.form.submit()" class="badge badge-{{ p['status'] }}">
+          <option value="novo" {{ 'selected' if p['status']=='novo' }}>Novo</option>
+          <option value="andamento" {{ 'selected' if p['status']=='andamento' }}>Em andamento</option>
+          <option value="concluido" {{ 'selected' if p['status']=='concluido' }}>Concluído</option>
+        </select>
+      </form>
+    </div>
   </div>
-</section>
+  {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">Nenhum pedido{{ ' com esse status' if status_filtro != 'todos' else '' }} registrado ainda.</div>
+{% endif %}
 {% endblock %}
