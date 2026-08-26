@@ -84,3 +84,30 @@ free do Render, como explicado antes).
 
 Se quiser, me diz qual você escolheu que eu ajusto as instruções certinho
 pra ela.
+
+## Segurança — checklist antes de divulgar o site
+
+O código já vem com várias proteções (proteção contra CSRF, limite de
+tentativas de login, cabeçalhos de segurança no navegador, validação de
+imagens enviadas, cookies seguros, etc). Mas duas coisas **dependem de
+você configurar** na hora do deploy:
+
+1. **`VOXXEL_ADMIN_PASSWORD`** — troque a senha padrão (`voxxel123`) por
+   uma senha forte e única. É a senha que protege o painel inteiro.
+2. **`VOXXEL_SECRET_KEY`** — defina qualquer texto longo e aleatório
+   (ex: gere um em https://randomkeygen.com, categoria "CodeIgniter
+   Encryption Keys"). Sem isso, os cookies de sessão do site usam uma
+   chave conhecida publicamente (documentada aqui mesmo), o que é
+   inseguro.
+
+Sem essas duas variáveis configuradas, o site imprime um aviso nos logs
+do Render toda vez que inicia, lembrando de trocar.
+
+Outras variáveis relacionadas à segurança (opcionais):
+- `VOXXEL_DEBUG` → deixe `false` em produção (é o padrão). Nunca ligue o
+  modo debug num site publicado — ele expõe informações internas e
+  permite executar código no servidor por quem encontrar uma página de
+  erro.
+- `VOXXEL_COOKIE_SECURE` → normalmente não precisa mexer: o site já detecta
+  sozinho se está rodando publicado (Render) ou só testando no seu
+  computador. Só use essa variável se notar problemas de sessão/login.

@@ -25,6 +25,7 @@ CONFIG_PADRAO = {
     "pix_nome": "Voxxel Impressao 3D",
     "pix_cidade": "Sao Jose dos Pinhais",
     "whatsapp": "5541998526355",
+    "mp_access_token": "",
 }
 
 PRODUTOS_SEED = [
@@ -136,6 +137,8 @@ def init_db():
         conn.execute("ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS cliente_telefone TEXT DEFAULT ''")
         conn.execute("ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS forma_pagamento TEXT DEFAULT 'combinar'")
         conn.execute("ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS status_pagamento TEXT DEFAULT 'aguardando'")
+        conn.execute("ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS mp_preference_id TEXT")
+        conn.execute("ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS mp_payment_id TEXT")
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS configuracoes (
@@ -191,6 +194,8 @@ def init_db():
             "ALTER TABLE pedidos ADD COLUMN cliente_telefone TEXT DEFAULT ''",
             "ALTER TABLE pedidos ADD COLUMN forma_pagamento TEXT DEFAULT 'combinar'",
             "ALTER TABLE pedidos ADD COLUMN status_pagamento TEXT DEFAULT 'aguardando'",
+            "ALTER TABLE pedidos ADD COLUMN mp_preference_id TEXT",
+            "ALTER TABLE pedidos ADD COLUMN mp_payment_id TEXT",
         ):
             try:
                 conn.execute(coluna_sql)
