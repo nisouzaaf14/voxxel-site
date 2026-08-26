@@ -1,6 +1,8 @@
 import os
+import time
 import sqlite3
 from pathlib import Path
+from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 
 DB_PATH = Path(__file__).parent / "voxxel.db"
 
@@ -13,6 +15,49 @@ USING_POSTGRES = bool(DATABASE_URL)
 if USING_POSTGRES:
     import psycopg2
     import psycopg2.extras
+    import psycopg2.pool
+
+    def _url_com_ssl(url):
+        """Garante sslmode=require na URL de conexão -- o Postgres do Render
+        aceita e recomenda SSL tanto na URL interna quanto na externa, e
+        isso evita erro de conexão recusada em provedores que exigem SSL."""
+        url = url.replace("postgres://", "postgresql://", 1)
+        partes = urlparse(url)
+        query = parse_qs(partes.query)
+        query.setdefault("sslmode", ["require"])
+        nova_query = urlencode(query, doseq=True)
+        return urlunparse(partes._replace(query=nova_query))
+
+    _DATABASE_URL_SSL = _url_com_ssl(DATABASE_URL)
+
+    # Pool pequeno de propósito: o plano free do Postgres no Render permite
+    # poucas conexões simultâneas, e o Procfile sobe só 1 worker do gunicorn
+    # por padrão. Se um dia você aumentar os workers (`gunicorn -w N`),
+    # lembre de manter POOL_MAX * N dentro do limite do seu plano Postgres.
+    POOL_MIN, POOL_MAX = 1, 5
+    _pool = None
+
+    def _obter_pool():
+        global _pool
+        if _pool is None:
+            ultimo_erro = None
+            for tentativa in range(1, 4):
+                try:
+                    _pool = psycopg2.pool.ThreadedConnectionPool(
+                        POOL_MIN, POOL_MAX, _DATABASE_URL_SSL,
+                        cursor_factory=psycopg2.extras.RealDictCursor,
+                    )
+                    break
+                except psycopg2.OperationalError as erro:
+                    ultimo_erro = erro
+                    time.sleep(0.6 * tentativa)  # banco pode estar "acordando"
+            else:
+                raise RuntimeError(
+                    "Não foi possível conectar ao Postgres (DATABASE_URL). "
+                    "Confira se a variável está correta e se o banco está "
+                    f"com status 'Available' no Render. Erro original: {ultimo_erro}"
+                )
+        return _pool
 
 CATEGORIAS = {
     "tecnica": "Peça Técnica",
@@ -46,12 +91,32 @@ class _Connection:
     (conn.execute(sql, params).fetchone()/.fetchall(), conn.commit(), conn.close()).
     Os placeholders no app.py usam '?' (estilo sqlite); aqui convertemos para
     '%s' automaticamente quando estamos no Postgres.
+
+    No Postgres, a conexão vem de um pool reaproveitável -- abrir uma conexão
+    TCP nova a cada requisição é caro e desperdiça o limite (baixo) de
+    conexões simultâneas dos planos free. close() devolve a conexão pro
+    pool em vez de encerrá-la de verdade.
     """
 
     def __init__(self):
         if USING_POSTGRES:
-            url = DATABASE_URL.replace("postgres://", "postgresql://", 1)
-            self._conn = psycopg2.connect(url, cursor_factory=psycopg2.extras.RealDictCursor)
+            self._pool = _obter_pool()
+            ultimo_erro = None
+            for tentativa in range(1, 4):
+                try:
+                    self._conn = self._pool.getconn()
+                    self._conn.cursor().execute("SELECT 1")  # detecta conexão morta
+                    self._conn.commit()
+                    break
+                except psycopg2.OperationalError as erro:
+                    ultimo_erro = erro
+                    try:
+                        self._pool.putconn(self._conn, close=True)
+                    except Exception:
+                        pass
+                    time.sleep(0.4 * tentativa)
+            else:
+                raise RuntimeError(f"Conexão com o Postgres falhou: {ultimo_erro}")
         else:
             self._conn = sqlite3.connect(DB_PATH)
             self._conn.row_factory = sqlite3.Row
@@ -75,7 +140,10 @@ class _Connection:
         self._conn.commit()
 
     def close(self):
-        self._conn.close()
+        if USING_POSTGRES:
+            self._pool.putconn(self._conn)
+        else:
+            self._conn.close()
 
 
 def get_db():
@@ -100,6 +168,22 @@ def init_db():
     is_new_sqlite = not USING_POSTGRES and not DB_PATH.exists()
     conn = get_db()
 
+    if USING_POSTGRES:
+        # Lock consultivo: se um dia o gunicorn subir com mais de 1 worker,
+        # isso evita que dois processos criem as tabelas/semeiem os produtos
+        # de exemplo ao mesmo tempo (condição de corrida na primeira subida).
+        # O número é arbitrário, só precisa ser o mesmo em toda a aplicação.
+        conn.execute("SELECT pg_advisory_lock(913042)")
+    try:
+        _criar_tabelas(conn, is_new_sqlite)
+    finally:
+        if USING_POSTGRES:
+            conn.execute("SELECT pg_advisory_unlock(913042)")
+            conn.commit()
+    conn.close()
+
+
+def _criar_tabelas(conn, is_new_sqlite):
     if USING_POSTGRES:
         conn.execute(
             """
@@ -219,6 +303,12 @@ def init_db():
         )
         conn.commit()
 
+    # Índices pra manter as listagens rápidas conforme o catálogo/pedidos
+    # crescem (o filtro por categoria e por status são os mais usados).
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_produtos_categoria_ativo ON produtos(categoria, ativo)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_pedidos_status ON pedidos(status)")
+    conn.commit()
+
     # Garante que toda chave de configuração padrão exista (não sobrescreve
     # o que o admin já tiver salvo).
     existentes = {row["chave"] for row in conn.execute("SELECT chave FROM configuracoes").fetchall()}
@@ -226,8 +316,6 @@ def init_db():
     if faltando:
         conn.executemany("INSERT INTO configuracoes (chave, valor) VALUES (?, ?)", faltando)
         conn.commit()
-
-    conn.close()
 
 
 def criar_pedido(conn, tipo, detalhes, valor_estimado, cliente_nome="", cliente_telefone="", forma_pagamento="combinar"):

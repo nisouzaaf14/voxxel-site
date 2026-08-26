@@ -11,7 +11,7 @@ from flask import Flask, render_template, request, redirect, url_for, session, f
 from werkzeug.middleware.proxy_fix import ProxyFix
 from PIL import Image
 
-from database import init_db, get_db, CATEGORIAS, to_blob, criar_pedido, get_configs, set_configs
+from database import init_db, get_db, CATEGORIAS, to_blob, criar_pedido, get_configs, set_configs, USING_POSTGRES
 from calculadora import calcular_orcamento, formatar_horas, MATERIAIS, QUALIDADE, COMPLEXIDADE
 import pix
 import mercadopago_pay
@@ -64,6 +64,12 @@ if ADMIN_PASSWORD == ADMIN_PASSWORD_PADRAO:
 
 with app.app_context():
     init_db()
+
+print(
+    "[BANCO DE DADOS] Usando " + ("PostgreSQL (dados permanentes)." if USING_POSTGRES
+    else "SQLite local -- ATENÇÃO: em serviços como o Render, sem a variável "
+         "DATABASE_URL configurada, esses dados são apagados a cada deploy/reinício.")
+)
 
 
 def login_obrigatorio(rota):

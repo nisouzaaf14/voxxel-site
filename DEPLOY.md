@@ -70,6 +70,29 @@ O `database.py` já está preparado para os dois modos:
 > ~30 dias de banco gratuito, verifique as condições atuais no site deles).
 > Depois disso ele cobra um valor baixo mensal pra manter o banco ativo.
 
+### Como confirmar que está usando Postgres de verdade
+
+Depois do deploy, abra a aba **Logs** do seu Web Service no Render e procure
+pela primeira linha que o site imprime ao iniciar:
+- `[BANCO DE DADOS] Usando PostgreSQL (dados permanentes).` → certo, configurado.
+- `[BANCO DE DADOS] Usando SQLite local -- ATENÇÃO...` → a variável
+  `DATABASE_URL` não foi encontrada; revise o passo 3 acima.
+
+### Detalhes técnicos (pra quem quiser saber o que roda por baixo)
+
+O `database.py` já vem preparado pra produção de verdade, não só pra
+funcionar no teste:
+- **Pool de conexões**: reaproveita conexões com o Postgres em vez de abrir
+  uma nova a cada clique no site -- importante porque planos free costumam
+  limitar bastante o número de conexões simultâneas.
+- **Reconexão automática**: se o banco estiver "acordando" ou a conexão
+  cair por um instante, o site tenta de novo (com espera crescente) antes
+  de mostrar erro.
+- **SSL obrigatório** na conexão com o Postgres.
+- **Trava contra duplicação**: se um dia você aumentar os workers do
+  gunicorn, o site usa uma trava do próprio Postgres pra garantir que a
+  criação de tabelas/produtos de exemplo não rode em duplicidade.
+
 ### Se preferir continuar só com SQLite por enquanto
 
 Não precisa fazer nada — sem a variável `DATABASE_URL`, o site continua
