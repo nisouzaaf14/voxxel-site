@@ -22,7 +22,7 @@ import pix
 import mercadopago_pay
 
 SECRET_KEY_PADRAO = "troque-esta-chave-em-producao"
-ADMIN_PASSWORD_PADRAO = "voxxel123"
+ADMIN_PASSWORD_PADRAO = "@NI04041"
 
 ADMIN_PASSWORD = os.environ.get("VOXXEL_ADMIN_PASSWORD", ADMIN_PASSWORD_PADRAO)
 SECRET_KEY = os.environ.get("VOXXEL_SECRET_KEY", SECRET_KEY_PADRAO)
