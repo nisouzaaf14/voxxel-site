@@ -11,6 +11,7 @@
     </div>
 
     <form method="post" action="{{ url_for('orcamento') }}" id="form-orcamento">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <div class="calc fade-up">
         <div class="calc-form">
           <div class="field">
@@ -86,14 +87,17 @@
 
           <div class="field" style="margin-top:6px;">
             <label>Nome</label>
-            <input type="text" name="nome" placeholder="Seu nome" value="{{ request.form.get('nome','') }}">
+            <input type="text" name="nome" placeholder="Seu nome" value="{{ request.form.get('nome', cliente_logado['nome'] if cliente_logado else '') }}">
           </div>
           <div class="field">
             <label>WhatsApp / telefone</label>
-            <input type="text" name="telefone" placeholder="(41) 9XXXX-XXXX" value="{{ request.form.get('telefone','') }}">
+            <input type="text" name="telefone" placeholder="(41) 9XXXX-XXXX" value="{{ request.form.get('telefone', cliente_logado['telefone'] if cliente_logado else '') }}">
           </div>
 
           <button type="submit" name="acao" value="enviar" class="btn btn-primary btn-block">Solicitar este orçamento</button>
+          {% if not cliente_logado %}
+          <p class="disclaimer">Você vai precisar <a href="{{ url_for('conta_entrar', next=url_for('orcamento')) }}" style="color:var(--gold-soft);">entrar ou criar uma conta</a> para enviar o orçamento.</p>
+          {% endif %}
           <p class="disclaimer">Estimativa baseada no peso do material e no tempo de impressão da peça. O valor final é confirmado pela Voxxel após análise técnica do modelo enviado.</p>
         </div>
       </div>

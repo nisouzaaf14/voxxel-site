@@ -17,6 +17,7 @@
           <div class="cart-row-meta">{{ i.qtd }}x · R$ {{ "%.2f"|format(i.subtotal)|replace('.', ',') }}</div>
         </div>
         <form method="post" action="{{ url_for('carrinho_remover', produto_id=i.produto['id']) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <button type="submit" class="btn-danger">remover</button>
         </form>
       </div>

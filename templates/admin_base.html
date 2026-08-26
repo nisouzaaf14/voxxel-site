@@ -14,6 +14,9 @@
       <div class="mark"></div><span class="wordmark">VOX<span class="gold">X</span>EL</span>
     </a>
     <div class="admin-sidebar-label">Painel do vendedor</div>
+    {% if vendedor_nome %}
+    <div class="admin-sidebar-label" style="color:var(--muted); font-size:.75rem; margin-top:-4px;">Olá, {{ vendedor_nome }}</div>
+    {% endif %}
 
     <nav class="admin-nav">
       <a href="{{ url_for('admin_dashboard') }}" class="{{ 'active' if request.endpoint == 'admin_dashboard' }}">

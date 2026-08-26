@@ -8,6 +8,7 @@
 
 {% block admin_content %}
 <form method="post" class="form-card" enctype="multipart/form-data">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <div class="field">
     <label>Nome</label>
     <input type="text" name="nome" value="{{ produto['nome'] if produto else '' }}" required>

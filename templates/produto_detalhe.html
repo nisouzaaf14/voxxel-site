@@ -36,6 +36,7 @@
 
         {% if p['estoque'] is none or p['estoque'] > 0 %}
         <form method="post" action="{{ url_for('carrinho_adicionar', produto_id=p['id']) }}" class="pdp-add">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <div class="qty-picker">
             <button type="button" class="qty-btn" data-qty="menos">−</button>
             <input type="number" name="quantidade" id="pdp-qtd" value="1" min="1" {% if p['estoque'] is not none %}max="{{ p['estoque'] }}"{% endif %}>

@@ -42,6 +42,7 @@
               <button type="button" class="btn btn-ghost" disabled>Esgotado</button>
             {% else %}
             <form method="post" action="{{ url_for('carrinho_adicionar', produto_id=p['id']) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
               <button type="submit" class="btn btn-ghost">Adicionar</button>
             </form>
             {% endif %}

@@ -42,9 +42,14 @@
         <span class="badge {{ 'badge-concluido' if p['status_pagamento'] == 'informado' else 'badge-novo' }}">
           {{ 'Pago (informado)' if p['status_pagamento'] == 'informado' else 'Aguardando pagamento' }}
         </span>
-        <span class="pag-metodo">{{ 'Pix' if p['forma_pagamento'] == 'pix' else 'Combinado' }}</span>
+        <span class="pag-metodo">
+          {% if p['forma_pagamento'] == 'pix' %}Pix
+          {% elif p['forma_pagamento'] == 'cartao' %}Cartão
+          {% else %}Combinado{% endif %}
+        </span>
       </div>
       <form method="post" action="{{ url_for('admin_pedido_status', pedido_id=p['id']) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <select name="status" onchange="this.form.submit()" class="badge badge-{{ p['status'] }}">
           <option value="novo" {{ 'selected' if p['status']=='novo' }}>Novo</option>
           <option value="andamento" {{ 'selected' if p['status']=='andamento' }}>Em andamento</option>

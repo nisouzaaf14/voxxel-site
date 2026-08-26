@@ -7,23 +7,26 @@
     <div class="section-head fade-up" style="margin-bottom:var(--space-2);">
       <div class="eyebrow">Checkout</div>
       <h2>Finalizar pedido</h2>
+      <p>Comprando como {{ cliente['nome'] }} · <a href="{{ url_for('conta_sair') }}" style="color:var(--muted);">não é você?</a></p>
     </div>
 
     <form method="post" action="{{ url_for('checkout') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <div class="calc fade-up">
         <div class="calc-form">
           <div class="field">
             <label>Nome completo</label>
-            <input type="text" name="nome" required placeholder="Seu nome">
+            <input type="text" name="nome" required placeholder="Seu nome" value="{{ request.form.get('nome', cliente['nome']) }}">
           </div>
           <div class="field">
             <label>WhatsApp / telefone</label>
-            <input type="text" name="telefone" required placeholder="(41) 9XXXX-XXXX">
+            <input type="text" name="telefone" required placeholder="(41) 9XXXX-XXXX" value="{{ request.form.get('telefone', cliente['telefone']) }}">
           </div>
           <div class="field">
             <label>Forma de pagamento</label>
             <div class="chip-group" id="pagamento" data-name="forma_pagamento">
               <button type="button" class="chip active" data-val="pix">Pix (na hora)</button>
+              <button type="button" class="chip" data-val="cartao">Cartão (crédito/débito)</button>
               <button type="button" class="chip" data-val="combinar">Combinar no WhatsApp</button>
             </div>
             <input type="hidden" name="forma_pagamento" id="forma_pagamento-input" value="pix">

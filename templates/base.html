@@ -20,6 +20,9 @@
       <a href="{{ url_for('home') }}#sobre">Sobre</a>
     </nav>
     <div class="nav-actions">
+      <a class="icon-btn" href="{{ url_for('conta_dashboard') if session.get('cliente_id') else url_for('conta_entrar') }}" aria-label="Minha conta" title="{{ 'Olá, ' ~ session.get('cliente_nome') if session.get('cliente_id') else 'Entrar / Cadastrar' }}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>
+      </a>
       <a class="icon-btn cart-btn" href="{{ url_for('carrinho') }}" aria-label="Carrinho">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
         <span class="cart-badge">{{ qtd_carrinho }}</span>
@@ -39,6 +42,12 @@
     <a href="{{ url_for('orcamento') }}">Orçamento</a>
     <a href="{{ url_for('home') }}#sobre">Sobre</a>
     <div class="mobile-menu-divider"></div>
+    {% if session.get('cliente_id') %}
+    <a href="{{ url_for('conta_dashboard') }}">Minha conta ({{ session.get('cliente_nome') }})</a>
+    <a href="{{ url_for('conta_sair') }}">Sair da conta</a>
+    {% else %}
+    <a href="{{ url_for('conta_entrar') }}">Entrar / Cadastrar</a>
+    {% endif %}
     <a href="{{ url_for('admin_dashboard') if session.get('admin_logado') else url_for('admin_login') }}">Painel do vendedor</a>
   </div>
 </header>

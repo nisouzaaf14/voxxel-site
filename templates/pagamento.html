@@ -32,8 +32,14 @@
           <button type="button" class="btn btn-ghost" id="pix-copiar-btn">Copiar código</button>
         </div>
         <form method="post" action="{{ url_for('pedido_confirmar_pagamento', pedido_id=pedido['id']) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <button type="submit" class="btn btn-primary btn-block" style="margin-top:20px;">Já paguei</button>
         </form>
+      {% elif cartao_disponivel %}
+        <div class="payment-cartao">
+          <p class="payment-hint">Clique abaixo para pagar com cartão de crédito ou débito em um ambiente seguro do Mercado Pago.</p>
+          <a class="btn btn-primary btn-block" href="{{ url_for('pedido_pagar_cartao', pedido_id=pedido['id']) }}">Pagar com cartão</a>
+        </div>
       {% else %}
         <div class="payment-combinar">
           <p>Vamos combinar o pagamento direto com você pelo assistente virtual, no canto da tela.</p>

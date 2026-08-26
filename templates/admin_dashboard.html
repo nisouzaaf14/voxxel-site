@@ -8,10 +8,16 @@
 
 {% block admin_content %}
 
-{% if not pix_configurado %}
+{% if not pix_configurado or not cartao_configurado %}
 <div class="flash" style="border-color:var(--gold); margin-bottom:26px;">
-  Seu Pix ainda não está configurado — os clientes não vão conseguir pagar por QR Code até você
-  <a href="{{ url_for('admin_configuracoes') }}" style="text-decoration:underline;">cadastrar sua chave Pix aqui</a>.
+  {% if not pix_configurado and not cartao_configurado %}
+  Nenhuma forma de pagamento automática está configurada ainda — os clientes só vão poder combinar direto com você.
+  {% elif not pix_configurado %}
+  Seu Pix ainda não está configurado.
+  {% else %}
+  O pagamento por cartão ainda não está configurado.
+  {% endif %}
+  <a href="{{ url_for('admin_configuracoes') }}" style="text-decoration:underline;">Configure aqui.</a>
 </div>
 {% endif %}
 

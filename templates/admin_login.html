@@ -19,6 +19,7 @@
     {% if erro %}<div class="flash" style="border-color:var(--err); color:var(--err);">{{ erro }}</div>{% endif %}
 
     <form method="post">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <div class="field">
         <label>Senha de administrador</label>
         <input type="password" name="senha" autofocus>
