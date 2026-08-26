@@ -9,9 +9,14 @@ from functools import wraps
 
 from flask import Flask, render_template, request, redirect, url_for, session, flash, g, Response, abort
 from werkzeug.middleware.proxy_fix import ProxyFix
+from werkzeug.security import generate_password_hash, check_password_hash
 from PIL import Image
 
-from database import init_db, get_db, CATEGORIAS, to_blob, criar_pedido, get_configs, set_configs, USING_POSTGRES
+from database import (
+    init_db, get_db, CATEGORIAS, to_blob, criar_pedido, get_configs, set_configs, USING_POSTGRES,
+    normalizar_telefone, criar_cliente, buscar_cliente_por_telefone, buscar_cliente_por_id,
+    listar_pedidos_cliente,
+)
 from calculadora import calcular_orcamento, formatar_horas, MATERIAIS, QUALIDADE, COMPLEXIDADE
 import pix
 import mercadopago_pay
@@ -81,6 +86,37 @@ def login_obrigatorio(rota):
             return redirect(url_for("admin_login"))
         return rota(*args, **kwargs)
     return rota_protegida
+
+
+def login_cliente_obrigatorio(rota):
+    """Mesma ideia do `login_obrigatorio`, mas para a conta do cliente --
+    protege checkout e envio de orçamento, que agora exigem login."""
+    @wraps(rota)
+    def rota_protegida(*args, **kwargs):
+        if not session.get("cliente_id"):
+            flash("Faça login para continuar.")
+            return redirect(url_for("conta_entrar", next=request.path))
+        return rota(*args, **kwargs)
+    return rota_protegida
+
+
+def next_seguro(padrao):
+    """Valida o parâmetro `next` (pra onde voltar depois do login) -- só
+    aceita caminhos internos começando com uma única barra, pra ninguém usar
+    isso pra redirecionar o cliente logado pra um site de fora (open redirect)."""
+    destino = request.values.get("next", "")
+    if destino.startswith("/") and not destino.startswith("//"):
+        return destino
+    return padrao
+
+
+def pedido_pertence_ao_usuario(pedido):
+    """Pedidos feitos antes de existir login de cliente ficam com cliente_id
+    nulo e continuam acessíveis pelo link direto (não tinha dono pra checar).
+    Pedidos novos só podem ser vistos por quem estiver logado na conta que
+    fez a compra."""
+    dono = pedido["cliente_id"]
+    return dono is None or dono == session.get("cliente_id")
 
 
 # ---------- proteção CSRF ----------
@@ -159,15 +195,18 @@ LOGIN_MAX_TENTATIVAS = 6
 LOGIN_JANELA_SEGUNDOS = 5 * 60
 
 
-def login_bloqueado(ip):
+def login_bloqueado(chave):
+    """`chave` identifica o "balde" de tentativas -- ex: f"admin:{ip}" ou
+    f"cliente:{ip}" -- pra login de admin e de cliente não competirem pelo
+    mesmo limite."""
     agora = time.time()
-    tentativas = [t for t in _LOGIN_TENTATIVAS.get(ip, []) if agora - t < LOGIN_JANELA_SEGUNDOS]
-    _LOGIN_TENTATIVAS[ip] = tentativas
+    tentativas = [t for t in _LOGIN_TENTATIVAS.get(chave, []) if agora - t < LOGIN_JANELA_SEGUNDOS]
+    _LOGIN_TENTATIVAS[chave] = tentativas
     return len(tentativas) >= LOGIN_MAX_TENTATIVAS
 
 
-def registrar_falha_login(ip):
-    _LOGIN_TENTATIVAS.setdefault(ip, []).append(time.time())
+def registrar_falha_login(chave):
+    _LOGIN_TENTATIVAS.setdefault(chave, []).append(time.time())
 
 
 # ---------- helpers ----------
@@ -209,7 +248,15 @@ def carrinho_detalhado(conn):
 def inject_globals():
     qtd_carrinho = sum(carrinho_sessao().values())
     chat_auto_message = session.pop("voxxel_chat_auto", None)
-    return dict(categorias=CATEGORIAS, qtd_carrinho=qtd_carrinho, chat_auto_message=chat_auto_message)
+    vendedor_nome = None
+    if session.get("admin_logado"):
+        conn = get_db()
+        vendedor_nome = get_configs(conn)["vendedor_nome"]
+        conn.close()
+    return dict(
+        categorias=CATEGORIAS, qtd_carrinho=qtd_carrinho, chat_auto_message=chat_auto_message,
+        vendedor_nome=vendedor_nome,
+    )
 
 
 # ---------- páginas públicas ----------
@@ -313,12 +360,15 @@ def carrinho():
 
 
 @app.route("/checkout", methods=["GET", "POST"])
+@login_cliente_obrigatorio
 def checkout():
     conn = get_db()
     itens, total = carrinho_detalhado(conn)
     if not itens:
         conn.close()
         return redirect(url_for("loja"))
+
+    cliente = buscar_cliente_por_id(conn, session["cliente_id"])
 
     if request.method == "POST":
         nome = texto_seguro(request.form.get("nome"), 120)
@@ -330,12 +380,15 @@ def checkout():
         if not nome or not telefone:
             flash("Preencha nome e telefone para finalizar o pedido.")
             conn.close()
-            return render_template("checkout.html", itens=itens, total=total)
+            return render_template("checkout.html", itens=itens, total=total, cliente=cliente)
 
         linhas = [f"{i['qtd']}x {i['produto']['nome']} - R$ {i['subtotal']:.2f}".replace(".", ",") for i in itens]
         detalhes = "\n".join(linhas)
 
-        pedido_id = criar_pedido(conn, "loja", detalhes, total, nome, telefone, forma_pagamento)
+        pedido_id = criar_pedido(
+            conn, "loja", detalhes, total, nome, telefone, forma_pagamento,
+            cliente_id=session["cliente_id"],
+        )
         conn.close()
 
         session["carrinho"] = {}
@@ -344,7 +397,7 @@ def checkout():
         return redirect(url_for("pedido_pagamento", pedido_id=pedido_id))
 
     conn.close()
-    return render_template("checkout.html", itens=itens, total=total)
+    return render_template("checkout.html", itens=itens, total=total, cliente=cliente)
 
 
 @app.route("/pedido/<int:pedido_id>/pagamento")
@@ -355,6 +408,8 @@ def pedido_pagamento(pedido_id):
     conn.close()
     if not pedido:
         return redirect(url_for("home"))
+    if not pedido_pertence_ao_usuario(pedido):
+        abort(403)
 
     pix_disponivel = bool(config["pix_chave"].strip()) and pedido["forma_pagamento"] == "pix"
     cartao_disponivel = bool(config["mp_access_token"].strip()) and pedido["forma_pagamento"] == "cartao"
@@ -378,6 +433,9 @@ def pedido_pagar_cartao(pedido_id):
     if not pedido or not config["mp_access_token"].strip():
         conn.close()
         return redirect(url_for("pedido_pagamento", pedido_id=pedido_id))
+    if not pedido_pertence_ao_usuario(pedido):
+        conn.close()
+        abort(403)
 
     url_base = request.url_root.rstrip("/")
     descricao = f"Pedido Voxxel #{pedido_id} - {pedido['detalhes'].splitlines()[0]}"
@@ -406,6 +464,10 @@ def pedido_retorno_cartao(pedido_id):
     conn = get_db()
     pedido = conn.execute("SELECT * FROM pedidos WHERE id = ?", (pedido_id,)).fetchone()
     config = get_configs(conn)
+
+    if pedido and not pedido_pertence_ao_usuario(pedido):
+        conn.close()
+        abort(403)
 
     if pedido and config["mp_access_token"].strip():
         payment_id = request.args.get("payment_id") or request.args.get("collection_id")
@@ -477,11 +539,13 @@ def webhook_mercadopago():
 @app.route("/pedido/<int:pedido_id>/pix.png")
 def pedido_pix_png(pedido_id):
     conn = get_db()
-    pedido = conn.execute("SELECT valor_estimado FROM pedidos WHERE id = ?", (pedido_id,)).fetchone()
+    pedido = conn.execute("SELECT valor_estimado, cliente_id FROM pedidos WHERE id = ?", (pedido_id,)).fetchone()
     config = get_configs(conn)
     conn.close()
     if not pedido or not config["pix_chave"].strip():
         return "", 404
+    if not pedido_pertence_ao_usuario(pedido):
+        abort(403)
 
     payload = pix.gerar_payload(
         config["pix_chave"], config["pix_nome"], config["pix_cidade"],
@@ -497,6 +561,9 @@ def pedido_pix_png(pedido_id):
 def pedido_confirmar_pagamento(pedido_id):
     conn = get_db()
     pedido = conn.execute("SELECT * FROM pedidos WHERE id = ?", (pedido_id,)).fetchone()
+    if pedido and not pedido_pertence_ao_usuario(pedido):
+        conn.close()
+        abort(403)
     if pedido:
         conn.execute("UPDATE pedidos SET status_pagamento = 'informado' WHERE id = ?", (pedido_id,))
         conn.commit()
@@ -522,6 +589,12 @@ def orcamento():
         "quantidade": 1, "material": "pla", "qualidade": "padrao", "complexidade": "media",
     }
 
+    cliente_logado = None
+    if session.get("cliente_id"):
+        conn = get_db()
+        cliente_logado = buscar_cliente_por_id(conn, session["cliente_id"])
+        conn.close()
+
     if request.method == "POST":
         try:
             form.update({
@@ -540,7 +613,7 @@ def orcamento():
                 "orcamento.html", form=form, resultado=None,
                 materiais=MATERIAIS, qualidades=QUALIDADE, complexidades=COMPLEXIDADE,
                 materiais_js=json.dumps(MATERIAIS), qualidade_js=json.dumps(QUALIDADE),
-                complexidade_js=json.dumps(COMPLEXIDADE),
+                complexidade_js=json.dumps(COMPLEXIDADE), cliente_logado=cliente_logado,
             )
         resultado = calcular_orcamento(
             form["altura"], form["largura"], form["profundidade"], form["quantidade"],
@@ -549,6 +622,13 @@ def orcamento():
         resultado["tempo_formatado"] = formatar_horas(resultado["horas_total"])
 
         if request.form.get("acao") == "enviar":
+            if not session.get("cliente_id"):
+                flash(
+                    "Faça login para enviar este orçamento e acompanhá-lo em \u201cMinha "
+                    "conta\u201d. Sua estimativa não foi perdida -- é só recalcular depois de entrar."
+                )
+                return redirect(url_for("conta_entrar", next=url_for("orcamento")))
+
             nome = texto_seguro(request.form.get("nome"), 120)
             telefone = texto_seguro(request.form.get("telefone"), 40)
 
@@ -558,7 +638,7 @@ def orcamento():
                     "orcamento.html", form=form, resultado=resultado,
                     materiais=MATERIAIS, qualidades=QUALIDADE, complexidades=COMPLEXIDADE,
                     materiais_js=json.dumps(MATERIAIS), qualidade_js=json.dumps(QUALIDADE),
-                    complexidade_js=json.dumps(COMPLEXIDADE),
+                    complexidade_js=json.dumps(COMPLEXIDADE), cliente_logado=cliente_logado,
                 )
 
             detalhes = (
@@ -569,7 +649,10 @@ def orcamento():
                 f"Quantidade: {form['quantidade']}"
             )
             conn = get_db()
-            pedido_id = criar_pedido(conn, "orcamento", detalhes, resultado["preco_total"], nome, telefone, "pix")
+            pedido_id = criar_pedido(
+                conn, "orcamento", detalhes, resultado["preco_total"], nome, telefone, "pix",
+                cliente_id=session["cliente_id"],
+            )
             conn.close()
 
             flash("Orçamento recebido! Você pode adiantar o pagamento por Pix ou combinar direto com a gente.")
@@ -579,8 +662,102 @@ def orcamento():
         "orcamento.html", form=form, resultado=resultado,
         materiais=MATERIAIS, qualidades=QUALIDADE, complexidades=COMPLEXIDADE,
         materiais_js=json.dumps(MATERIAIS), qualidade_js=json.dumps(QUALIDADE),
-        complexidade_js=json.dumps(COMPLEXIDADE),
+        complexidade_js=json.dumps(COMPLEXIDADE), cliente_logado=cliente_logado,
     )
+
+
+# ---------- conta do cliente ----------
+
+TELEFONE_MIN_DIGITOS = 10
+
+
+@app.route("/conta/cadastro", methods=["GET", "POST"])
+def conta_cadastro():
+    if session.get("cliente_id"):
+        return redirect(url_for("conta_dashboard"))
+
+    if request.method == "POST":
+        nome = texto_seguro(request.form.get("nome"), 120)
+        telefone = normalizar_telefone(request.form.get("telefone"))
+        senha = request.form.get("senha", "")
+        confirmar_senha = request.form.get("confirmar_senha", "")
+
+        erro = None
+        if not nome:
+            erro = "Preencha seu nome."
+        elif len(telefone) < TELEFONE_MIN_DIGITOS:
+            erro = "Informe um telefone válido, com DDD."
+        elif len(senha) < 6:
+            erro = "A senha precisa ter pelo menos 6 caracteres."
+        elif senha != confirmar_senha:
+            erro = "As senhas não coincidem."
+
+        conn = get_db()
+        if not erro and buscar_cliente_por_telefone(conn, telefone):
+            erro = "Já existe uma conta com esse telefone. Faça login."
+
+        if erro:
+            conn.close()
+            flash(erro)
+            return render_template("conta_cadastro.html")
+
+        cliente_id = criar_cliente(conn, nome, telefone, generate_password_hash(senha))
+        conn.close()
+
+        session.clear()
+        session["cliente_id"] = cliente_id
+        session["cliente_nome"] = nome
+        session.permanent = True
+        flash("Conta criada! Bem-vindo(a).")
+        return redirect(next_seguro(url_for("conta_dashboard")))
+
+    return render_template("conta_cadastro.html")
+
+
+@app.route("/conta/entrar", methods=["GET", "POST"])
+def conta_entrar():
+    if session.get("cliente_id"):
+        return redirect(url_for("conta_dashboard"))
+
+    erro = None
+    ip = request.remote_addr or "desconhecido"
+    chave_rate_limit = f"cliente:{ip}"
+
+    if request.method == "POST":
+        if login_bloqueado(chave_rate_limit):
+            erro = "Muitas tentativas de login. Aguarde alguns minutos e tente novamente."
+        else:
+            telefone = normalizar_telefone(request.form.get("telefone"))
+            senha = request.form.get("senha", "")
+            conn = get_db()
+            cliente = buscar_cliente_por_telefone(conn, telefone)
+            conn.close()
+            if cliente and check_password_hash(cliente["senha_hash"], senha):
+                session.clear()
+                session["cliente_id"] = cliente["id"]
+                session["cliente_nome"] = cliente["nome"]
+                session.permanent = True
+                return redirect(next_seguro(url_for("conta_dashboard")))
+            registrar_falha_login(chave_rate_limit)
+            erro = "Telefone ou senha incorretos."
+
+    return render_template("conta_entrar.html", erro=erro)
+
+
+@app.route("/conta/sair")
+def conta_sair():
+    session.pop("cliente_id", None)
+    session.pop("cliente_nome", None)
+    return redirect(url_for("home"))
+
+
+@app.route("/conta")
+@login_cliente_obrigatorio
+def conta_dashboard():
+    conn = get_db()
+    pedidos = listar_pedidos_cliente(conn, session["cliente_id"])
+    conn.close()
+    return render_template("conta_dashboard.html", pedidos=pedidos)
 
 
 # ---------- admin ----------
@@ -589,8 +766,9 @@ def orcamento():
 def admin_login():
     erro = None
     ip = request.remote_addr or "desconhecido"
+    chave_rate_limit = f"admin:{ip}"
     if request.method == "POST":
-        if login_bloqueado(ip):
+        if login_bloqueado(chave_rate_limit):
             erro = "Muitas tentativas de login. Aguarde alguns minutos e tente novamente."
         elif secrets.compare_digest(request.form.get("senha", ""), ADMIN_PASSWORD):
             session.clear()
@@ -598,7 +776,7 @@ def admin_login():
             session.permanent = True  # expira sozinho após PERMANENT_SESSION_LIFETIME
             return redirect(url_for("admin_dashboard"))
         else:
-            registrar_falha_login(ip)
+            registrar_falha_login(chave_rate_limit)
             erro = "Senha incorreta."
     return render_template("admin_login.html", erro=erro)
 
@@ -645,6 +823,7 @@ def admin_configuracoes():
     conn = get_db()
     if request.method == "POST":
         set_configs(conn, {
+            "vendedor_nome": request.form.get("vendedor_nome", "").strip() or "Voxxel",
             "pix_chave": request.form.get("pix_chave", "").strip(),
             "pix_nome": request.form.get("pix_nome", "").strip() or "Voxxel Impressao 3D",
             "pix_cidade": request.form.get("pix_cidade", "").strip() or "Sao Jose dos Pinhais",

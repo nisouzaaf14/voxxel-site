@@ -1,4 +1,5 @@
 import os
+import re
 import time
 import sqlite3
 from pathlib import Path
@@ -71,6 +72,7 @@ CONFIG_PADRAO = {
     "pix_cidade": "Sao Jose dos Pinhais",
     "whatsapp": "5541998526355",
     "mp_access_token": "",
+    "vendedor_nome": "Voxxel",
 }
 
 PRODUTOS_SEED = [
@@ -233,6 +235,24 @@ def _criar_tabelas(conn, is_new_sqlite):
         )
         conn.commit()
 
+        # Contas de cliente (login por telefone) -- pedidos feitos antes
+        # dessa tabela existir ficam com cliente_id NULO (pedido "avulso",
+        # continua acessível pelo link direto de pagamento).
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS clientes (
+                id SERIAL PRIMARY KEY,
+                nome TEXT NOT NULL,
+                telefone TEXT UNIQUE NOT NULL,
+                senha_hash TEXT NOT NULL,
+                criado_em TEXT DEFAULT to_char(CURRENT_TIMESTAMP, 'YYYY-MM-DD HH24:MI:SS')
+            )
+            """
+        )
+        conn.commit()
+        conn.execute("ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS cliente_id INTEGER REFERENCES clientes(id)")
+        conn.commit()
+
         # Popula os produtos de exemplo só se a tabela ainda estiver vazia
         row = conn.execute("SELECT COUNT(*) AS total FROM produtos").fetchone()
         precisa_seed = row["total"] == 0
@@ -293,6 +313,25 @@ def _criar_tabelas(conn, is_new_sqlite):
             )
             """
         )
+
+        # Contas de cliente (login por telefone) -- pedidos feitos antes
+        # dessa tabela existir ficam com cliente_id NULO (pedido "avulso",
+        # continua acessível pelo link direto de pagamento).
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS clientes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                nome TEXT NOT NULL,
+                telefone TEXT UNIQUE NOT NULL,
+                senha_hash TEXT NOT NULL,
+                criado_em TEXT DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+        try:
+            conn.execute("ALTER TABLE pedidos ADD COLUMN cliente_id INTEGER REFERENCES clientes(id)")
+        except sqlite3.OperationalError:
+            pass
         conn.commit()
         precisa_seed = is_new_sqlite
 
@@ -307,6 +346,7 @@ def _criar_tabelas(conn, is_new_sqlite):
     # crescem (o filtro por categoria e por status são os mais usados).
     conn.execute("CREATE INDEX IF NOT EXISTS idx_produtos_categoria_ativo ON produtos(categoria, ativo)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_pedidos_status ON pedidos(status)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_pedidos_cliente ON pedidos(cliente_id)")
     conn.commit()
 
     # Garante que toda chave de configuração padrão exista (não sobrescreve
@@ -318,26 +358,71 @@ def _criar_tabelas(conn, is_new_sqlite):
         conn.commit()
 
 
-def criar_pedido(conn, tipo, detalhes, valor_estimado, cliente_nome="", cliente_telefone="", forma_pagamento="combinar"):
+def criar_pedido(conn, tipo, detalhes, valor_estimado, cliente_nome="", cliente_telefone="",
+                  forma_pagamento="combinar", cliente_id=None):
     """Insere um pedido (venda da loja ou orçamento) e devolve o id gerado,
-    já lidando com a diferença de sintaxe entre SQLite e Postgres."""
-    params = (tipo, detalhes, valor_estimado, cliente_nome, cliente_telefone, forma_pagamento)
+    já lidando com a diferença de sintaxe entre SQLite e Postgres.
+    `cliente_id` liga o pedido à conta logada -- fica None só para pedidos
+    antigos, de antes de existir login (checkout hoje exige conta)."""
+    params = (tipo, detalhes, valor_estimado, cliente_nome, cliente_telefone, forma_pagamento, cliente_id)
     if USING_POSTGRES:
         cur = conn.execute(
-            """INSERT INTO pedidos (tipo, detalhes, valor_estimado, cliente_nome, cliente_telefone, forma_pagamento)
-               VALUES (?, ?, ?, ?, ?, ?) RETURNING id""",
+            """INSERT INTO pedidos (tipo, detalhes, valor_estimado, cliente_nome, cliente_telefone, forma_pagamento, cliente_id)
+               VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id""",
             params,
         )
         novo_id = cur.fetchone()["id"]
     else:
         cur = conn.execute(
-            """INSERT INTO pedidos (tipo, detalhes, valor_estimado, cliente_nome, cliente_telefone, forma_pagamento)
-               VALUES (?, ?, ?, ?, ?, ?)""",
+            """INSERT INTO pedidos (tipo, detalhes, valor_estimado, cliente_nome, cliente_telefone, forma_pagamento, cliente_id)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
             params,
         )
         novo_id = cur.lastrowid
     conn.commit()
     return novo_id
+
+
+def normalizar_telefone(telefone):
+    """Mantém só os dígitos do telefone -- assim '(41) 99852-6355' e
+    '41999826355' são tratados como o mesmo valor no login/cadastro."""
+    return re.sub(r"\D", "", telefone or "")
+
+
+def criar_cliente(conn, nome, telefone, senha_hash):
+    """Cria uma conta de cliente. Assume que já foi checado antes que esse
+    telefone ainda não tem conta (evita corrida óbvia num site pequeno;
+    a coluna UNIQUE no banco é a garantia final contra duplicidade)."""
+    telefone = normalizar_telefone(telefone)
+    if USING_POSTGRES:
+        cur = conn.execute(
+            "INSERT INTO clientes (nome, telefone, senha_hash) VALUES (?, ?, ?) RETURNING id",
+            (nome, telefone, senha_hash),
+        )
+        novo_id = cur.fetchone()["id"]
+    else:
+        cur = conn.execute(
+            "INSERT INTO clientes (nome, telefone, senha_hash) VALUES (?, ?, ?)",
+            (nome, telefone, senha_hash),
+        )
+        novo_id = cur.lastrowid
+    conn.commit()
+    return novo_id
+
+
+def buscar_cliente_por_telefone(conn, telefone):
+    telefone = normalizar_telefone(telefone)
+    return conn.execute("SELECT * FROM clientes WHERE telefone = ?", (telefone,)).fetchone()
+
+
+def buscar_cliente_por_id(conn, cliente_id):
+    return conn.execute("SELECT * FROM clientes WHERE id = ?", (cliente_id,)).fetchone()
+
+
+def listar_pedidos_cliente(conn, cliente_id):
+    return conn.execute(
+        "SELECT * FROM pedidos WHERE cliente_id = ? ORDER BY id DESC", (cliente_id,)
+    ).fetchall()
 
 
 def get_configs(conn):
