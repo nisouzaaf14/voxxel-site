@@ -1,15 +1,21 @@
-# Mesma lÃ³gica da calculadora do site, em Python, para que o valor
+# Mesma lógica da calculadora do site, em Python, para que o valor
 # calculado no navegador (preview) e o valor salvo no pedido sejam sempre iguais.
+#
+# Regra de preço (definida pela Voxxel):
+#   - R$ 1,70 por hora de impressão
+#   - R$ 1,50 a cada 10 gramas de material gasto
+# O preço final de cada peça é a soma desses dois valores + o acabamento
+# (post-processamento manual, que varia por categoria).
 
 MATERIAIS = {
-    "pla":    {"nome": "PLA",    "densidade": 1.24, "preco_kg": 90},
-    "petg":   {"nome": "PETG",   "densidade": 1.27, "preco_kg": 110},
-    "abs":    {"nome": "ABS",    "densidade": 1.04, "preco_kg": 100},
-    "resina": {"nome": "Resina", "densidade": 1.10, "preco_kg": 250},
+    "pla":    {"nome": "PLA",    "densidade": 1.24},
+    "petg":   {"nome": "PETG",   "densidade": 1.27},
+    "abs":    {"nome": "ABS",    "densidade": 1.04},
+    "resina": {"nome": "Resina", "densidade": 1.10},
 }
 
 # velocidade em cm3/hora e multiplicador de acabamento.
-# quanto mais detalhada a impressÃ£o, mais fina a camada -> mais devagar e mais cara.
+# quanto mais detalhada a impressão, mais fina a camada -> mais devagar e mais cara.
 QUALIDADE = {
     "rascunho":  {"velocidade": 38, "mult": 0.85},
     "padrao":    {"velocidade": 22, "mult": 1.0},
@@ -23,9 +29,13 @@ COMPLEXIDADE = {
 }
 
 SHELL_FRACTION = 0.15
-HORA_MAQUINA = 9.0
+
+# --- regra de preço ---
+PRECO_HORA_IMPRESSAO = 2.00   # R$ por hora de impressão
+PRECO_POR_10G = 2.00          # R$ a cada 10 gramas de material (filamento)
+
 CAT_ACABAMENTO = {"tecnica": 6, "cosplay": 14, "decoracao": 8}
-CAT_NOME = {"tecnica": "PeÃ§a TÃ©cnica", "cosplay": "Cosplay & AcessÃ³rio", "decoracao": "DecoraÃ§Ã£o & UtilitÃ¡rio"}
+CAT_NOME = {"tecnica": "Peça Técnica", "cosplay": "Cosplay & Acessório", "decoracao": "Decoração & Utilitário"}
 
 
 def calcular_orcamento(altura, largura, profundidade, quantidade, categoria, complexidade, material, qualidade):
@@ -39,10 +49,13 @@ def calcular_orcamento(altura, largura, profundidade, quantidade, categoria, com
     volume_impresso = volume_caixa * fracao_solida
 
     peso_gramas = volume_impresso * mat["densidade"]
-    custo_material = (peso_gramas / 1000) * mat["preco_kg"]
 
     horas_impressao = (volume_impresso / qual["velocidade"]) * comp["tempo_mult"]
-    custo_maquina = horas_impressao * HORA_MAQUINA
+
+    # custo pela hora de máquina/impressão
+    custo_maquina = horas_impressao * PRECO_HORA_IMPRESSAO
+    # custo pelo material gasto (a cada 10g)
+    custo_material = (peso_gramas / 10) * PRECO_POR_10G
 
     custo_acabamento = CAT_ACABAMENTO[categoria] * qual["mult"]
 
