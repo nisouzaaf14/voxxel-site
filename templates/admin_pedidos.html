@@ -35,6 +35,28 @@
       </div>
       {% endif %}
       <div class="order-card-detalhes">{{ p['detalhes'] }}</div>
+      {% if p['impressora_id'] or p['distribuicao_status'] in ('buscando', 'sem_impressora') %}
+      <div class="order-card-impressora">
+        {% if p['impressora_id'] %}
+          🖨️ Impressora: <strong>{{ impressoras_por_id.get(p['impressora_id'], 'desconhecida') }}</strong>
+        {% elif p['distribuicao_status'] == 'buscando' %}
+          🖨️ Procurando impressora parceira...
+        {% elif p['distribuicao_status'] == 'sem_impressora' %}
+          🖨️ <span style="color:var(--err);">Sem impressora disponível</span>
+          {% if impressoras_disponiveis %}
+          <form method="post" action="{{ url_for('admin_pedido_atribuir_impressora', pedido_id=p['id']) }}" style="display:inline-flex; gap:6px; margin-left:8px;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <select name="impressora_id" style="font-size:.78rem;">
+              {% for imp in impressoras_disponiveis %}
+              <option value="{{ imp['id'] }}">{{ imp['nome'] }}</option>
+              {% endfor %}
+            </select>
+            <button type="submit" class="btn-ghost" style="padding:4px 10px; font-size:.75rem;">Atribuir</button>
+          </form>
+          {% endif %}
+        {% endif %}
+      </div>
+      {% endif %}
     </div>
     <div class="order-card-side">
       <div class="order-card-valor">R$ {{ "%.2f"|format(p['valor_estimado'])|replace('.', ',') }}</div>

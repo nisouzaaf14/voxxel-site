@@ -23,6 +23,8 @@
 import math
 import time
 
+from database import aplicar_comissao_pedido
+
 TIMEOUT_OFERTA_SEGUNDOS = 5 * 60  # 5 minutos pra impressora aceitar/recusar
 
 STATUS_SEM_LOCALIZACAO = "sem_localizacao"
@@ -206,6 +208,16 @@ def responder_oferta(conn, oferta_id, impressora_id, aceitar):
             "UPDATE pedidos SET impressora_id = ?, distribuicao_status = ? WHERE id = ?",
             (impressora_id, STATUS_ATRIBUIDO, oferta["pedido_id"]),
         )
+        # Pedido passou a ser de uma impressora parceira -- é aqui que a
+        # Voxxel garante sua fatia (comissão %) sobre o valor do pedido,
+        # essencial pro modelo de marketplace escalar (a Voxxel ganha em
+        # todo pedido produzido por qualquer impressora da rede, não só
+        # nos que ela mesma imprime).
+        pedido = conn.execute(
+            "SELECT valor_estimado FROM pedidos WHERE id = ?", (oferta["pedido_id"],)
+        ).fetchone()
+        if pedido:
+            aplicar_comissao_pedido(conn, oferta["pedido_id"], pedido["valor_estimado"])
         conn.commit()
     else:
         conn.execute(
@@ -244,4 +256,9 @@ def atribuir_manualmente(conn, pedido_id, impressora_id):
         "UPDATE pedidos SET impressora_id = ?, distribuicao_status = ? WHERE id = ?",
         (impressora_id, STATUS_ATRIBUIDO, pedido_id),
     )
+    # Mesma regra de comissão da aceitação automática -- atribuição manual
+    # também é um pedido indo pra rede de parceiros, não muda o negócio.
+    pedido = conn.execute("SELECT valor_estimado FROM pedidos WHERE id = ?", (pedido_id,)).fetchone()
+    if pedido:
+        aplicar_comissao_pedido(conn, pedido_id, pedido["valor_estimado"])
     conn.commit()

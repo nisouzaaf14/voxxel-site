@@ -1,0 +1,39 @@
+{% extends "admin_base.html" %}
+{% block title %}Impressoras parceiras — Painel Voxxel{% endblock %}
+{% block eyebrow %}Marketplace{% endblock %}
+{% block page_title %}Impressoras parceiras{% endblock %}
+
+{% block admin_content %}
+{% if impressoras %}
+<table class="seller-table">
+  <thead>
+    <tr><th>Impressora</th><th>Telefone</th><th>Status</th><th>Cadastrada em</th><th></th></tr>
+  </thead>
+  <tbody>
+    {% for i in impressoras %}
+    <tr>
+      <td>{{ i['nome'] }}</td>
+      <td>{{ i['telefone'] }}</td>
+      <td>
+        <span class="printer-status-dot {{ 'online' if i['online'] and i['ativo'] }}" style="display:inline-block; margin-right:8px;"></span>
+        {% if not i['ativo'] %}Bloqueada{% elif i['online'] %}Online agora{% else %}Offline{% endif %}
+      </td>
+      <td>{{ i['criado_em'] }}</td>
+      <td>
+        <form method="post" action="{{ url_for('admin_impressora_toggle', impressora_id=i['id']) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <label class="switch">
+            <input type="checkbox" onchange="this.form.submit()" {{ 'checked' if i['ativo'] }}>
+            <span class="track"></span>
+            <span class="switch-label">{{ 'Ativa' if i['ativo'] else 'Bloqueada' }}</span>
+          </label>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<div class="empty-state">Nenhuma impressora parceira cadastrada ainda. Compartilhe o link de cadastro: <br><code>{{ url_for('impressora_cadastro', _external=True) }}</code></div>
+{% endif %}
+{% endblock %}

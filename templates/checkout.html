@@ -10,8 +10,10 @@
       <p>Comprando como {{ cliente['nome'] }} · <a href="{{ url_for('conta_sair') }}" style="color:var(--muted);">não é você?</a></p>
     </div>
 
-    <form method="post" action="{{ url_for('checkout') }}">
+    <form method="post" action="{{ url_for('checkout') }}" id="form-checkout">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="cliente_lat" id="cliente_lat">
+          <input type="hidden" name="cliente_lng" id="cliente_lng">
       <div class="calc fade-up">
         <div class="calc-form">
           <div class="field">
@@ -65,5 +67,19 @@
       }
     });
   });
+
+  // Localização opcional: se o cliente permitir, usamos pra achar a
+  // impressora parceira mais próxima pra imprimir o pedido. Sem permissão,
+  // o pedido segue normalmente (só sem a busca automática de impressora).
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        document.getElementById('cliente_lat').value = pos.coords.latitude;
+        document.getElementById('cliente_lng').value = pos.coords.longitude;
+      },
+      () => {},
+      { timeout: 6000 }
+    );
+  }
 </script>
 {% endblock %}

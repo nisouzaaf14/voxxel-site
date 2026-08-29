@@ -14,8 +14,6 @@
   </div>
 </section>
 
-<div class="wrap"><div class="facet-divider"></div></div>
-
 <section id="categorias">
   <div class="wrap">
     <div class="section-head fade-up">
@@ -26,21 +24,27 @@
     <div class="cats">
       <div class="cat-card fade-up">
         <div class="cat-inner">
-          <div class="cat-icon">⚙️</div>
+          <div class="cat-frame">
+            <svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="1"/><path d="M12 4v16M4 12h16"/></svg>
+          </div>
           <h3>Peças Técnicas</h3>
           <p>Protótipos funcionais, componentes de reposição e peças dimensionadas com precisão para uso real.</p>
         </div>
       </div>
       <div class="cat-card fade-up">
         <div class="cat-inner">
-          <div class="cat-icon">🎭</div>
+          <div class="cat-frame">
+            <svg viewBox="0 0 24 24"><path d="M12 3l7 12H5L12 3Z"/><path d="M12 21l-7-12h14L12 21Z"/></svg>
+          </div>
           <h3>Cosplay & Acessórios</h3>
           <p>Réplicas fiéis e acessórios modelados a partir de referência, com acabamento pronto para pintura.</p>
         </div>
       </div>
       <div class="cat-card fade-up">
         <div class="cat-inner">
-          <div class="cat-icon">🏺</div>
+          <div class="cat-frame">
+            <svg viewBox="0 0 24 24"><path d="M12 3l8 4.5-8 4.5-8-4.5L12 3Z"/><path d="M4 12l8 4.5 8-4.5"/><path d="M4 16.5l8 4.5 8-4.5"/></svg>
+          </div>
           <h3>Decoração & Utilitários</h3>
           <p>Objetos autorais com geometria exclusiva e acabamento refinado para casa e escritório.</p>
         </div>
@@ -61,6 +65,42 @@
       <div class="poly-piece" style="--ang:160deg"></div>
       <div class="poly-piece" style="--ang:250deg"></div>
       <div class="poly-piece" style="--ang:310deg"></div>
+    </div>
+  </div>
+</section>
+
+<section id="rede">
+  <div class="wrap">
+    <div class="section-head fade-up">
+      <div class="eyebrow">Rede de impressão</div>
+      <h2>Uma rede de impressoras, perto de você</h2>
+      <p>A Voxxel conecta seu pedido à impressora parceira mais próxima disponível — entrega mais rápida, sem abrir mão do mesmo padrão de qualidade em cada peça.</p>
+    </div>
+    <div class="cats">
+      <div class="cat-card fade-up">
+        <div class="cat-inner">
+          <div class="cat-num">01</div>
+          <h3>Você pede</h3>
+          <p>Escolhe uma peça do catálogo ou monta um orçamento sob medida — com sua localização, pra entrega mais rápida.</p>
+        </div>
+      </div>
+      <div class="cat-card fade-up">
+        <div class="cat-inner">
+          <div class="cat-num">02</div>
+          <h3>A rede responde</h3>
+          <p>A impressora parceira mais próxima e disponível recebe a oferta — se não aceitar, passa pra próxima em minutos.</p>
+        </div>
+      </div>
+      <div class="cat-card fade-up">
+        <div class="cat-inner">
+          <div class="cat-num">03</div>
+          <h3>Você recebe</h3>
+          <p>Mesmo padrão Voxxel em cada peça, não importa qual impressora da rede produziu a sua.</p>
+        </div>
+      </div>
+    </div>
+    <div style="text-align:center; margin-top:var(--space-3);">
+      <a class="btn btn-outline" href="{{ url_for('impressora_cadastro') }}">Tem uma impressora 3D? Entre para a rede</a>
     </div>
   </div>
 </section>

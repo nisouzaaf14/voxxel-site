@@ -73,6 +73,11 @@ CONFIG_PADRAO = {
     "whatsapp": "5541998526355",
     "mp_access_token": "",
     "vendedor_nome": "Voxxel",
+    # % que a Voxxel retém sobre o valor de cada pedido atribuído a uma
+    # impressora parceira (marketplace) -- editável pelo admin. Pedidos
+    # que a própria Voxxel produz (sem impressora parceira) não têm
+    # comissão, é 100% dela mesma.
+    "comissao_percentual": "15",
 }
 
 PRODUTOS_SEED = [
@@ -225,6 +230,11 @@ def _criar_tabelas(conn, is_new_sqlite):
         conn.execute("ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS status_pagamento TEXT DEFAULT 'aguardando'")
         conn.execute("ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS mp_preference_id TEXT")
         conn.execute("ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS mp_payment_id TEXT")
+        # Marketplace: quanto a Voxxel ganha desse pedido específico (só é
+        # preenchido quando o pedido é atribuído a uma impressora parceira
+        # -- ver distribuicao.py). Fica NULL pra pedidos que a Voxxel
+        # mesma produz.
+        conn.execute("ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS comissao_voxxel REAL")
         # Marketplace de impressão: localização do cliente (pra achar a
         # impressora mais próxima) e o estado da fila de despacho (veja
         # distribuicao.py). `impressora_id` é adicionada mais abaixo, com
@@ -350,6 +360,7 @@ def _criar_tabelas(conn, is_new_sqlite):
             "ALTER TABLE pedidos ADD COLUMN cliente_lat REAL",
             "ALTER TABLE pedidos ADD COLUMN cliente_lng REAL",
             "ALTER TABLE pedidos ADD COLUMN distribuicao_status TEXT DEFAULT 'nao_aplicavel'",
+            "ALTER TABLE pedidos ADD COLUMN comissao_voxxel REAL",
         ):
             try:
                 conn.execute(coluna_sql)
@@ -610,6 +621,53 @@ def listar_pedidos_cliente(conn, cliente_id):
     return conn.execute(
         "SELECT * FROM pedidos WHERE cliente_id = ? ORDER BY id DESC", (cliente_id,)
     ).fetchall()
+
+
+# ---------- comissão do marketplace ----------
+
+def percentual_comissao(conn):
+    """Lê a % de comissão configurada pelo admin (chave 'comissao_percentual'),
+    com um padrão seguro de 15% caso o valor salvo esteja vazio ou inválido."""
+    valor = conn.execute(
+        "SELECT valor FROM configuracoes WHERE chave = 'comissao_percentual'"
+    ).fetchone()
+    try:
+        pct = float(valor["valor"]) if valor else 15.0
+    except (TypeError, ValueError):
+        pct = 15.0
+    return max(0.0, min(pct, 100.0))
+
+
+def aplicar_comissao_pedido(conn, pedido_id, valor_estimado):
+    """Calcula e grava a comissão da Voxxel sobre um pedido no momento em
+    que ele é atribuído a uma impressora parceira. Devolve o valor
+    calculado (R$) pra quem quiser usar/exibir na hora."""
+    pct = percentual_comissao(conn)
+    comissao = round(float(valor_estimado) * pct / 100, 2)
+    conn.execute(
+        "UPDATE pedidos SET comissao_voxxel = ? WHERE id = ?",
+        (comissao, pedido_id),
+    )
+    return comissao
+
+
+def resumo_comissoes(conn):
+    """Total acumulado de comissão da Voxxel sobre pedidos já atribuídos a
+    impressoras parceiras, e o detalhamento por impressora -- pra exibir
+    no painel do admin (quanto o marketplace já rendeu, e quem gerou mais)."""
+    total = conn.execute(
+        "SELECT COALESCE(SUM(comissao_voxxel), 0) AS total FROM pedidos WHERE comissao_voxxel IS NOT NULL"
+    ).fetchone()["total"]
+    por_impressora = conn.execute(
+        """SELECT i.id, i.nome, COUNT(p.id) AS pedidos,
+                  COALESCE(SUM(p.comissao_voxxel), 0) AS comissao_total,
+                  COALESCE(SUM(p.valor_estimado), 0) AS faturamento_total
+           FROM impressoras i
+           JOIN pedidos p ON p.impressora_id = i.id AND p.comissao_voxxel IS NOT NULL
+           GROUP BY i.id, i.nome
+           ORDER BY comissao_total DESC"""
+    ).fetchall()
+    return {"total": round(total, 2), "por_impressora": por_impressora}
 
 
 def get_configs(conn):

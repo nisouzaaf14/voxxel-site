@@ -18,9 +18,12 @@ from database import (
     listar_pedidos_cliente, ler_coordenada_formulario,
     criar_impressora, buscar_impressora_por_telefone, buscar_impressora_por_id, listar_impressoras,
     definir_status_impressora, atualizar_localizacao_impressora, definir_impressora_ativa,
-    listar_pedidos_da_impressora,
+    listar_pedidos_da_impressora, resumo_comissoes, percentual_comissao,
 )
-from calculadora import calcular_orcamento, formatar_horas, MATERIAIS, QUALIDADE, COMPLEXIDADE
+from calculadora import (
+    calcular_orcamento, formatar_horas, MATERIAIS, QUALIDADE, COMPLEXIDADE,
+    PRECO_HORA_IMPRESSAO, SHELL_FRACTION, CAT_ACABAMENTO,
+)
 import pix
 import mercadopago_pay
 import distribuicao
@@ -646,6 +649,7 @@ def orcamento():
                 materiais=MATERIAIS, qualidades=QUALIDADE, complexidades=COMPLEXIDADE,
                 materiais_js=json.dumps(MATERIAIS), qualidade_js=json.dumps(QUALIDADE),
                 complexidade_js=json.dumps(COMPLEXIDADE), cliente_logado=cliente_logado,
+                regra_js=json.dumps({"hora_maquina": PRECO_HORA_IMPRESSAO, "shell_fraction": SHELL_FRACTION, "cat_acabamento": CAT_ACABAMENTO}),
             )
         resultado = calcular_orcamento(
             form["altura"], form["largura"], form["profundidade"], form["quantidade"],
@@ -671,6 +675,7 @@ def orcamento():
                     materiais=MATERIAIS, qualidades=QUALIDADE, complexidades=COMPLEXIDADE,
                     materiais_js=json.dumps(MATERIAIS), qualidade_js=json.dumps(QUALIDADE),
                     complexidade_js=json.dumps(COMPLEXIDADE), cliente_logado=cliente_logado,
+                    regra_js=json.dumps({"hora_maquina": PRECO_HORA_IMPRESSAO, "shell_fraction": SHELL_FRACTION, "cat_acabamento": CAT_ACABAMENTO}),
                 )
 
             detalhes = (
@@ -698,6 +703,7 @@ def orcamento():
         materiais=MATERIAIS, qualidades=QUALIDADE, complexidades=COMPLEXIDADE,
         materiais_js=json.dumps(MATERIAIS), qualidade_js=json.dumps(QUALIDADE),
         complexidade_js=json.dumps(COMPLEXIDADE), cliente_logado=cliente_logado,
+        regra_js=json.dumps({"hora_maquina": PRECO_HORA_IMPRESSAO, "shell_fraction": SHELL_FRACTION, "cat_acabamento": CAT_ACABAMENTO}),
     )
 
 
@@ -829,6 +835,7 @@ def admin_dashboard():
     pedidos = conn.execute("SELECT * FROM pedidos ORDER BY id DESC").fetchall()
     produtos = conn.execute("SELECT id, ativo, estoque FROM produtos").fetchall()
     config = get_configs(conn)
+    comissoes = resumo_comissoes(conn)
     conn.close()
 
     receita_confirmada = sum(p["valor_estimado"] for p in pedidos if p["status_pagamento"] == "informado")
@@ -849,6 +856,8 @@ def admin_dashboard():
         pix_configurado=bool(config["pix_chave"].strip()),
         cartao_configurado=bool(config["mp_access_token"].strip()),
         ultimos_pedidos=pedidos[:5],
+        comissao_total=comissoes["total"],
+        comissao_por_impressora=comissoes["por_impressora"],
     )
 
 
@@ -857,6 +866,11 @@ def admin_dashboard():
 def admin_configuracoes():
     conn = get_db()
     if request.method == "POST":
+        try:
+            comissao_pct = float(request.form.get("comissao_percentual", "15").replace(",", "."))
+        except ValueError:
+            comissao_pct = 15.0
+        comissao_pct = max(0.0, min(comissao_pct, 100.0))  # nunca deixa negativo ou acima de 100%
         set_configs(conn, {
             "vendedor_nome": request.form.get("vendedor_nome", "").strip() or "Voxxel",
             "pix_chave": request.form.get("pix_chave", "").strip(),
@@ -864,6 +878,7 @@ def admin_configuracoes():
             "pix_cidade": request.form.get("pix_cidade", "").strip() or "Sao Jose dos Pinhais",
             "whatsapp": request.form.get("whatsapp", "").strip(),
             "mp_access_token": request.form.get("mp_access_token", "").strip(),
+            "comissao_percentual": str(comissao_pct),
         })
         flash("Configurações salvas.")
         conn.close()
@@ -1254,6 +1269,8 @@ def impressora_painel():
     oferta_pedido = None
     oferta_distancia_km = None
     oferta_segundos_restantes = None
+    oferta_ganho_estimado = None
+    pct_comissao = percentual_comissao(conn)
     if oferta:
         oferta_pedido = conn.execute("SELECT * FROM pedidos WHERE id = ?", (oferta["pedido_id"],)).fetchone()
         oferta_segundos_restantes = distribuicao.segundos_restantes_oferta(oferta)
@@ -1265,14 +1282,23 @@ def impressora_painel():
                 ),
                 1,
             )
+        if oferta_pedido:
+            # Quanto a impressora efetivamente embolsa se aceitar -- valor
+            # do pedido já descontada a comissão da Voxxel, pra ela decidir
+            # com o número certo na mão, não o valor bruto do pedido.
+            oferta_ganho_estimado = round(oferta_pedido["valor_estimado"] * (1 - pct_comissao / 100), 2)
 
     pedidos_atribuidos = listar_pedidos_da_impressora(conn, impressora["id"])
+    ganho_acumulado = sum(
+        (p["valor_estimado"] - (p["comissao_voxxel"] or 0)) for p in pedidos_atribuidos
+    )
     conn.close()
 
     return render_template(
         "impressora_painel.html", impressora=impressora, oferta=oferta, oferta_pedido=oferta_pedido,
         oferta_distancia_km=oferta_distancia_km, oferta_segundos_restantes=oferta_segundos_restantes,
-        pedidos=pedidos_atribuidos,
+        oferta_ganho_estimado=oferta_ganho_estimado, pedidos=pedidos_atribuidos,
+        ganho_acumulado=round(ganho_acumulado, 2), pct_comissao=pct_comissao,
     )
 
 

@@ -56,6 +56,22 @@
         <div class="result-label">Itens</div>
         <pre>{{ pedido['detalhes'] }}</pre>
       </div>
+
+      {% if impressora or pedido['distribuicao_status'] in ('buscando', 'sem_impressora', 'sem_localizacao') %}
+      <div class="printer-dispatch-box">
+        {% if impressora %}
+          <span class="printer-status-dot online" style="display:inline-block; margin-right:8px;"></span>
+          Impressão atribuída a <strong>{{ impressora['nome'] }}</strong> — ela vai entrar em contato pelo WhatsApp.
+        {% elif pedido['distribuicao_status'] == 'buscando' %}
+          <span class="printer-status-dot" style="display:inline-block; margin-right:8px;"></span>
+          Procurando uma impressora parceira online perto de você... assim que alguém aceitar, avisamos aqui.
+        {% elif pedido['distribuicao_status'] == 'sem_impressora' %}
+          Nenhuma impressora parceira está disponível na sua região agora — a Voxxel vai produzir e falar com você pelo WhatsApp.
+        {% elif pedido['distribuicao_status'] == 'sem_localizacao' %}
+          Não recebemos sua localização, então esse pedido será produzido direto pela Voxxel.
+        {% endif %}
+      </div>
+      {% endif %}
     </div>
 
     <a href="{{ url_for('loja') }}" class="admin-login-back">← Voltar para o catálogo</a>

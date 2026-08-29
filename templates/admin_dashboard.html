@@ -9,7 +9,7 @@
 {% block admin_content %}
 
 {% if not pix_configurado or not cartao_configurado %}
-<div class="flash" style="border-color:var(--gold); margin-bottom:26px;">
+<div class="flash" style="border-color:var(--warn); margin-bottom:26px;">
   {% if not pix_configurado and not cartao_configurado %}
   Nenhuma forma de pagamento automática está configurada ainda — os clientes só vão poder combinar direto com você.
   {% elif not pix_configurado %}

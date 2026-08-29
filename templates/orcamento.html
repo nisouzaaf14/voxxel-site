@@ -12,6 +12,8 @@
 
     <form method="post" action="{{ url_for('orcamento') }}" id="form-orcamento">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="cliente_lat" id="cliente_lat">
+          <input type="hidden" name="cliente_lng" id="cliente_lng">
       <div class="calc fade-up">
         <div class="calc-form">
           <div class="field">
@@ -96,7 +98,7 @@
 
           <button type="submit" name="acao" value="enviar" class="btn btn-primary btn-block">Solicitar este orçamento</button>
           {% if not cliente_logado %}
-          <p class="disclaimer">Você vai precisar <a href="{{ url_for('conta_entrar', next=url_for('orcamento')) }}" style="color:var(--gold-soft);">entrar ou criar uma conta</a> para enviar o orçamento.</p>
+          <p class="disclaimer">Você vai precisar <a href="{{ url_for('conta_entrar', next=url_for('orcamento')) }}" style="color:var(--violet-bright);">entrar ou criar uma conta</a> para enviar o orçamento.</p>
           {% endif %}
           <p class="disclaimer">Estimativa baseada no peso do material e no tempo de impressão da peça. O valor final é confirmado pela Voxxel após análise técnica do modelo enviado.</p>
         </div>
@@ -109,12 +111,18 @@
 
 {% block scripts %}
 <script>
-  // Mesma fórmula do calculadora.py — só para dar o preview instantâneo antes de enviar ao servidor.
+  // Mesma fórmula do calculadora.py — a regra de preço (hora de máquina, shell
+  // fraction, acabamento por categoria) agora vem direto do servidor via
+  // `regra_js`, em vez de números fixos aqui no JS -- isso evitava que o
+  // preview no navegador ficasse dessincronizado do valor cobrado de verdade
+  // (era exatamente esse o bug: preco_kg não existia e a hora de máquina
+  // usada aqui era R$9 enquanto o servidor sempre cobrou R$2).
   const MATERIAIS = {{ materiais_js | safe }};
   const QUALIDADE = {{ qualidade_js | safe }};
   const COMPLEXIDADE = {{ complexidade_js | safe }};
-  const SHELL_FRACTION = 0.15, HORA_MAQUINA = 9;
-  const CAT_ACABAMENTO = { tecnica: 6, cosplay: 14, decoracao: 8 };
+  const REGRA = {{ regra_js | safe }};
+  const SHELL_FRACTION = REGRA.shell_fraction, HORA_MAQUINA = REGRA.hora_maquina;
+  const CAT_ACABAMENTO = REGRA.cat_acabamento;
 
   const $ = id => document.getElementById(id);
 
@@ -179,6 +187,19 @@
   }
 
   calcular();
+
+  // Localização opcional, pra achar a impressora parceira mais próxima
+  // pra produzir a peça (ver checkout.html -- mesma ideia).
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        document.getElementById('cliente_lat').value = pos.coords.latitude;
+        document.getElementById('cliente_lng').value = pos.coords.longitude;
+      },
+      () => {},
+      { timeout: 6000 }
+    );
+  }
 
   // ---------- "blob" 3D — nuvem de pontos sem forma definida, que respira
   // e se estica de acordo com as dimensões da peça orçada ----------

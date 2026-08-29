@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+{% block title %}Painel da impressora — Voxxel{% endblock %}
+{% block content %}
+
+<section style="padding-top:var(--space-3);">
+  <div class="wrap">
+    <div class="section-head fade-up" style="text-align:left; align-items:flex-start; margin-bottom:var(--space-2);">
+      <div class="eyebrow">Impressora parceira</div>
+      <h2>Olá, {{ impressora['nome'] }}</h2>
+      <p><a href="{{ url_for('impressora_sair') }}" style="color:var(--muted);">Sair</a></p>
+    </div>
+
+    {% if not impressora['ativo'] %}
+    <div class="flash fade-up" style="border-color:var(--err); color:var(--err); margin-bottom:20px;">
+      Sua conta de impressora parceira está bloqueada pela Voxxel. Fale com a gente pra reativar.
+    </div>
+    {% endif %}
+
+    <div class="stat-grid fade-up" style="margin-bottom:var(--space-2);">
+      <div class="stat-card">
+        <div class="stat-label">Ganho acumulado</div>
+        <div class="stat-value">R$ {{ "%.2f"|format(ganho_acumulado)|replace('.', ',') }}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Pedidos atribuídos</div>
+        <div class="stat-value">{{ pedidos|length }}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Comissão Voxxel</div>
+        <div class="stat-value">{{ pct_comissao|int }}%</div>
+      </div>
+    </div>
+
+    <div class="printer-status-card fade-up">
+      <div class="printer-status-info">
+        <span class="printer-status-dot {{ 'online' if impressora['online'] }}"></span>
+        <div>
+          <div class="printer-status-label">{{ 'Você está ONLINE' if impressora['online'] else 'Você está OFFLINE' }}</div>
+          <div class="printer-status-sub">
+            {{ 'Recebendo pedidos da sua região' if impressora['online'] else 'Fique online pra começar a receber pedidos' }}
+          </div>
+        </div>
+      </div>
+      {% if impressora['ativo'] %}
+      <form method="post" action="{{ url_for('impressora_status') }}" id="form-status">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="online" id="status-online-input" value="{{ '0' if impressora['online'] else '1' }}">
+        <input type="hidden" name="latitude" id="status-lat-input">
+        <input type="hidden" name="longitude" id="status-lng-input">
+        <button type="submit" class="{{ 'btn-danger' if impressora['online'] else 'btn btn-primary' }}" id="btn-toggle-status">
+          {{ 'Ficar offline' if impressora['online'] else 'Ficar online' }}
+        </button>
+      </form>
+      {% endif %}
+    </div>
+
+    {% if oferta and oferta_pedido %}
+    <div class="oferta-card fade-up" id="oferta-card" data-segundos="{{ oferta_segundos_restantes }}">
+      <div class="oferta-header">
+        <span class="oferta-badge">Novo pedido perto de você</span>
+        <span class="oferta-timer" id="oferta-timer">--:--</span>
+      </div>
+      <div class="oferta-body">
+        <div class="oferta-detalhes">{{ oferta_pedido['detalhes'] }}</div>
+        <div class="oferta-meta">
+          <span>Você recebe R$ {{ "%.2f"|format(oferta_ganho_estimado)|replace('.', ',') }}</span>
+          <span>· pedido de R$ {{ "%.2f"|format(oferta_pedido['valor_estimado'])|replace('.', ',') }}</span>
+          {% if oferta_distancia_km is not none %}<span>· {{ oferta_distancia_km }} km de você</span>{% endif %}
+        </div>
+      </div>
+      <div class="oferta-actions">
+        <form method="post" action="{{ url_for('impressora_oferta_responder', oferta_id=oferta['id']) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="acao" value="recusar">
+          <button type="submit" class="btn-danger">Recusar</button>
+        </form>
+        <form method="post" action="{{ url_for('impressora_oferta_responder', oferta_id=oferta['id']) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="acao" value="aceitar">
+          <button type="submit" class="btn btn-primary">Aceitar pedido</button>
+        </form>
+      </div>
+    </div>
+    {% elif impressora['online'] %}
+    <div class="empty-state fade-up" id="aguardando-oferta">Você está online e aguardando um pedido por perto...</div>
+    {% endif %}
+
+    <div class="section-head" style="text-align:left; align-items:flex-start; margin:var(--space-3) 0 16px;">
+      <h2 style="font-size:1.15rem;">Pedidos atribuídos a você</h2>
+    </div>
+
+    {% if pedidos %}
+    <div class="order-list">
+      {% for p in pedidos %}
+      <div class="order-card">
+        <div class="order-card-main">
+          <div class="order-card-id">Pedido #{{ p['id'] }} · {{ p['criado_em'] }}</div>
+          <div class="order-card-tipo">{{ 'Loja' if p['tipo'] == 'loja' else 'Orçamento' }}</div>
+          <div class="order-card-detalhes">{{ p['detalhes'] }}</div>
+        </div>
+        <div class="order-card-side">
+          <div class="order-card-valor">R$ {{ "%.2f"|format(p['valor_estimado'] - (p['comissao_voxxel'] or 0))|replace('.', ',') }}</div>
+          {% if p['comissao_voxxel'] %}
+          <div class="order-card-impressora">pedido de R$ {{ "%.2f"|format(p['valor_estimado'])|replace('.', ',') }} · comissão Voxxel R$ {{ "%.2f"|format(p['comissao_voxxel'])|replace('.', ',') }}</div>
+          {% endif %}
+          <span class="badge badge-{{ p['status'] }}">{{ p['status'] }}</span>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">Nenhum pedido atribuído a você ainda.</div>
+    {% endif %}
+  </div>
+</section>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const CSRF_TOKEN = "{{ csrf_token() }}";
+  const estaOnline = {{ 'true' if impressora['online'] else 'false' }};
+
+  const formStatus = document.getElementById('form-status');
+  const btnToggle = document.getElementById('btn-toggle-status');
+  const latInput = document.getElementById('status-lat-input');
+  const lngInput = document.getElementById('status-lng-input');
+  const onlineInput = document.getElementById('status-online-input');
+
+  if (formStatus) {
+    formStatus.addEventListener('submit', function (e) {
+      // Só precisa da localização pra ENTRAR online (pra sair, não precisa).
+      if (onlineInput.value !== '1') return;
+
+      e.preventDefault();
+      if (!navigator.geolocation) {
+        alert('Seu navegador não suporta geolocalização -- não dá pra ficar online sem ela.');
+        return;
+      }
+      btnToggle.disabled = true;
+      btnToggle.textContent = 'Obtendo localização...';
+      navigator.geolocation.getCurrentPosition(
+        pos => {
+          latInput.value = pos.coords.latitude;
+          lngInput.value = pos.coords.longitude;
+          formStatus.submit();
+        },
+        () => {
+          alert('Não conseguimos acessar sua localização. Permita o acesso pelo navegador e tente de novo.');
+          btnToggle.disabled = false;
+          btnToggle.textContent = 'Ficar online';
+        },
+        { timeout: 8000, enableHighAccuracy: true }
+      );
+    });
+  }
+
+  // Enquanto online, reenvia a localização periodicamente -- assim a fila
+  // de despacho sempre calcula a distância com a posição mais recente.
+  if (estaOnline && navigator.geolocation) {
+    setInterval(() => {
+      navigator.geolocation.getCurrentPosition(pos => {
+        fetch("{{ url_for('impressora_localizacao') }}", {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({
+            csrf_token: CSRF_TOKEN,
+            latitude: pos.coords.latitude,
+            longitude: pos.coords.longitude,
+          }),
+        }).catch(() => {});
+      });
+    }, 60000);
+  }
+
+  // Cronômetro da oferta pendente (baseado nos segundos que o servidor já
+  // calculou) -- quando zera, recarrega a página pra pegar o novo estado
+  // (pode ter expirado e ido pra próxima impressora).
+  const ofertaCard = document.getElementById('oferta-card');
+  if (ofertaCard) {
+    let restante = parseInt(ofertaCard.dataset.segundos, 10) || 0;
+    const timerEl = document.getElementById('oferta-timer');
+    function atualizarTimer() {
+      if (restante <= 0) { location.reload(); return; }
+      const min = Math.floor(restante / 60);
+      const seg = restante % 60;
+      timerEl.textContent = `${min}:${seg.toString().padStart(2, '0')}`;
+      restante -= 1;
+    }
+    atualizarTimer();
+    setInterval(atualizarTimer, 1000);
+  } else if (estaOnline) {
+    // Sem oferta agora: fica de olho, recarregando de tempos em tempos
+    // pra descobrir quando uma nova oferta chegar.
+    setInterval(() => location.reload(), 20000);
+  }
+</script>
+{% endblock %}

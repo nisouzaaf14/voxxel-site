@@ -1,21 +1,20 @@
 {% extends "base.html" %}
-{% block title %}Criar conta — Voxxel{% endblock %}
+{% block title %}Seja uma impressora parceira — Voxxel{% endblock %}
 {% block content %}
 
 <section style="padding-top:var(--space-3);">
   <div class="wrap" style="max-width:440px; margin:0 auto;">
     <div class="section-head fade-up" style="margin-bottom:var(--space-2);">
-      <div class="eyebrow">Minha conta</div>
-      <h2>Criar conta</h2>
-      <p>Leva menos de um minuto — depois é só usar seu telefone e senha para entrar.</p>
+      <div class="eyebrow">Impressoras parceiras</div>
+      <h2>Cadastre sua impressora</h2>
+      <p>Fique online quando quiser imprimir e receba pedidos de clientes perto de você — como um app de entrega, mas pra impressão 3D.</p>
     </div>
 
     <form method="post" class="form-card fade-up">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <input type="hidden" name="next" value="{{ request.args.get('next', '') }}">
       <div class="field">
-        <label>Nome</label>
-        <input type="text" name="nome" required placeholder="Seu nome" value="{{ request.form.get('nome','') }}">
+        <label>Seu nome (ou nome da oficina/impressora)</label>
+        <input type="text" name="nome" required placeholder="Ex: Ateliê 3D do João" value="{{ request.form.get('nome','') }}">
       </div>
       <div class="field">
         <label>WhatsApp / telefone</label>
@@ -29,12 +28,12 @@
         <label>Confirmar senha</label>
         <input type="password" name="confirmar_senha" required minlength="6">
       </div>
-      <button type="submit" class="btn btn-primary btn-block">Criar conta</button>
+      <button type="submit" class="btn btn-primary btn-block">Cadastrar impressora</button>
     </form>
 
     <p style="text-align:center; margin-top:18px; color:var(--muted); font-size:.9rem;">
-      Já tem conta?
-      <a href="{{ url_for('conta_entrar', next=request.args.get('next','')) }}" style="color:var(--violet-bright);">Entrar</a>
+      Já tem cadastro?
+      <a href="{{ url_for('impressora_entrar') }}" style="color:var(--violet-bright);">Entrar</a>
     </p>
   </div>
 </section>

@@ -26,8 +26,8 @@ const WEBHOOK_URL = "COLE_AQUI_A_URL_DO_SEU_WEBHOOK_N8N";
       position: fixed; bottom: 92px; right: 22px; z-index: 999;
       width: min(360px, calc(100vw - 32px));
       height: min(480px, calc(100vh - 140px));
-      background: var(--panel, #140d22);
-      border: 1px solid var(--line-strong, rgba(168,133,215,0.32));
+      background: var(--panel, #130f1e);
+      border: 1px solid var(--line-strong, rgba(255,255,255,0.14));
       border-radius: var(--radius, 6px);
       display: none; flex-direction: column; overflow: hidden;
       box-shadow: 0 20px 60px rgba(0,0,0,0.5);
@@ -36,13 +36,13 @@ const WEBHOOK_URL = "COLE_AQUI_A_URL_DO_SEU_WEBHOOK_N8N";
     #voxxel-chat-panel.open { display: flex; }
 
     #voxxel-chat-header {
-      padding: 14px 16px; background: var(--panel-2, #1a1130);
-      border-bottom: 1px solid var(--line, rgba(168,133,215,0.16));
+      padding: 14px 16px; background: var(--panel-2, #1a1526);
+      border-bottom: 1px solid var(--line, rgba(255,255,255,0.07));
       color: var(--text, #f5f1fb); font-weight: 600; font-size: .95rem;
       display: flex; align-items: center; justify-content: space-between;
     }
     #voxxel-chat-close {
-      background: none; border: none; color: var(--muted, #a996c4);
+      background: none; border: none; color: var(--muted, #948da3);
       cursor: pointer; font-size: 1.1rem; line-height: 1; padding: 4px;
     }
 
@@ -55,29 +55,30 @@ const WEBHOOK_URL = "COLE_AQUI_A_URL_DO_SEU_WEBHOOK_N8N";
       font-size: .87rem; line-height: 1.4; white-space: pre-wrap;
     }
     .voxxel-msg.bot {
-      align-self: flex-start; background: var(--panel-2, #1a1130);
-      color: var(--text, #f5f1fb); border: 1px solid var(--line, rgba(168,133,215,0.16));
+      align-self: flex-start; background: var(--panel-2, #1a1526);
+      color: var(--text, #f5f1fb); border: 1px solid var(--line, rgba(255,255,255,0.07));
     }
     .voxxel-msg.user {
       align-self: flex-end; background: var(--violet, #a259ff); color: #fff;
     }
-    .voxxel-msg.loading { color: var(--muted, #a996c4); font-style: italic; }
+    .voxxel-msg.loading { color: var(--muted, #948da3); font-style: italic; }
 
     #voxxel-chat-form {
       display: flex; gap: 8px; padding: 12px;
-      border-top: 1px solid var(--line, rgba(168,133,215,0.16));
+      border-top: 1px solid var(--line, rgba(255,255,255,0.07));
     }
     #voxxel-chat-input {
-      flex: 1; background: var(--panel-2, #1a1130); color: var(--text, #f5f1fb);
-      border: 1px solid var(--line, rgba(168,133,215,0.16)); border-radius: var(--radius-sm, 3px);
+      flex: 1; background: var(--panel-2, #1a1526); color: var(--text, #f5f1fb);
+      border: 1px solid var(--line, rgba(255,255,255,0.07)); border-radius: var(--radius-sm, 3px);
       padding: 9px 11px; font-size: .87rem; font-family: inherit; resize: none;
     }
     #voxxel-chat-input:focus { outline: 1px solid var(--violet, #a259ff); }
     #voxxel-chat-send {
-      background: var(--gold, #cdab73); color: #1a1130; border: none;
+      background: var(--violet, #a259ff); color: #fff; border: none;
       border-radius: var(--radius-sm, 3px); padding: 0 16px; font-weight: 600;
       cursor: pointer; font-size: .87rem;
     }
+    #voxxel-chat-send:hover:not(:disabled) { background: var(--violet-bright, #c9a8ff); color: #1a1130; }
     #voxxel-chat-send:disabled { opacity: .6; cursor: default; }
   `;
   document.head.appendChild(style);
