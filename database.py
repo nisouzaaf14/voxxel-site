@@ -581,6 +581,26 @@ def listar_pedidos_da_impressora(conn, impressora_id):
     ).fetchall()
 
 
+def atualizar_perfil_impressora(conn, impressora_id, nome, telefone):
+    """Atualiza nome/telefone da própria impressora parceira (editado por
+    ela mesma no painel). O telefone é normalizado igual no cadastro/login,
+    pra manter tudo consistente."""
+    telefone = normalizar_telefone(telefone)
+    conn.execute(
+        "UPDATE impressoras SET nome = ?, telefone = ? WHERE id = ?",
+        (nome, telefone, impressora_id),
+    )
+    conn.commit()
+
+
+def atualizar_senha_impressora(conn, impressora_id, senha_hash):
+    conn.execute(
+        "UPDATE impressoras SET senha_hash = ? WHERE id = ?",
+        (senha_hash, impressora_id),
+    )
+    conn.commit()
+
+
 def normalizar_telefone(telefone):
     """Mantém só os dígitos do telefone -- assim '(41) 99852-6355' e
     '41999826355' são tratados como o mesmo valor no login/cadastro."""

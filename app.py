@@ -19,6 +19,7 @@ from database import (
     criar_impressora, buscar_impressora_por_telefone, buscar_impressora_por_id, listar_impressoras,
     definir_status_impressora, atualizar_localizacao_impressora, definir_impressora_ativa,
     listar_pedidos_da_impressora, resumo_comissoes, percentual_comissao,
+    atualizar_perfil_impressora, atualizar_senha_impressora,
 )
 from calculadora import (
     calcular_orcamento, formatar_horas, MATERIAIS, QUALIDADE, COMPLEXIDADE,
@@ -1141,8 +1142,10 @@ def admin_pedido_atribuir_impressora(pedido_id):
 def admin_impressoras():
     conn = get_db()
     impressoras = listar_impressoras(conn)
+    comissoes = resumo_comissoes(conn)
     conn.close()
-    return render_template("admin_impressoras.html", impressoras=impressoras)
+    stats_por_id = {i["id"]: i for i in comissoes["por_impressora"]}
+    return render_template("admin_impressoras.html", impressoras=impressoras, stats_por_id=stats_por_id)
 
 
 @app.route("/admin/impressoras/<int:impressora_id>/toggle", methods=["POST"])
@@ -1294,12 +1297,142 @@ def impressora_painel():
     )
     conn.close()
 
+    pedidos_recentes = pedidos_atribuidos[:5]
+
     return render_template(
         "impressora_painel.html", impressora=impressora, oferta=oferta, oferta_pedido=oferta_pedido,
         oferta_distancia_km=oferta_distancia_km, oferta_segundos_restantes=oferta_segundos_restantes,
-        oferta_ganho_estimado=oferta_ganho_estimado, pedidos=pedidos_atribuidos,
+        oferta_ganho_estimado=oferta_ganho_estimado, pedidos=pedidos_recentes,
+        total_pedidos=len(pedidos_atribuidos),
         ganho_acumulado=round(ganho_acumulado, 2), pct_comissao=pct_comissao,
     )
+
+
+@app.route("/impressora/pedidos")
+@login_impressora_obrigatorio
+def impressora_pedidos():
+    conn = get_db()
+    impressora = buscar_impressora_por_id(conn, session["impressora_id"])
+    if not impressora:
+        conn.close()
+        session.clear()
+        return redirect(url_for("impressora_entrar"))
+
+    todos = listar_pedidos_da_impressora(conn, impressora["id"])
+    conn.close()
+
+    status_filtro = request.args.get("status", "todos")
+    contagens = {
+        "todos": len(todos),
+        "novo": sum(1 for p in todos if p["status"] == "novo"),
+        "andamento": sum(1 for p in todos if p["status"] == "andamento"),
+        "concluido": sum(1 for p in todos if p["status"] == "concluido"),
+    }
+    if status_filtro in ("novo", "andamento", "concluido"):
+        pedidos = [p for p in todos if p["status"] == status_filtro]
+    else:
+        status_filtro = "todos"
+        pedidos = todos
+
+    return render_template(
+        "impressora_pedidos.html", impressora=impressora, pedidos=pedidos,
+        status_filtro=status_filtro, contagens=contagens,
+    )
+
+
+@app.route("/impressora/ganhos")
+@login_impressora_obrigatorio
+def impressora_ganhos():
+    conn = get_db()
+    impressora = buscar_impressora_por_id(conn, session["impressora_id"])
+    if not impressora:
+        conn.close()
+        session.clear()
+        return redirect(url_for("impressora_entrar"))
+
+    todos = listar_pedidos_da_impressora(conn, impressora["id"])
+    conn.close()
+
+    hoje = time.strftime("%Y-%m-%d")
+    semana_atual = time.strftime("%Y-%W")
+    mes_atual = time.strftime("%Y-%m")
+
+    def ganho_liquido(p):
+        return p["valor_estimado"] - (p["comissao_voxxel"] or 0)
+
+    ganho_hoje = ganho_semana = ganho_mes = ganho_total = 0.0
+    for p in todos:
+        liquido = ganho_liquido(p)
+        ganho_total += liquido
+        data_pedido = (p["criado_em"] or "")[:10]
+        if not data_pedido:
+            continue
+        if data_pedido == hoje:
+            ganho_hoje += liquido
+        try:
+            semana_pedido = time.strftime("%Y-%W", time.strptime(data_pedido, "%Y-%m-%d"))
+        except ValueError:
+            semana_pedido = None
+        if semana_pedido == semana_atual:
+            ganho_semana += liquido
+        if data_pedido[:7] == mes_atual:
+            ganho_mes += liquido
+
+    return render_template(
+        "impressora_ganhos.html", impressora=impressora, pedidos=todos,
+        ganho_hoje=round(ganho_hoje, 2), ganho_semana=round(ganho_semana, 2),
+        ganho_mes=round(ganho_mes, 2), ganho_total=round(ganho_total, 2),
+    )
+
+
+@app.route("/impressora/perfil", methods=["GET", "POST"])
+@login_impressora_obrigatorio
+def impressora_perfil():
+    conn = get_db()
+    impressora = buscar_impressora_por_id(conn, session["impressora_id"])
+    if not impressora:
+        conn.close()
+        session.clear()
+        return redirect(url_for("impressora_entrar"))
+
+    if request.method == "POST":
+        formulario = request.form.get("formulario")
+
+        if formulario == "dados":
+            nome = texto_seguro(request.form.get("nome"), 120)
+            telefone = normalizar_telefone(request.form.get("telefone"))
+            if not nome:
+                flash("Preencha seu nome (ou o nome da sua impressora/oficina).")
+            elif len(telefone) < TELEFONE_MIN_DIGITOS_IMPRESSORA:
+                flash("Informe um telefone válido, com DDD.")
+            else:
+                outra = buscar_impressora_por_telefone(conn, telefone)
+                if outra and outra["id"] != impressora["id"]:
+                    flash("Já existe uma impressora cadastrada com esse telefone.")
+                else:
+                    atualizar_perfil_impressora(conn, impressora["id"], nome, telefone)
+                    session["impressora_nome"] = nome
+                    flash("Dados atualizados.")
+
+        elif formulario == "senha":
+            senha_atual = request.form.get("senha_atual", "")
+            nova_senha = request.form.get("nova_senha", "")
+            confirmar_senha = request.form.get("confirmar_senha", "")
+            if not check_password_hash(impressora["senha_hash"], senha_atual):
+                flash("Senha atual incorreta.")
+            elif len(nova_senha) < 6:
+                flash("A nova senha precisa ter pelo menos 6 caracteres.")
+            elif nova_senha != confirmar_senha:
+                flash("As senhas não coincidem.")
+            else:
+                atualizar_senha_impressora(conn, impressora["id"], generate_password_hash(nova_senha))
+                flash("Senha alterada com sucesso.")
+
+        conn.close()
+        return redirect(url_for("impressora_perfil"))
+
+    conn.close()
+    return render_template("impressora_perfil.html", impressora=impressora)
 
 
 @app.route("/impressora/status", methods=["POST"])
