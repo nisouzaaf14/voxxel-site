@@ -225,6 +225,13 @@ def _criar_tabelas(conn, is_new_sqlite):
         conn.execute("ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS status_pagamento TEXT DEFAULT 'aguardando'")
         conn.execute("ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS mp_preference_id TEXT")
         conn.execute("ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS mp_payment_id TEXT")
+        # Marketplace de impressão: localização do cliente (pra achar a
+        # impressora mais próxima) e o estado da fila de despacho (veja
+        # distribuicao.py). `impressora_id` é adicionada mais abaixo, com
+        # a referência, depois que a tabela `impressoras` existir.
+        conn.execute("ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS cliente_lat REAL")
+        conn.execute("ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS cliente_lng REAL")
+        conn.execute("ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS distribuicao_status TEXT DEFAULT 'nao_aplicavel'")
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS configuracoes (
@@ -250,7 +257,46 @@ def _criar_tabelas(conn, is_new_sqlite):
             """
         )
         conn.commit()
+
+        # Impressoras parceiras (o lado "entregador" do marketplace): cada
+        # uma tem login próprio (telefone + senha, igual ao cliente) e uma
+        # localização GPS que ela mesma atualiza ao ficar online.
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS impressoras (
+                id SERIAL PRIMARY KEY,
+                nome TEXT NOT NULL,
+                telefone TEXT UNIQUE NOT NULL,
+                senha_hash TEXT NOT NULL,
+                latitude REAL,
+                longitude REAL,
+                localizacao_em TEXT,
+                online INTEGER DEFAULT 0,
+                ativo INTEGER DEFAULT 1,
+                criado_em TEXT DEFAULT to_char(CURRENT_TIMESTAMP, 'YYYY-MM-DD HH24:MI:SS')
+            )
+            """
+        )
+        conn.commit()
+
+        # Histórico de ofertas de cada pedido pra cada impressora -- é
+        # essa tabela que guarda quem já recusou o quê, pra fila de
+        # despacho não oferecer de novo pra quem já disse não.
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS ofertas_impressao (
+                id SERIAL PRIMARY KEY,
+                pedido_id INTEGER NOT NULL REFERENCES pedidos(id),
+                impressora_id INTEGER NOT NULL REFERENCES impressoras(id),
+                status TEXT DEFAULT 'pendente',
+                criado_em TEXT,
+                respondido_em TEXT
+            )
+            """
+        )
+        conn.commit()
         conn.execute("ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS cliente_id INTEGER REFERENCES clientes(id)")
+        conn.execute("ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS impressora_id INTEGER REFERENCES impressoras(id)")
         conn.commit()
 
         # Popula os produtos de exemplo só se a tabela ainda estiver vazia
@@ -300,6 +346,10 @@ def _criar_tabelas(conn, is_new_sqlite):
             "ALTER TABLE pedidos ADD COLUMN status_pagamento TEXT DEFAULT 'aguardando'",
             "ALTER TABLE pedidos ADD COLUMN mp_preference_id TEXT",
             "ALTER TABLE pedidos ADD COLUMN mp_payment_id TEXT",
+            # Marketplace de impressão (ver distribuicao.py)
+            "ALTER TABLE pedidos ADD COLUMN cliente_lat REAL",
+            "ALTER TABLE pedidos ADD COLUMN cliente_lng REAL",
+            "ALTER TABLE pedidos ADD COLUMN distribuicao_status TEXT DEFAULT 'nao_aplicavel'",
         ):
             try:
                 conn.execute(coluna_sql)
@@ -333,6 +383,48 @@ def _criar_tabelas(conn, is_new_sqlite):
         except sqlite3.OperationalError:
             pass
         conn.commit()
+
+        # Impressoras parceiras (o lado "entregador" do marketplace): cada
+        # uma tem login próprio (telefone + senha, igual ao cliente) e uma
+        # localização GPS que ela mesma atualiza ao ficar online.
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS impressoras (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                nome TEXT NOT NULL,
+                telefone TEXT UNIQUE NOT NULL,
+                senha_hash TEXT NOT NULL,
+                latitude REAL,
+                longitude REAL,
+                localizacao_em TEXT,
+                online INTEGER DEFAULT 0,
+                ativo INTEGER DEFAULT 1,
+                criado_em TEXT DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+
+        # Histórico de ofertas de cada pedido pra cada impressora -- é essa
+        # tabela que guarda quem já recusou o quê, pra fila de despacho não
+        # oferecer de novo pra quem já disse não.
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS ofertas_impressao (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                pedido_id INTEGER NOT NULL REFERENCES pedidos(id),
+                impressora_id INTEGER NOT NULL REFERENCES impressoras(id),
+                status TEXT DEFAULT 'pendente',
+                criado_em TEXT,
+                respondido_em TEXT
+            )
+            """
+        )
+        conn.commit()
+        try:
+            conn.execute("ALTER TABLE pedidos ADD COLUMN impressora_id INTEGER REFERENCES impressoras(id)")
+        except sqlite3.OperationalError:
+            pass
+        conn.commit()
         precisa_seed = is_new_sqlite
 
     if precisa_seed:
@@ -347,6 +439,8 @@ def _criar_tabelas(conn, is_new_sqlite):
     conn.execute("CREATE INDEX IF NOT EXISTS idx_produtos_categoria_ativo ON produtos(categoria, ativo)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_pedidos_status ON pedidos(status)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_pedidos_cliente ON pedidos(cliente_id)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_ofertas_pedido ON ofertas_impressao(pedido_id)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_ofertas_impressora ON ofertas_impressao(impressora_id, status)")
     conn.commit()
 
     # Garante que toda chave de configuração padrão exista (não sobrescreve
@@ -359,28 +453,121 @@ def _criar_tabelas(conn, is_new_sqlite):
 
 
 def criar_pedido(conn, tipo, detalhes, valor_estimado, cliente_nome="", cliente_telefone="",
-                  forma_pagamento="combinar", cliente_id=None):
+                  forma_pagamento="combinar", cliente_id=None, cliente_lat=None, cliente_lng=None):
     """Insere um pedido (venda da loja ou orçamento) e devolve o id gerado,
     já lidando com a diferença de sintaxe entre SQLite e Postgres.
     `cliente_id` liga o pedido à conta logada -- fica None só para pedidos
-    antigos, de antes de existir login (checkout hoje exige conta)."""
-    params = (tipo, detalhes, valor_estimado, cliente_nome, cliente_telefone, forma_pagamento, cliente_id)
+    antigos, de antes de existir login (checkout hoje exige conta).
+    `cliente_lat`/`cliente_lng` vêm da geolocalização do navegador (podem
+    vir None se o cliente não permitiu) -- usados por distribuicao.py pra
+    achar a impressora mais próxima."""
+    params = (
+        tipo, detalhes, valor_estimado, cliente_nome, cliente_telefone, forma_pagamento,
+        cliente_id, cliente_lat, cliente_lng,
+    )
     if USING_POSTGRES:
         cur = conn.execute(
-            """INSERT INTO pedidos (tipo, detalhes, valor_estimado, cliente_nome, cliente_telefone, forma_pagamento, cliente_id)
-               VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id""",
+            """INSERT INTO pedidos (tipo, detalhes, valor_estimado, cliente_nome, cliente_telefone,
+                                     forma_pagamento, cliente_id, cliente_lat, cliente_lng)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id""",
             params,
         )
         novo_id = cur.fetchone()["id"]
     else:
         cur = conn.execute(
-            """INSERT INTO pedidos (tipo, detalhes, valor_estimado, cliente_nome, cliente_telefone, forma_pagamento, cliente_id)
-               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            """INSERT INTO pedidos (tipo, detalhes, valor_estimado, cliente_nome, cliente_telefone,
+                                     forma_pagamento, cliente_id, cliente_lat, cliente_lng)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             params,
         )
         novo_id = cur.lastrowid
     conn.commit()
     return novo_id
+
+
+def ler_coordenada_formulario(valor):
+    """Converte o valor de latitude/longitude vindo do formulário (campo
+    hidden preenchido por JS) pra float, ou None se estiver vazio/inválido
+    -- cliente pode ter negado a permissão de localização."""
+    try:
+        if valor is None or str(valor).strip() == "":
+            return None
+        return float(valor)
+    except (TypeError, ValueError):
+        return None
+
+
+# ---------- impressoras parceiras (marketplace) ----------
+
+def criar_impressora(conn, nome, telefone, senha_hash):
+    telefone = normalizar_telefone(telefone)
+    if USING_POSTGRES:
+        cur = conn.execute(
+            "INSERT INTO impressoras (nome, telefone, senha_hash) VALUES (?, ?, ?) RETURNING id",
+            (nome, telefone, senha_hash),
+        )
+        novo_id = cur.fetchone()["id"]
+    else:
+        cur = conn.execute(
+            "INSERT INTO impressoras (nome, telefone, senha_hash) VALUES (?, ?, ?)",
+            (nome, telefone, senha_hash),
+        )
+        novo_id = cur.lastrowid
+    conn.commit()
+    return novo_id
+
+
+def buscar_impressora_por_telefone(conn, telefone):
+    telefone = normalizar_telefone(telefone)
+    return conn.execute("SELECT * FROM impressoras WHERE telefone = ?", (telefone,)).fetchone()
+
+
+def buscar_impressora_por_id(conn, impressora_id):
+    return conn.execute("SELECT * FROM impressoras WHERE id = ?", (impressora_id,)).fetchone()
+
+
+def listar_impressoras(conn):
+    return conn.execute("SELECT * FROM impressoras ORDER BY id DESC").fetchall()
+
+
+def definir_status_impressora(conn, impressora_id, online, latitude=None, longitude=None):
+    """Liga/desliga a impressora. Ao ficar online, também grava a
+    localização atual (o navegador manda junto nesse momento); ao ficar
+    offline não mexe na localização salva -- fica guardada pra próxima vez."""
+    if online and latitude is not None and longitude is not None:
+        conn.execute(
+            "UPDATE impressoras SET online = 1, latitude = ?, longitude = ?, localizacao_em = ? WHERE id = ?",
+            (latitude, longitude, time.strftime("%Y-%m-%d %H:%M:%S"), impressora_id),
+        )
+    else:
+        conn.execute(
+            "UPDATE impressoras SET online = ? WHERE id = ?",
+            (1 if online else 0, impressora_id),
+        )
+    conn.commit()
+
+
+def atualizar_localizacao_impressora(conn, impressora_id, latitude, longitude):
+    """Ping periódico enviado pelo painel enquanto a impressora está
+    online, pra manter a posição atualizada mesmo que ela se desloque."""
+    conn.execute(
+        "UPDATE impressoras SET latitude = ?, longitude = ?, localizacao_em = ? WHERE id = ? AND online = 1",
+        (latitude, longitude, time.strftime("%Y-%m-%d %H:%M:%S"), impressora_id),
+    )
+    conn.commit()
+
+
+def definir_impressora_ativa(conn, impressora_id, ativo):
+    """Usado pelo admin pra bloquear/desbloquear uma impressora parceira
+    (ela para de receber ofertas novas, mas o histórico dela continua)."""
+    conn.execute("UPDATE impressoras SET ativo = ?, online = 0 WHERE id = ?", (1 if ativo else 0, impressora_id))
+    conn.commit()
+
+
+def listar_pedidos_da_impressora(conn, impressora_id):
+    return conn.execute(
+        "SELECT * FROM pedidos WHERE impressora_id = ? ORDER BY id DESC", (impressora_id,)
+    ).fetchall()
 
 
 def normalizar_telefone(telefone):

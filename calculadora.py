@@ -1,10 +1,10 @@
-# Mesma lÛgica da calculadora do site, em Python, para que o valor
+# Mesma l√≥gica da calculadora do site, em Python, para que o valor
 # calculado no navegador (preview) e o valor salvo no pedido sejam sempre iguais.
 #
-# Regra de preÁo (definida pela Voxxel):
-#   - R$ 1,70 por hora de impress„o
+# Regra de pre√ßo (definida pela Voxxel):
+#   - R$ 1,70 por hora de impress√£o
 #   - R$ 1,50 a cada 10 gramas de material gasto
-# O preÁo final de cada peÁa È a soma desses dois valores + o acabamento
+# O pre√ßo final de cada pe√ßa √© a soma desses dois valores + o acabamento
 # (post-processamento manual, que varia por categoria).
 
 MATERIAIS = {
@@ -15,7 +15,7 @@ MATERIAIS = {
 }
 
 # velocidade em cm3/hora e multiplicador de acabamento.
-# quanto mais detalhada a impress„o, mais fina a camada -> mais devagar e mais cara.
+# quanto mais detalhada a impress√£o, mais fina a camada -> mais devagar e mais cara.
 QUALIDADE = {
     "rascunho":  {"velocidade": 38, "mult": 0.85},
     "padrao":    {"velocidade": 22, "mult": 1.0},
@@ -30,12 +30,12 @@ COMPLEXIDADE = {
 
 SHELL_FRACTION = 0.15
 
-# --- regra de preÁo ---
-PRECO_HORA_IMPRESSAO = 2.00   # R$ por hora de impress„o
+# --- regra de pre√ßo ---
+PRECO_HORA_IMPRESSAO = 2.00   # R$ por hora de impress√£o
 PRECO_POR_10G = 2.00          # R$ a cada 10 gramas de material (filamento)
 
 CAT_ACABAMENTO = {"tecnica": 6, "cosplay": 14, "decoracao": 8}
-CAT_NOME = {"tecnica": "PeÁa TÈcnica", "cosplay": "Cosplay & AcessÛrio", "decoracao": "DecoraÁ„o & Utilit·rio"}
+CAT_NOME = {"tecnica": "Pe√ßa T√©cnica", "cosplay": "Cosplay & Acess√≥rio", "decoracao": "Decora√ß√£o & Utilit√°rio"}
 
 
 def calcular_orcamento(altura, largura, profundidade, quantidade, categoria, complexidade, material, qualidade):
@@ -52,7 +52,7 @@ def calcular_orcamento(altura, largura, profundidade, quantidade, categoria, com
 
     horas_impressao = (volume_impresso / qual["velocidade"]) * comp["tempo_mult"]
 
-    # custo pela hora de m·quina/impress„o
+    # custo pela hora de m√°quina/impress√£o
     custo_maquina = horas_impressao * PRECO_HORA_IMPRESSAO
     # custo pelo material gasto (a cada 10g)
     custo_material = (peso_gramas / 10) * PRECO_POR_10G
