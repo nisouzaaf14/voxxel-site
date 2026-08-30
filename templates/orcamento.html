@@ -93,7 +93,7 @@
             <label>Acabamento de impressão</label>
             <div class="finish-group" id="acabamento_impressao" data-name="acabamento_impressao">
               {% for chave, a in acabamentos.items() %}
-                <button type="button" class="finish-card {{ 'active' if form.acabamento_impressao == chave }}" data-val="{{ chave }}">
+                <button type="button" class="finish-card {{ 'active' if form.acabamento_impressao == chave }}" data-val="{{ chave }}" data-cats="{{ acabamento_categorias[chave] | join(',') }}" {{ 'hidden' if chave not in acabamentos_por_categoria.get(form.categoria, {}) }}>
                   <span class="finish-icon finish-icon-{{ chave }}">
                     {% if chave == 'branca' %}
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/></svg>
@@ -105,12 +105,12 @@
                   </span>
                   <span class="finish-name">{{ a.nome }}</span>
                   <span class="finish-desc">{{ a.desc }}</span>
-                  {% if a.mult > 1 %}<span class="finish-badge">+{{ ((a.mult - 1) * 100) | round | int }}%</span>{% endif %}
+                  <span class="finish-badge" data-badge></span>
                 </button>
               {% endfor %}
             </div>
             <input type="hidden" name="acabamento_impressao" id="acabamento_impressao-input" value="{{ form.acabamento_impressao }}">
-            <p class="disclaimer" style="margin-top:10px;">O percentual incide sobre o acabamento e a mão de obra da peça — material e tempo de máquina não mudam com a cor escolhida.</p>
+            <p class="disclaimer" style="margin-top:10px;">O acréscimo mostrado é o impacto real no preço total desta peça (varia com o tamanho) e incide só sobre o acabamento e a mão de obra — material e tempo de máquina não mudam com a cor. Peça técnica não tem opção colorida; decoração só tem a versão impressa; cosplay valoriza a pintura manual, já que entregar a peça crua não funciona.</p>
           </div>
         </div>
 
@@ -177,7 +177,10 @@
   const ACABAMENTO_NOMES = {{ acabamentos_js | safe }};
   const SHELL_FRACTION = REGRA.shell_fraction, HORA_MAQUINA = REGRA.hora_maquina;
   const CAT_ACABAMENTO = REGRA.cat_acabamento;
-  const ACABAMENTO_IMPRESSAO = REGRA.acabamento_impressao;
+  // categoria -> acabamento -> multiplicador. Cada categoria só tem as
+  // chaves dos acabamentos que ela realmente vende (peça técnica não tem
+  // nenhuma opção colorida, por ex.) -- mesma fonte que o servidor usa.
+  const ACABAMENTO_POR_CATEGORIA = REGRA.acabamento_por_categoria;
 
   const $ = id => document.getElementById(id);
 
@@ -195,7 +198,7 @@
   document.querySelectorAll('.finish-group').forEach(group=>{
     group.addEventListener('click', (e)=>{
       const card = e.target.closest('.finish-card');
-      if(card){
+      if(card && !card.hidden){
         group.querySelectorAll('.finish-card').forEach(c=>c.classList.remove('active'));
         card.classList.add('active');
         $(group.dataset.name + '-input').value = card.dataset.val;
@@ -204,13 +207,86 @@
     });
   });
 
+  function recalcularTudo(){
+    atualizarFinishesVisiveis(); // pode trocar o acabamento ativo pra "branca"
+    calcular();
+  }
+
   ['altura','largura','profundidade','quantidade','categoria','complexidade'].forEach(id=>{
-    $(id).addEventListener('input', calcular);
-    $(id).addEventListener('change', calcular);
+    $(id).addEventListener('input', recalcularTudo);
+    $(id).addEventListener('change', recalcularTudo);
+  });
+  ['material','qualidade'].forEach(groupId=>{
+    $(groupId).addEventListener('click', ()=> atualizarFinishesVisiveis());
   });
 
   function getActive(groupId){ return document.querySelector('#'+groupId+' .chip.active').dataset.val; }
   function getActiveFinish(){ return document.querySelector('#acabamento_impressao .finish-card.active').dataset.val; }
+
+  // Mostra só os finish-cards que a categoria selecionada realmente vende
+  // (ex: some o card de colorido quando a categoria vira "Peça Técnica").
+  // Se o card ativo some, cai pra "branca" automaticamente.
+  function atualizarFinishesVisiveis(){
+    const categoria = $('categoria').value;
+    const permitidos = ACABAMENTO_POR_CATEGORIA[categoria] || {};
+    const grupo = $('acabamento_impressao');
+    let ativoAindaValido = false;
+
+    grupo.querySelectorAll('.finish-card').forEach(card=>{
+      const cats = (card.dataset.cats || '').split(',');
+      const permitido = cats.includes(categoria);
+      card.hidden = !permitido;
+      if(permitido && card.dataset.val === getActiveFinish()) ativoAindaValido = true;
+    });
+
+    if(!ativoAindaValido){
+      grupo.querySelectorAll('.finish-card').forEach(c=>c.classList.remove('active'));
+      const branca = grupo.querySelector('.finish-card[data-val="branca"]');
+      branca.classList.add('active');
+      $('acabamento_impressao-input').value = 'branca';
+    }
+
+    // recalcula o preço-base (branca) desta categoria pra comparar cada
+    // badge contra o valor real, não contra um número fixo de tabela.
+    atualizarBadges(categoria, permitidos);
+  }
+
+  // Preço unitário (sem multiplicar pela quantidade) pra um acabamento
+  // específico, com os campos atuais do formulário -- usado só pra
+  // comparar as opções entre si e montar o badge "+X%" real.
+  function precoUnitarioComAcabamento(categoria, acabamentoKey){
+    const alt = parseFloat($('altura').value) || 0;
+    const larg = parseFloat($('largura').value) || 0;
+    const prof = parseFloat($('profundidade').value) || 0;
+    const complexidade = $('complexidade').value;
+    const mat = MATERIAIS[getActive('material')], qual = QUALIDADE[getActive('qualidade')], comp = COMPLEXIDADE[complexidade];
+    const acabMult = (ACABAMENTO_POR_CATEGORIA[categoria] || {})[acabamentoKey] || 1;
+
+    const volumeCaixa = alt * larg * prof;
+    const fracaoSolida = SHELL_FRACTION + comp.infill * (1 - SHELL_FRACTION);
+    const volumeImpresso = volumeCaixa * fracaoSolida;
+    const pesoGramas = volumeImpresso * mat.densidade;
+    const custoMaterial = (pesoGramas / 1000) * mat.preco_kg;
+    const horasImpressao = (volumeImpresso / qual.velocidade) * comp.tempo_mult;
+    const custoMaquina = horasImpressao * HORA_MAQUINA;
+    const custoAcabamento = CAT_ACABAMENTO[categoria] * qual.mult * acabMult;
+    return custoMaterial + custoMaquina + custoAcabamento;
+  }
+
+  function atualizarBadges(categoria, permitidos){
+    const precoBranca = precoUnitarioComAcabamento(categoria, 'branca');
+    document.querySelectorAll('#acabamento_impressao .finish-card').forEach(card=>{
+      const chave = card.dataset.val;
+      const badge = card.querySelector('[data-badge]');
+      if(chave === 'branca' || !(chave in permitidos) || precoBranca <= 0){
+        badge.textContent = '';
+        return;
+      }
+      const precoOpcao = precoUnitarioComAcabamento(categoria, chave);
+      const diffPct = Math.round(((precoOpcao / precoBranca) - 1) * 100);
+      badge.textContent = diffPct > 0 ? `+${diffPct}%` : '';
+    });
+  }
 
   function formatarHoras(h){
     if(h < 1) return Math.round(h*60) + ' min';
@@ -231,7 +307,7 @@
     const acabamentoKey = getActiveFinish();
 
     const mat = MATERIAIS[materialKey], qual = QUALIDADE[qualidadeKey], comp = COMPLEXIDADE[complexidade];
-    const acabMult = ACABAMENTO_IMPRESSAO[acabamentoKey] || 1;
+    const acabMult = (ACABAMENTO_POR_CATEGORIA[categoria] || {})[acabamentoKey] || 1;
 
     const volumeCaixa = alt * larg * prof;
     const fracaoSolida = SHELL_FRACTION + comp.infill * (1 - SHELL_FRACTION);
@@ -257,7 +333,7 @@
     $('b-acabamento-nome').textContent = ACABAMENTO_NOMES[acabamentoKey] || '';
   }
 
-  calcular();
+  recalcularTudo();
 
   // Localização opcional, pra achar a impressora parceira mais próxima
   // pra produzir a peça (ver checkout.html -- mesma ideia).

@@ -24,6 +24,7 @@ from database import (
 from calculadora import (
     calcular_orcamento, formatar_horas, MATERIAIS, QUALIDADE, COMPLEXIDADE,
     PRECO_HORA_IMPRESSAO, SHELL_FRACTION, CAT_ACABAMENTO, ACABAMENTO_IMPRESSAO,
+    ACABAMENTOS_POR_CATEGORIA,
 )
 import pix
 import mercadopago_pay
@@ -626,6 +627,14 @@ def _orcamento_template_kwargs(form, resultado, cliente_logado):
         form=form, resultado=resultado,
         materiais=MATERIAIS, qualidades=QUALIDADE, complexidades=COMPLEXIDADE,
         acabamentos=ACABAMENTO_IMPRESSAO,
+        acabamentos_por_categoria=ACABAMENTOS_POR_CATEGORIA,
+        # pra cada acabamento, em quais categorias ele aparece -- usado só
+        # pra montar o atributo data-cats no HTML (quais finish-cards
+        # mostrar quando o cliente troca de categoria).
+        acabamento_categorias={
+            chave: [cat for cat, finishes in ACABAMENTOS_POR_CATEGORIA.items() if chave in finishes]
+            for chave in ACABAMENTO_IMPRESSAO
+        },
         materiais_js=json.dumps(MATERIAIS), qualidade_js=json.dumps(QUALIDADE),
         complexidade_js=json.dumps(COMPLEXIDADE), cliente_logado=cliente_logado,
         acabamentos_js=json.dumps({chave: a["nome"] for chave, a in ACABAMENTO_IMPRESSAO.items()}),
@@ -633,7 +642,10 @@ def _orcamento_template_kwargs(form, resultado, cliente_logado):
             "hora_maquina": PRECO_HORA_IMPRESSAO,
             "shell_fraction": SHELL_FRACTION,
             "cat_acabamento": CAT_ACABAMENTO,
-            "acabamento_impressao": {chave: a["mult"] for chave, a in ACABAMENTO_IMPRESSAO.items()},
+            # dict aninhado categoria -> acabamento -> multiplicador; é a
+            # mesma fonte usada pelo calcular_orcamento no servidor, pra não
+            # repetir aqui o bug de preview dessincronizado do preço real.
+            "acabamento_por_categoria": ACABAMENTOS_POR_CATEGORIA,
         }),
     )
 
@@ -655,11 +667,16 @@ def orcamento():
 
     if request.method == "POST":
         try:
+            categoria = request.form.get("categoria", "tecnica")
+            finishes_da_categoria = ACABAMENTOS_POR_CATEGORIA.get(categoria, ACABAMENTOS_POR_CATEGORIA["tecnica"])
             acabamento_impressao = request.form.get("acabamento_impressao", "branca")
-            if acabamento_impressao not in ACABAMENTO_IMPRESSAO:
+            if acabamento_impressao not in finishes_da_categoria:
+                # ou o valor nem existe, ou é um acabamento que essa
+                # categoria não vende (ex: colorido pra peça técnica) --
+                # validado aqui pra não confiar só no JS do front-end.
                 acabamento_impressao = "branca"
             form.update({
-                "categoria": request.form.get("categoria", "tecnica"),
+                "categoria": categoria,
                 "altura": max(0.0, float(request.form.get("altura") or 0)),
                 "largura": max(0.0, float(request.form.get("largura") or 0)),
                 "profundidade": max(0.0, float(request.form.get("profundidade") or 0)),

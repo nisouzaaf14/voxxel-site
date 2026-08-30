@@ -414,6 +414,7 @@ select:focus, input:focus, textarea:focus{ border-color:var(--violet); }
   color:var(--muted);
 }
 .finish-card:hover{ border-color:var(--line-strong); transform:translateY(-2px); }
+.finish-card[hidden]{ display:none; }
 .finish-card.active{
   border-color:var(--violet); background:rgba(162,89,255,.1); box-shadow:0 0 0 1px rgba(162,89,255,.18);
 }
@@ -432,6 +433,7 @@ select:focus, input:focus, textarea:focus{ border-color:var(--violet); }
   letter-spacing:.03em; color:var(--gold-soft); border:1px solid rgba(205,171,115,.4);
   border-radius:999px; padding:2px 8px; background:rgba(205,171,115,.08);
 }
+.finish-badge:empty{ display:none; }
 
 /* --- amostra de cor por material, ligada às mesmas cores usadas no blob 3D --- */
 #material .chip{ display:inline-flex; align-items:center; gap:8px; }

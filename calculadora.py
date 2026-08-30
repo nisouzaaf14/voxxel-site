@@ -65,25 +65,51 @@ CAT_ACABAMENTO = {"tecnica": 6, "cosplay": 14, "decoracao": 8}
 CAT_NOME = {"tecnica": "Peça Técnica", "cosplay": "Cosplay & Acessório", "decoracao": "Decoração & Utilitário"}
 
 # --- acabamento de impressão (cor/pintura) ---
-# Multiplica só a parcela de "acabamento & mão de obra" (CAT_ACABAMENTO),
-# já que é exatamente aí que entra o trabalho extra de trocar filamento
-# durante a impressão ou de pintar a peça à mão depois de pronta -- o
-# custo de material e de hora de máquina não muda por causa da cor.
+# Nome/descrição de cada acabamento -- o multiplicador de preço NÃO mora
+# mais aqui, porque não é o mesmo pra toda categoria (ver
+# ACABAMENTOS_POR_CATEGORIA logo abaixo). Motivo: cada categoria valoriza
+# a cor de um jeito diferente -- decisão da Voxxel:
+#   - Peça técnica: nem oferece colorido, só sai branca mesmo.
+#   - Decoração & Utilitário: só a versão "impressa" (troca de filamento).
+#     Pintura artesanal não faz sentido pro tipo de peça.
+#   - Cosplay & Acessório: aqui a cor importa de verdade -- entregar a
+#     peça crua fica ruim -- então até a versão impressa já vale mais que
+#     em decoração, e a pintura artesanal (o trabalho manual de detalhar
+#     à mão) vale mais ainda.
 ACABAMENTO_IMPRESSAO = {
     "branca": {
         "nome": "Impressão em branco",
         "desc": "Sai direto na cor natural do filamento, sem pintura.",
-        "mult": 1.0,
     },
     "colorida_impressa": {
         "nome": "Colorida impressa",
         "desc": "Cores aplicadas na própria impressora (troca de filamento).",
-        "mult": 1.40,
     },
     "colorida_artesanal": {
         "nome": "Colorida artesanal",
         "desc": "Pintada à mão após a impressão, acabamento artesanal.",
-        "mult": 1.40,
+    },
+}
+
+# Multiplica só a parcela de "acabamento & mão de obra" (CAT_ACABAMENTO) --
+# é exatamente aí que entra o trabalho extra de trocar filamento durante a
+# impressão ou de pintar a peça à mão depois de pronta; o custo de material
+# e de hora de máquina não muda por causa da cor. Só existem aqui as
+# combinações categoria+acabamento que a Voxxel realmente oferece -- uma
+# categoria que não aparece com um acabamento significa que essa opção não
+# é vendida pra ela (o formulário e o back-end validam isso).
+ACABAMENTOS_POR_CATEGORIA = {
+    "tecnica": {
+        "branca": 1.0,
+    },
+    "decoracao": {
+        "branca": 1.0,
+        "colorida_impressa": 1.5,
+    },
+    "cosplay": {
+        "branca": 1.0,
+        "colorida_impressa": 1.8,
+        "colorida_artesanal": 2.5,
     },
 }
 
@@ -92,7 +118,11 @@ def calcular_orcamento(altura, largura, profundidade, quantidade, categoria, com
     mat = MATERIAIS[material]
     qual = QUALIDADE[qualidade]
     comp = COMPLEXIDADE[complexidade]
-    acab = ACABAMENTO_IMPRESSAO.get(acabamento_impressao, ACABAMENTO_IMPRESSAO["branca"])
+    finishes_da_categoria = ACABAMENTOS_POR_CATEGORIA.get(categoria, ACABAMENTOS_POR_CATEGORIA["tecnica"])
+    if acabamento_impressao not in finishes_da_categoria:
+        acabamento_impressao = "branca"
+    finish_mult = finishes_da_categoria[acabamento_impressao]
+    acab = ACABAMENTO_IMPRESSAO[acabamento_impressao]
     qtd = max(1, int(quantidade))
 
     volume_caixa = altura * largura * profundidade
@@ -109,7 +139,7 @@ def calcular_orcamento(altura, largura, profundidade, quantidade, categoria, com
     # escolhido, não mais um valor único pra todos
     custo_material = (peso_gramas / 1000) * mat["preco_kg"]
 
-    custo_acabamento = CAT_ACABAMENTO[categoria] * qual["mult"] * acab["mult"]
+    custo_acabamento = CAT_ACABAMENTO[categoria] * qual["mult"] * finish_mult
 
     preco_unitario = custo_material + custo_maquina + custo_acabamento
     preco_total = preco_unitario * qtd
@@ -124,6 +154,7 @@ def calcular_orcamento(altura, largura, profundidade, quantidade, categoria, com
         "material_nome": mat["nome"],
         "categoria_nome": CAT_NOME[categoria],
         "acabamento_nome": acab["nome"],
+        "acabamento_impressao": acabamento_impressao,
     }
 
 
