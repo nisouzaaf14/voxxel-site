@@ -16,6 +16,7 @@
           <input type="hidden" name="cliente_lng" id="cliente_lng">
       <div class="calc fade-up">
         <div class="calc-form">
+          <div class="eyebrow" style="margin-bottom:24px;">Seus dados</div>
           <div class="field">
             <label>Nome completo</label>
             <input type="text" name="nome" required placeholder="Seu nome" value="{{ request.form.get('nome', cliente['nome']) }}">
@@ -32,6 +33,14 @@
               <button type="button" class="chip" data-val="combinar">Combinar no WhatsApp</button>
             </div>
             <input type="hidden" name="forma_pagamento" id="forma_pagamento-input" value="pix">
+          </div>
+
+          <div class="field">
+            <label>Localização (pra achar a impressora parceira mais próxima)</label>
+            <div class="printer-dispatch-box" id="localizacao-status">
+              <span class="printer-status-dot" id="localizacao-dot" style="display:inline-block; margin-right:8px;"></span>
+              <span id="localizacao-texto">Detectando sua localização...</span>
+            </div>
           </div>
         </div>
 
@@ -68,18 +77,32 @@
     });
   });
 
-  // Localização opcional: se o cliente permitir, usamos pra achar a
-  // impressora parceira mais próxima pra imprimir o pedido. Sem permissão,
-  // o pedido segue normalmente (só sem a busca automática de impressora).
+  // Localização: ajuda a achar a impressora parceira mais próxima pra
+  // imprimir o pedido (a mesma "rede de impressão" anunciada no site) --
+  // mostramos o status pro cliente em vez de pedir a permissão em
+  // silêncio, já que isso afeta diretamente a rapidez da entrega dele.
+  const localizacaoDot = document.getElementById('localizacao-dot');
+  const localizacaoTexto = document.getElementById('localizacao-texto');
+
+  function definirStatusLocalizacao(texto, online) {
+    localizacaoTexto.textContent = texto;
+    localizacaoDot.classList.toggle('online', online);
+  }
+
   if (navigator.geolocation) {
     navigator.geolocation.getCurrentPosition(
       pos => {
         document.getElementById('cliente_lat').value = pos.coords.latitude;
         document.getElementById('cliente_lng').value = pos.coords.longitude;
+        definirStatusLocalizacao('Localização compartilhada — vamos buscar uma impressora parceira perto de você.', true);
       },
-      () => {},
+      () => {
+        definirStatusLocalizacao('Sem acesso à localização — seu pedido vai direto pra produção da Voxxel.', false);
+      },
       { timeout: 6000 }
     );
+  } else {
+    definirStatusLocalizacao('Seu navegador não suporta localização — seu pedido vai direto pra produção da Voxxel.', false);
   }
 </script>
 {% endblock %}

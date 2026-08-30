@@ -4,6 +4,13 @@
 {% block page_title %}Pedidos{% endblock %}
 
 {% block admin_content %}
+<div class="admin-controls">
+  <div class="admin-search">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+    <input type="text" id="busca-pedido" placeholder="Buscar por cliente, telefone ou nº do pedido...">
+  </div>
+</div>
+
 <div class="admin-filter-chips" style="margin-bottom:24px;">
   <a class="chip {{ 'active' if status_filtro == 'todos' }}" href="{{ url_for('admin_pedidos') }}">
     Todos <span class="chip-count">{{ contagens.todos }}</span>
@@ -20,9 +27,9 @@
 </div>
 
 {% if pedidos %}
-<div class="order-list">
+<div class="order-list" id="lista-pedidos">
   {% for p in pedidos %}
-  <div class="order-card">
+  <div class="order-card" data-busca="{{ (p['cliente_nome'] or '')|lower }} {{ p['cliente_telefone'] or '' }} {{ p['id'] }}">
     <div class="order-card-main">
       <div class="order-card-id">Pedido #{{ p['id'] }} · {{ p['criado_em'] }}</div>
       <div class="order-card-tipo">{{ 'Loja' if p['tipo'] == 'loja' else 'Orçamento' }}</div>
@@ -82,7 +89,31 @@
   </div>
   {% endfor %}
 </div>
+<div class="empty-state" id="pedidos-sem-resultado" style="display:none;">Nenhum pedido encontrado para essa busca.</div>
 {% else %}
 <div class="empty-state">Nenhum pedido{{ ' com esse status' if status_filtro != 'todos' else '' }} registrado ainda.</div>
 {% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const busca = document.getElementById('busca-pedido');
+  const cards = document.querySelectorAll('#lista-pedidos .order-card');
+  const semResultado = document.getElementById('pedidos-sem-resultado');
+  const lista = document.getElementById('lista-pedidos');
+
+  function aplicarFiltro() {
+    const termo = busca ? busca.value.trim().toLowerCase() : '';
+    let visiveis = 0;
+    cards.forEach(card => {
+      const mostrar = !termo || card.dataset.busca.includes(termo);
+      card.style.display = mostrar ? '' : 'none';
+      if (mostrar) visiveis++;
+    });
+    if (lista) lista.style.display = visiveis ? '' : 'none';
+    if (semResultado) semResultado.style.display = visiveis ? 'none' : '';
+  }
+
+  if (busca) busca.addEventListener('input', aplicarFiltro);
+</script>
 {% endblock %}

@@ -264,8 +264,8 @@ section{ padding: var(--space-4) 0; position:relative; }
   padding:9px 18px; border:1px solid var(--line); font-size:.85rem; cursor:pointer;
   color:var(--muted); background:transparent; border-radius:999px; transition:all .2s var(--ease);
 }
-.chip.active, .chip[aria-current="true"]{ border-color:var(--violet); color:var(--text); background:rgba(162,89,255,.14); }
-.chip:hover{ border-color:var(--line-strong); }
+.chip.active, .chip[aria-current="true"]{ border-color:var(--violet); color:var(--text); background:rgba(162,89,255,.16); box-shadow:0 0 0 1px rgba(162,89,255,.18); }
+.chip:hover{ border-color:var(--line-strong); color:var(--text); }
 
 .produtos{ display:grid; grid-template-columns:repeat(3,1fr); gap:22px; }
 @media(max-width:860px){ .produtos{ grid-template-columns:repeat(2,1fr); } }
@@ -357,15 +357,32 @@ select, input[type=number], input[type=text], input[type=password], textarea{
 select:focus, input:focus, textarea:focus{ border-color:var(--violet); }
 .chip-group{ display:flex; gap:10px; flex-wrap:wrap; }
 
-.calc-result{ padding:var(--space-3); display:flex; flex-direction:column; justify-content:center; }
-.blob-wrap{ display:flex; justify-content:center; margin-bottom:14px; }
-.blob-wrap canvas{ width:100%; max-width:220px; height:auto; aspect-ratio:1; }
-.result-label{ font-family:'Space Mono',monospace; font-size:.75rem; color:var(--muted); letter-spacing:.16em; text-transform:uppercase; margin-bottom:10px; }
-.result-price{ font-weight:900; font-size:clamp(2.1rem,4.6vw,2.9rem); background:linear-gradient(90deg, var(--violet-bright), var(--violet)); -webkit-background-clip:text; background-clip:text; color:transparent; margin-bottom:6px; }
-.result-sub{ color:var(--muted); font-size:.84rem; margin-bottom:26px; }
+.calc-result{ padding:var(--space-3); background:var(--void); display:flex; flex-direction:column; justify-content:center; }
+.blob-wrap{ position:relative; display:flex; justify-content:center; align-items:center; margin-bottom:18px; padding:22px; }
+.blob-wrap::before{
+  content:""; position:absolute; width:230px; height:230px; border-radius:50%;
+  background:radial-gradient(circle, rgba(162,89,255,.16), transparent 68%); pointer-events:none;
+}
+.blob-wrap canvas{ position:relative; width:100%; max-width:220px; height:auto; aspect-ratio:1; }
+.blob-corner{ position:absolute; width:16px; height:16px; border:1px solid var(--line-strong); opacity:.9; }
+.blob-corner.tl{ top:2px; left:2px; border-right:none; border-bottom:none; }
+.blob-corner.tr{ top:2px; right:2px; border-left:none; border-bottom:none; }
+.blob-corner.bl{ bottom:2px; left:2px; border-right:none; border-top:none; }
+.blob-corner.br{ bottom:2px; right:2px; border-left:none; border-top:none; }
+.result-label{ font-family:'Space Mono',monospace; font-size:.75rem; color:var(--muted); letter-spacing:.16em; text-transform:uppercase; margin-bottom:10px; text-align:center; }
+.result-price{ font-weight:900; font-size:clamp(2.1rem,4.6vw,2.9rem); background:linear-gradient(90deg, var(--violet-bright), var(--violet)); -webkit-background-clip:text; background-clip:text; color:transparent; margin-bottom:6px; text-align:center; }
+.result-sub{ color:var(--muted); font-size:.84rem; margin-bottom:26px; text-align:center; }
 .result-breakdown{ font-family:'Space Mono',monospace; font-size:.82rem; color:var(--muted); display:flex; flex-direction:column; gap:7px; margin-bottom:28px; border-top:1px dashed var(--line); padding-top:18px; }
 .result-breakdown span.v{ color:var(--text); float:right; }
 .disclaimer{ font-size:.74rem; color:var(--muted-2); margin-top:8px; line-height:1.55; }
+
+/* --- amostra de cor por material, ligada às mesmas cores usadas no blob 3D --- */
+#material .chip{ display:inline-flex; align-items:center; gap:8px; }
+#material .chip::before{ content:""; width:8px; height:8px; border-radius:50%; flex-shrink:0; background:var(--dot, var(--muted-2)); }
+#material .chip[data-val="pla"]{ --dot:#a259ff; }
+#material .chip[data-val="petg"]{ --dot:#cdab73; }
+#material .chip[data-val="abs"]{ --dot:#8dc9ff; }
+#material .chip[data-val="resina"]{ --dot:#f0708a; }
 
 .checkout-itens{ display:flex; flex-direction:column; gap:10px; font-size:.85rem; color:var(--muted); max-height:220px; overflow-y:auto; }
 .checkout-item{ display:flex; justify-content:space-between; gap:12px; border-bottom:1px dashed var(--line); padding-bottom:10px; }
@@ -585,11 +602,31 @@ table.seller-table tr:hover td{ background:rgba(162,89,255,.04); }
 .img-upload-remover{ display:flex; align-items:center; gap:6px; font-size:.8rem; color:var(--muted); cursor:pointer; }
 .img-upload-remover input{ width:auto; }
 
-/* ============ showcase ============ */
-.showcase{ display:grid; grid-template-columns:repeat(5,1fr); gap:16px; }
-@media(max-width:860px){ .showcase{ grid-template-columns:repeat(2,1fr); } }
-.poly-piece{ aspect-ratio:1; position:relative; overflow:hidden; background:linear-gradient(150deg, var(--panel-2), var(--panel)); border:1px solid var(--line); }
-.poly-piece::before{ content:""; position:absolute; inset:14%; background:conic-gradient(from var(--ang,0deg), var(--violet), var(--violet-deep), var(--violet-bright), var(--violet)); clip-path: polygon(50% 0%, 93% 25%, 100% 70%, 60% 100%, 15% 90%, 0% 40%); opacity:.9; }
+/* ============ showcase / processo & materiais ============ */
+.quality-grid{
+  display:grid; grid-template-columns:repeat(3,1fr); gap:1px;
+  background:var(--line); border:1px solid var(--line); border-radius:var(--radius);
+  overflow:hidden; margin-bottom:var(--space-3);
+}
+@media(max-width:760px){ .quality-grid{ grid-template-columns:1fr; } }
+.quality-item{ background:var(--panel); padding:30px 26px; text-align:center; }
+.quality-num{ font-family:'Orbitron',sans-serif; font-weight:800; font-size:1.9rem; color:var(--violet-bright); margin-bottom:10px; }
+.quality-label{ font-size:.82rem; color:var(--muted); line-height:1.55; max-width:260px; margin:0 auto; }
+
+.materials-head{ text-align:center; max-width:520px; margin:0 auto 30px; }
+.materials-head h3{ font-size:1.15rem; margin-bottom:8px; }
+.materials-head p{ color:var(--muted); font-size:.9rem; }
+
+.materials-showcase{ display:grid; grid-template-columns:repeat(5,1fr); gap:16px; }
+@media(max-width:860px){ .materials-showcase{ grid-template-columns:repeat(2,1fr); } }
+.material-piece{ display:flex; flex-direction:column; gap:12px; }
+.material-piece span{ font-family:'Space Mono',monospace; font-size:.72rem; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); text-align:center; }
+.poly-piece{ aspect-ratio:1; position:relative; overflow:hidden; background:linear-gradient(150deg, var(--panel-2), var(--panel)); border:1px solid var(--line); border-radius:var(--radius-sm); }
+.poly-piece::before{ content:""; position:absolute; inset:14%; background:conic-gradient(from var(--ang,0deg), var(--violet), var(--violet-deep), var(--mc, var(--violet-bright)), var(--violet)); clip-path: polygon(50% 0%, 93% 25%, 100% 70%, 60% 100%, 15% 90%, 0% 40%); opacity:.9; }
+/* quinta peça — material sob consulta, tratada como convite em vez de amostra fixa */
+.material-piece.custom .poly-piece{ background:transparent; border:1.5px dashed var(--line-strong); display:flex; align-items:center; justify-content:center; }
+.material-piece.custom .poly-piece::before{ display:none; }
+.material-piece.custom .poly-piece::after{ content:"+"; font-family:'Orbitron',sans-serif; font-weight:700; font-size:1.6rem; color:var(--muted-2); }
 
 /* ============ footer ============ */
 footer{ border-top:1px solid var(--line); padding:50px 0 30px; text-align:center; }
@@ -651,6 +688,18 @@ footer .logo{ justify-content:center; margin-bottom:14px; }
 .oferta-actions button{ width:100%; }
 
 .order-card-impressora{ font-size:.8rem; color:var(--muted); margin-top:6px; }
+
+/* --- indicador compacto de status na topbar do painel da impressora --- */
+.printer-status-pill{
+  display:inline-flex; align-items:center; gap:8px;
+  padding:8px 14px; border:1px solid var(--line); border-radius:999px;
+  font-size:.8rem; color:var(--muted); background:var(--panel);
+  transition:border-color .2s, color .2s;
+}
+.printer-status-pill:hover{ border-color:var(--line-strong); color:var(--text); }
+.printer-status-pill.online{ border-color:rgba(111,227,168,.35); color:var(--ok); }
+.printer-status-pill .printer-status-dot{ width:9px; height:9px; box-shadow:none; }
+.printer-status-pill .printer-status-dot.online{ animation:printer-pulse 1.8s ease-in-out infinite; }
 
 .printer-dispatch-box{
   margin-top:18px; padding:14px 16px; border:1px solid var(--line);

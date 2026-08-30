@@ -51,6 +51,17 @@
     <input type="text" name="mp_access_token" value="{{ config.mp_access_token }}" placeholder="APP_USR-...">
   </div>
 
+  <div class="eyebrow" style="margin:28px 0 16px;">Marketplace de impressão</div>
+  <p style="color:var(--muted); font-size:.85rem; margin-bottom:22px; line-height:1.6;">
+    Quando um pedido é atribuído a uma impressora parceira, esse percentual do valor do pedido
+    fica com a Voxxel — o restante é o que a impressora recebe. Vale só pra pedidos com impressora
+    parceira; os que a própria Voxxel produz não têm essa comissão.
+  </p>
+  <div class="field">
+    <label>Comissão da Voxxel (%)</label>
+    <input type="text" name="comissao_percentual" value="{{ config.comissao_percentual }}" placeholder="15" inputmode="decimal">
+  </div>
+
   <button type="submit" class="btn btn-primary btn-block">Salvar configurações</button>
 </form>
 {% endblock %}

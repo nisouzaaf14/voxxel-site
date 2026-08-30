@@ -1,0 +1,60 @@
+{% extends "impressora_base.html" %}
+{% block title %}Perfil — Impressora parceira — Voxxel{% endblock %}
+{% block eyebrow %}Marketplace{% endblock %}
+{% block page_title %}Perfil{% endblock %}
+
+{% block admin_content %}
+
+<div class="printer-status-card" style="margin-bottom:var(--space-3);">
+  <div class="printer-status-info">
+    <span class="printer-status-dot {{ 'online' if impressora['ativo'] }}"></span>
+    <div>
+      <div class="printer-status-label">{{ 'Conta ativa' if impressora['ativo'] else 'Conta bloqueada pela Voxxel' }}</div>
+      <div class="printer-status-sub">Cadastrada em {{ impressora['criado_em'] }}</div>
+    </div>
+  </div>
+</div>
+
+<div style="display:grid; grid-template-columns:1fr 1fr; gap:var(--space-3); align-items:start;">
+  <form method="post" action="{{ url_for('impressora_perfil') }}" class="form-card">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="formulario" value="dados">
+    <div class="field">
+      <label>Seu nome (ou nome da oficina/impressora)</label>
+      <input type="text" name="nome" required value="{{ impressora['nome'] }}">
+    </div>
+    <div class="field">
+      <label>WhatsApp / telefone</label>
+      <input type="text" name="telefone" required value="{{ impressora['telefone'] }}">
+    </div>
+    <button type="submit" class="btn btn-primary btn-block">Salvar dados</button>
+  </form>
+
+  <form method="post" action="{{ url_for('impressora_perfil') }}" class="form-card">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="formulario" value="senha">
+    <div class="field">
+      <label>Senha atual</label>
+      <input type="password" name="senha_atual" required minlength="6">
+    </div>
+    <div class="field">
+      <label>Nova senha (mínimo 6 caracteres)</label>
+      <input type="password" name="nova_senha" required minlength="6">
+    </div>
+    <div class="field">
+      <label>Confirmar nova senha</label>
+      <input type="password" name="confirmar_senha" required minlength="6">
+    </div>
+    <button type="submit" class="btn btn-primary btn-block">Alterar senha</button>
+  </form>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<style>
+  @media(max-width:760px){
+    .admin-content > div[style*="grid-template-columns"]{ grid-template-columns:1fr !important; }
+  }
+</style>
+{% endblock %}

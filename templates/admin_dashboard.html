@@ -48,6 +48,37 @@
   </div>
 </div>
 
+<div class="section-head" style="text-align:left; align-items:flex-start; margin:var(--space-3) 0 16px; flex-direction:row; justify-content:space-between; max-width:none;">
+  <h2 style="font-size:1.15rem;">Marketplace de impressão</h2>
+  <a href="{{ url_for('admin_impressoras') }}" class="btn-ghost">Ver impressoras</a>
+</div>
+
+{% if comissao_por_impressora %}
+<div class="stat-grid" style="grid-template-columns:1fr; margin-bottom:20px;">
+  <div class="stat-card">
+    <div class="stat-label">Comissão acumulada (pedidos com impressora parceira)</div>
+    <div class="stat-value">R$ {{ "%.2f"|format(comissao_total)|replace('.', ',') }}</div>
+  </div>
+</div>
+<table class="seller-table">
+  <thead>
+    <tr><th>Impressora</th><th>Pedidos</th><th>Faturamento gerado</th><th>Comissão Voxxel</th></tr>
+  </thead>
+  <tbody>
+    {% for i in comissao_por_impressora %}
+    <tr>
+      <td>{{ i['nome'] }}</td>
+      <td>{{ i['pedidos'] }}</td>
+      <td>R$ {{ "%.2f"|format(i['faturamento_total'])|replace('.', ',') }}</td>
+      <td>R$ {{ "%.2f"|format(i['comissao_total'])|replace('.', ',') }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<div class="empty-state">Nenhum pedido foi atribuído a uma impressora parceira ainda.</div>
+{% endif %}
+
 <div class="section-head" style="text-align:left; align-items:flex-start; margin:var(--space-3) 0 16px;">
   <h2 style="font-size:1.15rem;">Últimos pedidos</h2>
 </div>

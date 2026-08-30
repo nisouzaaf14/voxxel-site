@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% block title %}Painel da impressora — Voxxel{% endblock %}</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+<div class="admin-layout">
+  <aside class="admin-sidebar">
+    <a href="{{ url_for('home') }}" class="logo">
+      <div class="mark"></div><span class="wordmark">VOX<span class="gold">X</span>EL</span>
+    </a>
+    <div class="admin-sidebar-label">Impressora parceira</div>
+    <div class="admin-sidebar-label" style="color:var(--muted); font-size:.75rem; margin-top:-4px;">Olá, {{ impressora['nome'] }}</div>
+
+    <nav class="admin-nav">
+      <a href="{{ url_for('impressora_painel') }}" class="{{ 'active' if request.endpoint == 'impressora_painel' }}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>
+        <span>Painel</span>
+      </a>
+      <a href="{{ url_for('impressora_pedidos') }}" class="{{ 'active' if request.endpoint == 'impressora_pedidos' }}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12h6M9 16h6"/></svg>
+        <span>Pedidos</span>
+      </a>
+      <a href="{{ url_for('impressora_ganhos') }}" class="{{ 'active' if request.endpoint == 'impressora_ganhos' }}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1v22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        <span>Ganhos</span>
+      </a>
+      <a href="{{ url_for('impressora_perfil') }}" class="{{ 'active' if request.endpoint == 'impressora_perfil' }}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>
+        <span>Perfil</span>
+      </a>
+    </nav>
+
+    <div class="admin-sidebar-foot">
+      <a href="{{ url_for('home') }}" class="admin-sidebar-link">← Ver site</a>
+      <a href="{{ url_for('impressora_sair') }}" class="admin-sidebar-link admin-sidebar-link-danger">Sair</a>
+    </div>
+  </aside>
+
+  <div class="admin-main">
+    <div class="admin-topbar">
+      <div>
+        <div class="eyebrow">{% block eyebrow %}Marketplace{% endblock %}</div>
+        <h1 class="admin-title">{% block page_title %}{% endblock %}</h1>
+      </div>
+      <div class="admin-topbar-actions" style="align-items:center;">
+        <a href="{{ url_for('impressora_painel') }}" class="printer-status-pill {{ 'online' if impressora['online'] }}" title="{{ 'Você está recebendo pedidos' if impressora['online'] else 'Fique online no Painel pra receber pedidos' }}">
+          <span class="printer-status-dot {{ 'online' if impressora['online'] }}"></span>
+          {{ 'Online' if impressora['online'] else 'Offline' }}
+        </a>
+        {% block topbar_actions %}{% endblock %}
+      </div>
+    </div>
+
+    {% if not impressora['ativo'] %}
+    <div class="admin-flashes">
+      <div class="flash" style="border-color:var(--err); color:var(--err);">
+        Sua conta de impressora parceira está bloqueada pela Voxxel. Fale com a gente pra reativar.
+      </div>
+    </div>
+    {% endif %}
+
+    {% with mensagens = get_flashed_messages() %}
+      {% if mensagens %}
+      <div class="admin-flashes">
+        {% for m in mensagens %}<div class="flash">{{ m }}</div>{% endfor %}
+      </div>
+      {% endif %}
+    {% endwith %}
+
+    <div class="admin-content">
+      {% block admin_content %}{% endblock %}
+    </div>
+  </div>
+</div>
+
+{% block scripts %}{% endblock %}
+</body>
+</html>

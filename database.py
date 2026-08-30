@@ -70,7 +70,7 @@ CONFIG_PADRAO = {
     "pix_chave": "",
     "pix_nome": "Voxxel Impressao 3D",
     "pix_cidade": "Sao Jose dos Pinhais",
-    "whatsapp": "5541998526355",
+    "whatsapp": "5541997193025",
     "mp_access_token": "",
     "vendedor_nome": "Voxxel",
     # % que a Voxxel retém sobre o valor de cada pedido atribuído a uma

@@ -5,19 +5,35 @@
 
 {% block admin_content %}
 {% if impressoras %}
-<table class="seller-table">
+<div class="admin-controls">
+  <div class="admin-search">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+    <input type="text" id="busca-impressora" placeholder="Buscar por nome ou telefone...">
+  </div>
+  <div class="admin-filter-chips" id="filtro-status-impressora">
+    <button type="button" class="chip active" data-status="todas">Todas</button>
+    <button type="button" class="chip" data-status="online">Online agora</button>
+    <button type="button" class="chip" data-status="ativa">Ativas</button>
+    <button type="button" class="chip" data-status="bloqueada">Bloqueadas</button>
+  </div>
+</div>
+
+<table class="seller-table" id="tabela-impressoras">
   <thead>
-    <tr><th>Impressora</th><th>Telefone</th><th>Status</th><th>Cadastrada em</th><th></th></tr>
+    <tr><th>Impressora</th><th>Telefone</th><th>Status</th><th>Pedidos</th><th>Comissão gerada</th><th>Cadastrada em</th><th></th></tr>
   </thead>
   <tbody>
     {% for i in impressoras %}
-    <tr>
+    {% set stats = stats_por_id.get(i['id']) %}
+    <tr data-nome="{{ i['nome']|lower }}" data-telefone="{{ i['telefone'] }}" data-status="{{ 'online' if i['online'] and i['ativo'] else ('bloqueada' if not i['ativo'] else 'ativa') }}">
       <td>{{ i['nome'] }}</td>
       <td>{{ i['telefone'] }}</td>
       <td>
         <span class="printer-status-dot {{ 'online' if i['online'] and i['ativo'] }}" style="display:inline-block; margin-right:8px;"></span>
         {% if not i['ativo'] %}Bloqueada{% elif i['online'] %}Online agora{% else %}Offline{% endif %}
       </td>
+      <td>{{ stats['pedidos'] if stats else 0 }}</td>
+      <td>R$ {{ "%.2f"|format(stats['comissao_total'] if stats else 0)|replace('.', ',') }}</td>
       <td>{{ i['criado_em'] }}</td>
       <td>
         <form method="post" action="{{ url_for('admin_impressora_toggle', impressora_id=i['id']) }}">
@@ -33,7 +49,43 @@
     {% endfor %}
   </tbody>
 </table>
+<div class="empty-state" id="impressoras-sem-resultado" style="display:none;">Nenhuma impressora encontrada.</div>
 {% else %}
 <div class="empty-state">Nenhuma impressora parceira cadastrada ainda. Compartilhe o link de cadastro: <br><code>{{ url_for('impressora_cadastro', _external=True) }}</code></div>
 {% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const busca = document.getElementById('busca-impressora');
+  const chips = document.querySelectorAll('#filtro-status-impressora .chip');
+  const linhas = document.querySelectorAll('#tabela-impressoras tbody tr');
+  const semResultado = document.getElementById('impressoras-sem-resultado');
+  const tabela = document.getElementById('tabela-impressoras');
+  let statusAtivo = 'todas';
+
+  function aplicarFiltro() {
+    const termo = busca ? busca.value.trim().toLowerCase() : '';
+    let visiveis = 0;
+    linhas.forEach(linha => {
+      const bateStatus = statusAtivo === 'todas' || linha.dataset.status === statusAtivo;
+      const bateBusca = !termo || linha.dataset.nome.includes(termo) || linha.dataset.telefone.includes(termo);
+      const mostrar = bateStatus && bateBusca;
+      linha.style.display = mostrar ? '' : 'none';
+      if (mostrar) visiveis++;
+    });
+    if (tabela) tabela.style.display = visiveis ? '' : 'none';
+    if (semResultado) semResultado.style.display = visiveis ? 'none' : '';
+  }
+
+  if (busca) busca.addEventListener('input', aplicarFiltro);
+  chips.forEach(chip => {
+    chip.addEventListener('click', () => {
+      chips.forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      statusAtivo = chip.dataset.status;
+      aplicarFiltro();
+    });
+  });
+</script>
 {% endblock %}
