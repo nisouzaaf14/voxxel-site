@@ -23,7 +23,7 @@ from database import (
 )
 from calculadora import (
     calcular_orcamento, formatar_horas, MATERIAIS, QUALIDADE, COMPLEXIDADE,
-    PRECO_HORA_IMPRESSAO, SHELL_FRACTION, CAT_ACABAMENTO,
+    PRECO_HORA_IMPRESSAO, SHELL_FRACTION, CAT_ACABAMENTO, ACABAMENTO_IMPRESSAO,
 )
 import pix
 import mercadopago_pay
@@ -617,12 +617,34 @@ def pedido_confirmar_pagamento(pedido_id):
     return redirect(url_for("pedido_pagamento", pedido_id=pedido_id))
 
 
+def _orcamento_template_kwargs(form, resultado, cliente_logado):
+    """Kwargs comuns às três chamadas de render_template("orcamento.html", ...)
+    dessa rota -- reunidas aqui pra evitar que as três fiquem dessincronizadas
+    entre si (era só questão de tempo até uma delas ficar pra trás depois de
+    algum ajuste, como já quase aconteceu com o acabamento de impressão)."""
+    return dict(
+        form=form, resultado=resultado,
+        materiais=MATERIAIS, qualidades=QUALIDADE, complexidades=COMPLEXIDADE,
+        acabamentos=ACABAMENTO_IMPRESSAO,
+        materiais_js=json.dumps(MATERIAIS), qualidade_js=json.dumps(QUALIDADE),
+        complexidade_js=json.dumps(COMPLEXIDADE), cliente_logado=cliente_logado,
+        acabamentos_js=json.dumps({chave: a["nome"] for chave, a in ACABAMENTO_IMPRESSAO.items()}),
+        regra_js=json.dumps({
+            "hora_maquina": PRECO_HORA_IMPRESSAO,
+            "shell_fraction": SHELL_FRACTION,
+            "cat_acabamento": CAT_ACABAMENTO,
+            "acabamento_impressao": {chave: a["mult"] for chave, a in ACABAMENTO_IMPRESSAO.items()},
+        }),
+    )
+
+
 @app.route("/orcamento", methods=["GET", "POST"])
 def orcamento():
     resultado = None
     form = {
         "categoria": "tecnica", "altura": 10, "largura": 10, "profundidade": 10,
         "quantidade": 1, "material": "pla", "qualidade": "padrao", "complexidade": "media",
+        "acabamento_impressao": "branca",
     }
 
     cliente_logado = None
@@ -633,6 +655,9 @@ def orcamento():
 
     if request.method == "POST":
         try:
+            acabamento_impressao = request.form.get("acabamento_impressao", "branca")
+            if acabamento_impressao not in ACABAMENTO_IMPRESSAO:
+                acabamento_impressao = "branca"
             form.update({
                 "categoria": request.form.get("categoria", "tecnica"),
                 "altura": max(0.0, float(request.form.get("altura") or 0)),
@@ -642,19 +667,18 @@ def orcamento():
                 "material": request.form.get("material", "pla"),
                 "qualidade": request.form.get("qualidade", "padrao"),
                 "complexidade": request.form.get("complexidade", "media"),
+                "acabamento_impressao": acabamento_impressao,
             })
         except (ValueError, TypeError):
             flash("Verifique os valores preenchidos na calculadora.")
             return render_template(
-                "orcamento.html", form=form, resultado=None,
-                materiais=MATERIAIS, qualidades=QUALIDADE, complexidades=COMPLEXIDADE,
-                materiais_js=json.dumps(MATERIAIS), qualidade_js=json.dumps(QUALIDADE),
-                complexidade_js=json.dumps(COMPLEXIDADE), cliente_logado=cliente_logado,
-                regra_js=json.dumps({"hora_maquina": PRECO_HORA_IMPRESSAO, "shell_fraction": SHELL_FRACTION, "cat_acabamento": CAT_ACABAMENTO}),
+                "orcamento.html",
+                **_orcamento_template_kwargs(form, None, cliente_logado),
             )
         resultado = calcular_orcamento(
             form["altura"], form["largura"], form["profundidade"], form["quantidade"],
             form["categoria"], form["complexidade"], form["material"], form["qualidade"],
+            form["acabamento_impressao"],
         )
         resultado["tempo_formatado"] = formatar_horas(resultado["horas_total"])
 
@@ -672,11 +696,8 @@ def orcamento():
             if not nome or not telefone:
                 flash("Preencha nome e telefone para enviar o orçamento.")
                 return render_template(
-                    "orcamento.html", form=form, resultado=resultado,
-                    materiais=MATERIAIS, qualidades=QUALIDADE, complexidades=COMPLEXIDADE,
-                    materiais_js=json.dumps(MATERIAIS), qualidade_js=json.dumps(QUALIDADE),
-                    complexidade_js=json.dumps(COMPLEXIDADE), cliente_logado=cliente_logado,
-                    regra_js=json.dumps({"hora_maquina": PRECO_HORA_IMPRESSAO, "shell_fraction": SHELL_FRACTION, "cat_acabamento": CAT_ACABAMENTO}),
+                    "orcamento.html",
+                    **_orcamento_template_kwargs(form, resultado, cliente_logado),
                 )
 
             detalhes = (
@@ -684,6 +705,7 @@ def orcamento():
                 f"Dimensões: {form['altura']}x{form['largura']}x{form['profundidade']} cm\n"
                 f"Material: {resultado['material_nome']}\n"
                 f"Qualidade: {form['qualidade']}\n"
+                f"Acabamento: {resultado['acabamento_nome']}\n"
                 f"Quantidade: {form['quantidade']}"
             )
             cliente_lat = ler_coordenada_formulario(request.form.get("cliente_lat"))
@@ -700,11 +722,8 @@ def orcamento():
             return redirect(url_for("pedido_pagamento", pedido_id=pedido_id))
 
     return render_template(
-        "orcamento.html", form=form, resultado=resultado,
-        materiais=MATERIAIS, qualidades=QUALIDADE, complexidades=COMPLEXIDADE,
-        materiais_js=json.dumps(MATERIAIS), qualidade_js=json.dumps(QUALIDADE),
-        complexidade_js=json.dumps(COMPLEXIDADE), cliente_logado=cliente_logado,
-        regra_js=json.dumps({"hora_maquina": PRECO_HORA_IMPRESSAO, "shell_fraction": SHELL_FRACTION, "cat_acabamento": CAT_ACABAMENTO}),
+        "orcamento.html",
+        **_orcamento_template_kwargs(form, resultado, cliente_logado),
     )
 
 

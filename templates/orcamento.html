@@ -16,7 +16,11 @@
           <input type="hidden" name="cliente_lng" id="cliente_lng">
       <div class="calc fade-up">
         <div class="calc-form">
-          <div class="eyebrow" style="margin-bottom:24px;">Configuração da peça</div>
+
+          <div class="calc-subhead">
+            <span class="calc-step">01</span>
+            <span>Peça</span>
+          </div>
           <div class="field">
             <label>Categoria</label>
             <select name="categoria" id="categoria">
@@ -28,13 +32,43 @@
 
           <div class="field">
             <label>Dimensões estimadas da peça (cm)</label>
-            <div class="field-row">
-              <input type="number" name="altura" id="altura" min="1" value="{{ form.altura }}">
-              <input type="number" name="largura" id="largura" min="1" value="{{ form.largura }}">
-              <input type="number" name="profundidade" id="profundidade" min="1" value="{{ form.profundidade }}">
+            <div class="field-row field-row-dims">
+              <div class="dim-input">
+                <input type="number" name="altura" id="altura" min="1" value="{{ form.altura }}">
+                <span class="dim-tag">Altura</span>
+              </div>
+              <div class="dim-input">
+                <input type="number" name="largura" id="largura" min="1" value="{{ form.largura }}">
+                <span class="dim-tag">Largura</span>
+              </div>
+              <div class="dim-input">
+                <input type="number" name="profundidade" id="profundidade" min="1" value="{{ form.profundidade }}">
+                <span class="dim-tag">Prof.</span>
+              </div>
             </div>
           </div>
 
+          <div class="field-row" style="grid-template-columns:1fr 1fr;">
+            <div class="field">
+              <label>Quantidade</label>
+              <input type="number" name="quantidade" id="quantidade" min="1" value="{{ form.quantidade }}">
+            </div>
+            <div class="field">
+              <label>Complexidade (suportes/infill)</label>
+              <select name="complexidade" id="complexidade">
+                <option value="baixa" {{ 'selected' if form.complexidade == 'baixa' }}>Baixa</option>
+                <option value="media" {{ 'selected' if form.complexidade == 'media' }}>Média</option>
+                <option value="alta" {{ 'selected' if form.complexidade == 'alta' }}>Alta</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="calc-divider"></div>
+
+          <div class="calc-subhead">
+            <span class="calc-step">02</span>
+            <span>Material &amp; acabamento</span>
+          </div>
           <div class="field">
             <label>Material</label>
             <div class="chip-group" id="material" data-name="material">
@@ -55,19 +89,28 @@
             <input type="hidden" name="qualidade" id="qualidade-input" value="{{ form.qualidade }}">
           </div>
 
-          <div class="field-row" style="grid-template-columns:1fr 1fr;">
-            <div class="field">
-              <label>Quantidade</label>
-              <input type="number" name="quantidade" id="quantidade" min="1" value="{{ form.quantidade }}">
+          <div class="field" style="margin-bottom:4px;">
+            <label>Acabamento de impressão</label>
+            <div class="finish-group" id="acabamento_impressao" data-name="acabamento_impressao">
+              {% for chave, a in acabamentos.items() %}
+                <button type="button" class="finish-card {{ 'active' if form.acabamento_impressao == chave }}" data-val="{{ chave }}">
+                  <span class="finish-icon finish-icon-{{ chave }}">
+                    {% if chave == 'branca' %}
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/></svg>
+                    {% elif chave == 'colorida_impressa' %}
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+                    {% else %}
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9.06 11.9 17.13 3.8a2.85 2.85 0 1 1 4.03 4.03l-8.06 8.06"/><path d="M7.07 14.94a3.5 3.5 0 0 0-3.5 3.5c0 1.06-.36 1.4-1 1.85 1.08 1.28 2.7 2.21 4.5 2.21a3.5 3.5 0 0 0 3.5-3.5 3.5 3.5 0 0 0-3.5-3.5z"/></svg>
+                    {% endif %}
+                  </span>
+                  <span class="finish-name">{{ a.nome }}</span>
+                  <span class="finish-desc">{{ a.desc }}</span>
+                  {% if a.mult > 1 %}<span class="finish-badge">+{{ ((a.mult - 1) * 100) | round | int }}%</span>{% endif %}
+                </button>
+              {% endfor %}
             </div>
-            <div class="field">
-              <label>Complexidade (suportes/infill)</label>
-              <select name="complexidade" id="complexidade">
-                <option value="baixa" {{ 'selected' if form.complexidade == 'baixa' }}>Baixa</option>
-                <option value="media" {{ 'selected' if form.complexidade == 'media' }}>Média</option>
-                <option value="alta" {{ 'selected' if form.complexidade == 'alta' }}>Alta</option>
-              </select>
-            </div>
+            <input type="hidden" name="acabamento_impressao" id="acabamento_impressao-input" value="{{ form.acabamento_impressao }}">
+            <p class="disclaimer" style="margin-top:10px;">O percentual incide sobre o acabamento e a mão de obra da peça — material e tempo de máquina não mudam com a cor escolhida.</p>
           </div>
         </div>
 
@@ -90,8 +133,13 @@
             <div>Material <span class="v" id="b-material">{{ 'R$ ' ~ ("%.2f"|format(resultado.custo_material)|replace('.', ',')) if resultado else 'R$ 0,00' }}</span></div>
             <div>Máquina / tempo <span class="v" id="b-maquina">{{ 'R$ ' ~ ("%.2f"|format(resultado.custo_maquina)|replace('.', ',')) if resultado else 'R$ 0,00' }}</span></div>
             <div>Acabamento & mão de obra <span class="v" id="b-acabamento">{{ 'R$ ' ~ ("%.2f"|format(resultado.custo_acabamento)|replace('.', ',')) if resultado else 'R$ 0,00' }}</span></div>
+            <div class="result-breakdown-note" id="b-acabamento-nome">{{ resultado.acabamento_nome if resultado else acabamentos[form.acabamento_impressao].nome }}</div>
           </div>
 
+          <div class="calc-subhead calc-subhead-light">
+            <span class="calc-step">03</span>
+            <span>Seus dados</span>
+          </div>
           <div class="field" style="margin-top:6px;">
             <label>Nome</label>
             <input type="text" name="nome" placeholder="Seu nome" value="{{ request.form.get('nome', cliente_logado['nome'] if cliente_logado else '') }}">
@@ -126,8 +174,10 @@
   const QUALIDADE = {{ qualidade_js | safe }};
   const COMPLEXIDADE = {{ complexidade_js | safe }};
   const REGRA = {{ regra_js | safe }};
+  const ACABAMENTO_NOMES = {{ acabamentos_js | safe }};
   const SHELL_FRACTION = REGRA.shell_fraction, HORA_MAQUINA = REGRA.hora_maquina;
   const CAT_ACABAMENTO = REGRA.cat_acabamento;
+  const ACABAMENTO_IMPRESSAO = REGRA.acabamento_impressao;
 
   const $ = id => document.getElementById(id);
 
@@ -142,12 +192,25 @@
     });
   });
 
+  document.querySelectorAll('.finish-group').forEach(group=>{
+    group.addEventListener('click', (e)=>{
+      const card = e.target.closest('.finish-card');
+      if(card){
+        group.querySelectorAll('.finish-card').forEach(c=>c.classList.remove('active'));
+        card.classList.add('active');
+        $(group.dataset.name + '-input').value = card.dataset.val;
+        calcular();
+      }
+    });
+  });
+
   ['altura','largura','profundidade','quantidade','categoria','complexidade'].forEach(id=>{
     $(id).addEventListener('input', calcular);
     $(id).addEventListener('change', calcular);
   });
 
   function getActive(groupId){ return document.querySelector('#'+groupId+' .chip.active').dataset.val; }
+  function getActiveFinish(){ return document.querySelector('#acabamento_impressao .finish-card.active').dataset.val; }
 
   function formatarHoras(h){
     if(h < 1) return Math.round(h*60) + ' min';
@@ -165,8 +228,10 @@
     const complexidade = $('complexidade').value;
     const materialKey = getActive('material');
     const qualidadeKey = getActive('qualidade');
+    const acabamentoKey = getActiveFinish();
 
     const mat = MATERIAIS[materialKey], qual = QUALIDADE[qualidadeKey], comp = COMPLEXIDADE[complexidade];
+    const acabMult = ACABAMENTO_IMPRESSAO[acabamentoKey] || 1;
 
     const volumeCaixa = alt * larg * prof;
     const fracaoSolida = SHELL_FRACTION + comp.infill * (1 - SHELL_FRACTION);
@@ -177,7 +242,7 @@
 
     const horasImpressao = (volumeImpresso / qual.velocidade) * comp.tempo_mult;
     const custoMaquina = horasImpressao * HORA_MAQUINA;
-    const custoAcabamento = CAT_ACABAMENTO[categoria] * qual.mult;
+    const custoAcabamento = CAT_ACABAMENTO[categoria] * qual.mult * acabMult;
 
     const precoUnitario = custoMaterial + custoMaquina + custoAcabamento;
     const precoTotal = precoUnitario * qtd;
@@ -189,6 +254,7 @@
     $('b-material').textContent = 'R$ ' + (custoMaterial*qtd).toFixed(2).replace('.', ',');
     $('b-maquina').textContent = 'R$ ' + (custoMaquina*qtd).toFixed(2).replace('.', ',');
     $('b-acabamento').textContent = 'R$ ' + (custoAcabamento*qtd).toFixed(2).replace('.', ',');
+    $('b-acabamento-nome').textContent = ACABAMENTO_NOMES[acabamentoKey] || '';
   }
 
   calcular();

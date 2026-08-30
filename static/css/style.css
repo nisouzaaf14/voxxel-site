@@ -349,6 +349,30 @@ section{ padding: var(--space-4) 0; position:relative; }
 .field label{ display:block; font-size:.8rem; color:var(--muted); margin-bottom:8px; letter-spacing:.02em; }
 .field-row{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; }
 @media(max-width:480px){ .field-row{ grid-template-columns:1fr; } }
+
+/* --- numeração das etapas do formulário de orçamento --- */
+.calc-subhead{
+  display:flex; align-items:center; gap:10px; margin-bottom:20px;
+  font-family:'Space Mono',monospace; font-size:.78rem; letter-spacing:.06em; color:var(--text);
+}
+.calc-subhead-light{ color:var(--text); margin-top:26px; }
+.calc-step{
+  display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px;
+  border:1px solid var(--violet); border-radius:50%; color:var(--violet-bright);
+  font-size:.68rem; flex-shrink:0;
+}
+.calc-divider{ height:1px; background:var(--line); margin:26px 0 28px; border-top:1px dashed var(--line-strong); background:none; }
+
+/* --- dimensões com rótulo dentro do campo --- */
+.field-row-dims{ gap:12px; }
+.dim-input{ position:relative; }
+.dim-input input{ padding-right:52px; }
+.dim-tag{
+  position:absolute; right:10px; top:50%; transform:translateY(-50%);
+  font-family:'Space Mono',monospace; font-size:.62rem; letter-spacing:.04em; text-transform:uppercase;
+  color:var(--muted-2); pointer-events:none;
+}
+@media(max-width:480px){ .field-row-dims{ grid-template-columns:1fr; } }
 select, input[type=number], input[type=text], input[type=password], textarea{
   width:100%; background:var(--void); border:1px solid var(--line); color:var(--text);
   padding:11px 12px; font-family:'Sora',sans-serif; font-size:.92rem; border-radius:var(--radius-sm);
@@ -374,7 +398,40 @@ select:focus, input:focus, textarea:focus{ border-color:var(--violet); }
 .result-sub{ color:var(--muted); font-size:.84rem; margin-bottom:26px; text-align:center; }
 .result-breakdown{ font-family:'Space Mono',monospace; font-size:.82rem; color:var(--muted); display:flex; flex-direction:column; gap:7px; margin-bottom:28px; border-top:1px dashed var(--line); padding-top:18px; }
 .result-breakdown span.v{ color:var(--text); float:right; }
+.result-breakdown-note{
+  font-family:'Sora',sans-serif; font-size:.74rem; color:var(--violet-bright);
+  text-align:right; margin-top:-1px;
+}
 .disclaimer{ font-size:.74rem; color:var(--muted-2); margin-top:8px; line-height:1.55; }
+
+/* --- seletor de acabamento de impressão (branco / colorida impressa / colorida artesanal) --- */
+.finish-group{ display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+@media(max-width:640px){ .finish-group{ grid-template-columns:1fr; } }
+.finish-card{
+  position:relative; display:flex; flex-direction:column; align-items:flex-start; text-align:left;
+  gap:8px; padding:16px 14px; background:var(--void); border:1px solid var(--line); border-radius:var(--radius);
+  cursor:pointer; transition:border-color .2s var(--ease), background .2s var(--ease), transform .2s var(--ease);
+  color:var(--muted);
+}
+.finish-card:hover{ border-color:var(--line-strong); transform:translateY(-2px); }
+.finish-card.active{
+  border-color:var(--violet); background:rgba(162,89,255,.1); box-shadow:0 0 0 1px rgba(162,89,255,.18);
+}
+.finish-icon{
+  display:inline-flex; align-items:center; justify-content:center; width:32px; height:32px;
+  border-radius:50%; border:1px solid var(--line-strong); color:var(--muted);
+}
+.finish-icon svg{ width:16px; height:16px; }
+.finish-card.active .finish-icon{ border-color:var(--violet); color:var(--violet-bright); }
+.finish-icon-colorida_artesanal{ }
+.finish-card.active .finish-icon-colorida_artesanal{ border-color:var(--gold); color:var(--gold-soft); }
+.finish-name{ font-size:.86rem; font-weight:600; color:var(--text); }
+.finish-desc{ font-size:.74rem; color:var(--muted); line-height:1.45; }
+.finish-badge{
+  position:absolute; top:12px; right:12px; font-family:'Space Mono',monospace; font-size:.62rem;
+  letter-spacing:.03em; color:var(--gold-soft); border:1px solid rgba(205,171,115,.4);
+  border-radius:999px; padding:2px 8px; background:rgba(205,171,115,.08);
+}
 
 /* --- amostra de cor por material, ligada às mesmas cores usadas no blob 3D --- */
 #material .chip{ display:inline-flex; align-items:center; gap:8px; }

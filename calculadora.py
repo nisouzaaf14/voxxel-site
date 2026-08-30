@@ -24,7 +24,9 @@
 #   - X reais por kg de material gasto, onde X depende do material
 #     escolhido -- resina e PETG custam mais caro por grama que o PLA.
 # O preço final de cada peça é a soma desses dois valores + o acabamento
-# (post-processamento manual, que varia por categoria).
+# (post-processamento manual, que varia por categoria e é multiplicado
+# pelo acabamento de impressão escolhido -- branco, colorida impressa ou
+# colorida artesanal -- ver ACABAMENTO_IMPRESSAO mais abaixo).
 #
 # Os valores de "preco_kg" abaixo são um ponto de partida realista pro
 # mercado brasileiro em 2026 -- ajuste pelo custo real que a Voxxel paga
@@ -62,11 +64,35 @@ PRECO_HORA_IMPRESSAO = 2.00   # R$ por hora de impressão (igual pra todo materi
 CAT_ACABAMENTO = {"tecnica": 6, "cosplay": 14, "decoracao": 8}
 CAT_NOME = {"tecnica": "Peça Técnica", "cosplay": "Cosplay & Acessório", "decoracao": "Decoração & Utilitário"}
 
+# --- acabamento de impressão (cor/pintura) ---
+# Multiplica só a parcela de "acabamento & mão de obra" (CAT_ACABAMENTO),
+# já que é exatamente aí que entra o trabalho extra de trocar filamento
+# durante a impressão ou de pintar a peça à mão depois de pronta -- o
+# custo de material e de hora de máquina não muda por causa da cor.
+ACABAMENTO_IMPRESSAO = {
+    "branca": {
+        "nome": "Impressão em branco",
+        "desc": "Sai direto na cor natural do filamento, sem pintura.",
+        "mult": 1.0,
+    },
+    "colorida_impressa": {
+        "nome": "Colorida impressa",
+        "desc": "Cores aplicadas na própria impressora (troca de filamento).",
+        "mult": 1.20,
+    },
+    "colorida_artesanal": {
+        "nome": "Colorida artesanal",
+        "desc": "Pintada à mão após a impressão, acabamento artesanal.",
+        "mult": 1.20,
+    },
+}
 
-def calcular_orcamento(altura, largura, profundidade, quantidade, categoria, complexidade, material, qualidade):
+
+def calcular_orcamento(altura, largura, profundidade, quantidade, categoria, complexidade, material, qualidade, acabamento_impressao="branca"):
     mat = MATERIAIS[material]
     qual = QUALIDADE[qualidade]
     comp = COMPLEXIDADE[complexidade]
+    acab = ACABAMENTO_IMPRESSAO.get(acabamento_impressao, ACABAMENTO_IMPRESSAO["branca"])
     qtd = max(1, int(quantidade))
 
     volume_caixa = altura * largura * profundidade
@@ -83,7 +109,7 @@ def calcular_orcamento(altura, largura, profundidade, quantidade, categoria, com
     # escolhido, não mais um valor único pra todos
     custo_material = (peso_gramas / 1000) * mat["preco_kg"]
 
-    custo_acabamento = CAT_ACABAMENTO[categoria] * qual["mult"]
+    custo_acabamento = CAT_ACABAMENTO[categoria] * qual["mult"] * acab["mult"]
 
     preco_unitario = custo_material + custo_maquina + custo_acabamento
     preco_total = preco_unitario * qtd
@@ -97,6 +123,7 @@ def calcular_orcamento(altura, largura, profundidade, quantidade, categoria, com
         "custo_acabamento": round(custo_acabamento * qtd, 2),
         "material_nome": mat["nome"],
         "categoria_nome": CAT_NOME[categoria],
+        "acabamento_nome": acab["nome"],
     }
 
 
