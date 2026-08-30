@@ -91,25 +91,29 @@ ACABAMENTO_IMPRESSAO = {
     },
 }
 
-# Multiplica só a parcela de "acabamento & mão de obra" (CAT_ACABAMENTO) --
-# é exatamente aí que entra o trabalho extra de trocar filamento durante a
-# impressão ou de pintar a peça à mão depois de pronta; o custo de material
-# e de hora de máquina não muda por causa da cor. Só existem aqui as
-# combinações categoria+acabamento que a Voxxel realmente oferece -- uma
-# categoria que não aparece com um acabamento significa que essa opção não
-# é vendida pra ela (o formulário e o back-end validam isso).
+# Quanto ACRESCENTAR na parcela de acabamento pra cada 100g de peça,
+# dependendo da categoria e do acabamento escolhido (R$/100g). Antes isso
+# era um multiplicador sobre CAT_ACABAMENTO (um valor fixo por categoria,
+# igual pra peça grande ou pequena) -- só que aí uma peça de ~100g em PLA
+# branco (~R$43-44 no total) ganhava uns R$20 a mais na versão pintada à
+# mão, não importa o tamanho da peça. Isso não paga o trabalho de pintar
+# (que cresce com o tamanho), então agora o acréscimo escala com o peso:
+# uma peça maior, mais tinta e mais tempo de pincel, mais cara fica pintar.
+# Só existem aqui as combinações categoria+acabamento que a Voxxel
+# realmente oferece -- uma categoria que não aparece com um acabamento
+# significa que essa opção não é vendida pra ela (form e back-end validam).
 ACABAMENTOS_POR_CATEGORIA = {
     "tecnica": {
-        "branca": 1.0,
+        "branca": 0,
     },
     "decoracao": {
-        "branca": 1.0,
-        "colorida_impressa": 1.5,
+        "branca": 0,
+        "colorida_impressa": 10,
     },
     "cosplay": {
-        "branca": 1.0,
-        "colorida_impressa": 1.8,
-        "colorida_artesanal": 2.5,
+        "branca": 0,
+        "colorida_impressa": 18,
+        "colorida_artesanal": 45,
     },
 }
 
@@ -121,7 +125,7 @@ def calcular_orcamento(altura, largura, profundidade, quantidade, categoria, com
     finishes_da_categoria = ACABAMENTOS_POR_CATEGORIA.get(categoria, ACABAMENTOS_POR_CATEGORIA["tecnica"])
     if acabamento_impressao not in finishes_da_categoria:
         acabamento_impressao = "branca"
-    finish_mult = finishes_da_categoria[acabamento_impressao]
+    finish_reais_por_100g = finishes_da_categoria[acabamento_impressao]
     acab = ACABAMENTO_IMPRESSAO[acabamento_impressao]
     qtd = max(1, int(quantidade))
 
@@ -139,7 +143,9 @@ def calcular_orcamento(altura, largura, profundidade, quantidade, categoria, com
     # escolhido, não mais um valor único pra todos
     custo_material = (peso_gramas / 1000) * mat["preco_kg"]
 
-    custo_acabamento = CAT_ACABAMENTO[categoria] * qual["mult"] * finish_mult
+    # acabamento = parcela base de mão de obra (limpeza/suportes, igual pra
+    # toda cor) + acréscimo de cor, que agora escala com o peso da peça.
+    custo_acabamento = CAT_ACABAMENTO[categoria] * qual["mult"] + (peso_gramas / 100) * finish_reais_por_100g
 
     preco_unitario = custo_material + custo_maquina + custo_acabamento
     preco_total = preco_unitario * qtd
