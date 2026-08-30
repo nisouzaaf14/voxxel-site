@@ -78,12 +78,12 @@ ACABAMENTO_IMPRESSAO = {
     "colorida_impressa": {
         "nome": "Colorida impressa",
         "desc": "Cores aplicadas na própria impressora (troca de filamento).",
-        "mult": 1.20,
+        "mult": 1.40,
     },
     "colorida_artesanal": {
         "nome": "Colorida artesanal",
         "desc": "Pintada à mão após a impressão, acabamento artesanal.",
-        "mult": 1.20,
+        "mult": 1.40,
     },
 }
 
