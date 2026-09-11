@@ -4,16 +4,17 @@
 
 <section style="padding-top:var(--space-3);">
   <div class="wrap">
-    <div class="section-head fade-up">
+    <div class="catalog-heading"><div class="section-head">
       <div class="eyebrow">Catálogo</div>
-      <h2>Peças prontas em estoque</h2>
-      <p>Itens já produzidos e revisados, disponíveis para envio imediato.</p>
+      <h1>Peças para o seu dia a dia</h1>
+      <p>Escolha uma peça e veja os detalhes. Consulte o prazo de produção e as opções de recebimento.</p>
     </div>
 
-    <div class="filtros fade-up">
-      <a class="chip {{ 'active' if categoria_ativa == 'todos' }}" href="{{ url_for('loja') }}">Todos</a>
+    <span class="catalog-count">{{ produtos|length }} {{ "peça disponível no catálogo" if produtos|length == 1 else "peças no catálogo" }}</span></div>
+    <div class="filtros">
+      <a class="chip {{ 'active' if categoria_ativa == 'todos' }}" href="{{ url_for('loja') }}" {% if categoria_ativa == 'todos' %}aria-current="true"{% endif %}>Todos</a>
       {% for chave, nome in categorias.items() %}
-        <a class="chip {{ 'active' if categoria_ativa == chave }}" href="{{ url_for('loja', categoria=chave) }}">{{ nome }}s</a>
+        <a class="chip {{ 'active' if categoria_ativa == chave }}" href="{{ url_for('loja', categoria=chave) }}" {% if categoria_ativa == chave %}aria-current="true"{% endif %}>{{ nome }}</a>
       {% endfor %}
     </div>
 
@@ -25,11 +26,13 @@
            {% if p['tem_imagem'] %}data-tem-foto="1"{% endif %}>
           {% if p['tem_imagem'] %}
             <img src="{{ url_for('produto_imagem', produto_id=p['id']) }}" alt="{{ p['nome'] }}" loading="lazy">
-          {% endif %}
+          {% else %}<div class="product-no-photo"><strong>VOXXEL</strong><span>Foto ainda não disponível</span></div>{% endif %}
           {% if p['estoque'] is not none and p['estoque'] <= 0 %}
             <span class="stock-flag stock-flag-out">Esgotado</span>
-          {% elif p['estoque'] is not none and p['estoque'] <= 3 %}
-            <span class="stock-flag">Últimas {{ p['estoque'] }} un.</span>
+          {% elif p['estoque'] is none %}
+            <span class="stock-flag">Prazo a confirmar</span>
+          {% elif p['estoque'] <= 3 %}
+            <span class="stock-flag">{{ p['estoque'] }} em estoque</span>
           {% endif %}
         </a>
         <div class="produto-info">
@@ -52,7 +55,7 @@
       {% endfor %}
     </div>
     {% else %}
-    <div class="empty-state">Nenhum produto nessa categoria por enquanto.</div>
+    <div class="empty-state">Ainda não há peças nesta categoria. Fale com a Voxxel para consultar um projeto personalizado.</div>
     {% endif %}
   </div>
 </section>

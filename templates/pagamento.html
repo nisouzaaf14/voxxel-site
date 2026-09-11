@@ -6,9 +6,9 @@
   <div class="wrap" style="max-width:560px; margin:0 auto;">
     <div class="section-head fade-up" style="margin-bottom:var(--space-2);">
       <div class="eyebrow">{{ 'Orçamento' if pedido['tipo'] == 'orcamento' else 'Pedido' }} #{{ pedido['id'] }}</div>
-      <h2>{{ 'Pagamento (opcional)' if pedido['tipo'] == 'orcamento' else 'Pagamento' }}</h2>
+      <h2>{{ 'Orçamento recebido' if pedido['tipo'] == 'orcamento' else 'Pedido recebido' }}</h2>
       {% if pedido['tipo'] == 'orcamento' %}
-      <p>Esse valor é uma estimativa. Você pode adiantar por Pix ou só combinar tudo direto com a gente.</p>
+      <p>Este valor é uma estimativa. Aguarde a confirmação do projeto e do valor final pela Voxxel antes de pagar.</p>
       {% endif %}
     </div>
 
@@ -20,7 +20,7 @@
 
       {% if pedido['status_pagamento'] == 'informado' %}
         <div class="payment-done">
-          ✓ Pagamento informado. Nosso assistente virtual já está com os detalhes — confirme por lá.
+          Pagamento informado. Aguarde a conferência da Voxxel antes de realizar um novo pagamento.
         </div>
       {% elif pix_disponivel %}
         <div class="payment-qr">
@@ -42,16 +42,20 @@
         </div>
       {% else %}
         <div class="payment-combinar">
-          <p>Vamos combinar o pagamento direto com você pelo assistente virtual, no canto da tela.</p>
-          {% if config.whatsapp %}
+          <p>Fale com a Voxxel para confirmar disponibilidade, recebimento, prazo e pagamento. Seu pedido já foi registrado.</p>
+          {% if whatsapp_numero %}
           <a class="btn btn-outline" target="_blank" rel="noopener"
-             href="https://wa.me/{{ config.whatsapp }}?text=Ol%C3%A1!%20Sou%20o(a)%20{{ pedido['cliente_nome']|urlencode }}%2C%20pedido%20%23{{ pedido['id'] }}">
+             href="https://wa.me/{{ whatsapp_numero }}?text=Ol%C3%A1!%20Sou%20o(a)%20{{ pedido['cliente_nome']|urlencode }}%2C%20pedido%20%23{{ pedido['id'] }}">
             Falar no WhatsApp
           </a>
           {% endif %}
         </div>
       {% endif %}
 
+      {% if whatsapp_numero and (pix_disponivel or cartao_disponivel or pedido['status_pagamento'] == 'informado') %}
+      <a class="btn btn-outline btn-block" target="_blank" rel="noopener" href="https://wa.me/{{ whatsapp_numero }}?text={{ ('Olá! Quero falar sobre o pedido #' ~ pedido['id'])|urlencode }}">Falar sobre este pedido</a>
+      {% endif %}
+      {% if pedido['tipo'] == 'loja' %}<p class="customer-note">O valor das peças não inclui frete. Confirme disponibilidade, local de retirada ou entrega e prazo com a Voxxel antes de pagar.</p>{% endif %}
       <div class="payment-detalhes">
         <div class="result-label">Itens</div>
         <pre>{{ pedido['detalhes'] }}</pre>
@@ -66,14 +70,15 @@
           <span class="printer-status-dot" style="display:inline-block; margin-right:8px;"></span>
           Procurando uma impressora parceira online perto de você... assim que alguém aceitar, avisamos aqui.
         {% elif pedido['distribuicao_status'] == 'sem_impressora' %}
-          Nenhuma impressora parceira está disponível na sua região agora — a Voxxel vai produzir e falar com você pelo WhatsApp.
+          Ainda não encontramos um parceiro disponível na sua região. Fale com a Voxxel para verificar como atender seu pedido.
         {% elif pedido['distribuicao_status'] == 'sem_localizacao' %}
-          Não recebemos sua localização, então esse pedido será produzido direto pela Voxxel.
+          Seu pedido foi registrado sem localização. Combine os próximos passos com a Voxxel.
         {% endif %}
       </div>
       {% endif %}
     </div>
 
+    <a href="{{ url_for('conta_dashboard') }}" class="btn btn-outline btn-block">Acompanhar meus pedidos</a>
     <a href="{{ url_for('loja') }}" class="admin-login-back">← Voltar para o catálogo</a>
   </div>
 </section>

@@ -6,29 +6,30 @@
   <div class="wrap" style="max-width:440px; margin:0 auto;">
     <div class="section-head fade-up" style="margin-bottom:var(--space-2);">
       <div class="eyebrow">Minha conta</div>
-      <h2>Entrar</h2>
-      <p>Entre para finalizar compras, enviar orçamentos e acompanhar seus pedidos.</p>
+      <h2>Acesse sua conta</h2>
+      <p>Use o telefone e a senha do seu cadastro para continuar o pedido ou acompanhar suas compras.</p>
     </div>
 
     {% if erro %}<div class="flash" style="border-color:var(--err); color:var(--err);">{{ erro }}</div>{% endif %}
 
+    <p class="helper-text">Este acesso é para clientes. <a href="{{ url_for('impressora_entrar') }}">Sou parceiro de impressão</a></p>
     <form method="post" class="form-card fade-up">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <input type="hidden" name="next" value="{{ request.args.get('next', '') }}">
       <div class="field">
-        <label>WhatsApp / telefone</label>
-        <input type="text" name="telefone" required placeholder="(41) 9XXXX-XXXX" autofocus>
+        <label for="telefone">Telefone cadastrado com DDD</label>
+        <input id="telefone" type="tel" name="telefone" autocomplete="tel" value="{{ request.form.get('telefone', '') }}" required placeholder="(41) 9XXXX-XXXX" autofocus>
       </div>
       <div class="field">
-        <label>Senha</label>
-        <input type="password" name="senha" required>
+        <label for="senha">Senha</label>
+        <input id="senha" type="password" name="senha" required>
       </div>
       <button type="submit" class="btn btn-primary btn-block">Entrar</button>
     </form>
 
     <p style="text-align:center; margin-top:18px; color:var(--muted); font-size:.9rem;">
-      Ainda não tem conta?
-      <a href="{{ url_for('conta_cadastro', next=request.args.get('next','')) }}" style="color:var(--violet-bright);">Cadastre-se</a>
+      É sua primeira compra?
+      <a href="{{ url_for('conta_cadastro', next=request.args.get('next','')) }}" style="color:var(--gold-soft);">Criar minha conta</a>
     </p>
   </div>
 </section>

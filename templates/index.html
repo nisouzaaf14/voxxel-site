@@ -1,144 +1,18 @@
 {% extends "base.html" %}
-{% block title %}Voxxel — Impressão 3D em São José dos Pinhais{% endblock %}
+{% block title %}Voxxel — Peças e projetos em impressão 3D{% endblock %}
 {% block content %}
-
-<section class="hero">
-  <div class="wrap">
-    <div class="eyebrow">Manufatura aditiva de precisão</div>
-    <h1 style="margin-top:18px;">Da ideia ao objeto<br>físico, com <span class="accent">precisão</span></h1>
-    <p>Peças técnicas, réplicas de cosplay e objetos de decoração projetados e produzidos sob medida — com controle de qualidade em cada etapa, do modelo 3D ao acabamento final.</p>
-    <div class="hero-ctas">
-      <a class="btn btn-primary" href="{{ url_for('orcamento') }}">Solicitar orçamento</a>
-      <a class="btn btn-outline" href="{{ url_for('loja') }}">Ver catálogo</a>
-    </div>
+<section class="studio-hero"><div class="wrap studio-hero-grid">
+  <div class="studio-intro"><div class="eyebrow">IMPRESSÃO 3D · VOXXEL</div><h1>Sua ideia vira<br>uma peça <em>3D.</em></h1><p>Encontre peças para sua casa, seu trabalho ou seu cosplay. Precisa de algo diferente? Conte sua ideia para a Voxxel.</p><div class="hero-ctas"><a class="btn btn-primary" href="{{ url_for('loja') }}">Ver peças do catálogo <span aria-hidden="true">↗</span></a><a class="btn btn-outline" href="{{ url_for('orcamento') }}">Pedir orçamento</a></div><div class="hero-caption">Material, acabamento e prazo combinados com você.</div></div>
+  <figure class="studio-image"><img src="{{ url_for('static', filename='images/hero-voxxel.png') }}" alt="Composição conceitual de objetos com textura de impressão 3D em roxo e grafite" width="1536" height="1024" fetchpriority="high"><figcaption>Formas, camadas e possibilidades. <span>Imagem conceitual.</span></figcaption></figure>
+</div></section>
+<section class="studio-categories" id="categorias"><div class="wrap">
+  <div class="section-head align-left"><div class="eyebrow">ESCOLHA POR INTERESSE</div><h2>Encontre o que você precisa.</h2></div>
+  <div class="category-links">
+    <a href="{{ url_for('loja', categoria='tecnica') }}"><span class="category-number">01</span><div><h3>Peças & suportes</h3><p>Organização, suportes e peças de reposição sob consulta.</p></div><span aria-hidden="true">↗</span></a>
+    <a href="{{ url_for('loja', categoria='cosplay') }}"><span class="category-number">02</span><div><h3>Cosplay & acessórios</h3><p>Máscaras e acessórios para completar seu personagem.</p></div><span aria-hidden="true">↗</span></a>
+    <a href="{{ url_for('loja', categoria='decoracao') }}"><span class="category-number">03</span><div><h3>Decoração & utilitários</h3><p>Peças para organizar e decorar o seu espaço.</p></div><span aria-hidden="true">↗</span></a>
   </div>
-</section>
-
-<section id="categorias">
-  <div class="wrap">
-    <div class="section-head fade-up">
-      <div class="eyebrow">Especialidades</div>
-      <h2>Três especialidades, um padrão de precisão</h2>
-      <p>Cada projeto segue o mesmo processo de engenharia — do modelo 3D à peça finalizada, sem produção genérica em série.</p>
-    </div>
-    <div class="cats">
-      <div class="cat-card fade-up">
-        <div class="cat-inner">
-          <div class="cat-frame">
-            <svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="1"/><path d="M12 4v16M4 12h16"/></svg>
-          </div>
-          <h3>Peças Técnicas</h3>
-          <p>Protótipos funcionais, componentes de reposição e peças dimensionadas com precisão para uso real.</p>
-        </div>
-      </div>
-      <div class="cat-card fade-up">
-        <div class="cat-inner">
-          <div class="cat-frame">
-            <svg viewBox="0 0 24 24"><path d="M12 3l7 12H5L12 3Z"/><path d="M12 21l-7-12h14L12 21Z"/></svg>
-          </div>
-          <h3>Cosplay & Acessórios</h3>
-          <p>Réplicas fiéis e acessórios modelados a partir de referência, com acabamento pronto para pintura.</p>
-        </div>
-      </div>
-      <div class="cat-card fade-up">
-        <div class="cat-inner">
-          <div class="cat-frame">
-            <svg viewBox="0 0 24 24"><path d="M12 3l8 4.5-8 4.5-8-4.5L12 3Z"/><path d="M4 12l8 4.5 8-4.5"/><path d="M4 16.5l8 4.5 8-4.5"/></svg>
-          </div>
-          <h3>Decoração & Utilitários</h3>
-          <p>Objetos autorais com geometria exclusiva e acabamento refinado para casa e escritório.</p>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<section id="sobre">
-  <div class="wrap">
-    <div class="section-head fade-up">
-      <div class="eyebrow">Processo & qualidade</div>
-      <h2>Precisão em cada camada</h2>
-      <p>Do modelo 3D ao acabamento manual, toda peça passa pelo mesmo controle — camada calibrada, material correto pra função e revisão antes do envio.</p>
-    </div>
-
-    <div class="quality-grid fade-up">
-      <div class="quality-item">
-        <div class="quality-num">0,1mm</div>
-        <div class="quality-label">Altura de camada em peças de alto detalhe, pra acabamento sem degraus visíveis</div>
-      </div>
-      <div class="quality-item">
-        <div class="quality-num">±0,2mm</div>
-        <div class="quality-label">Tolerância dimensional buscada em peças técnicas e de encaixe</div>
-      </div>
-      <div class="quality-item">
-        <div class="quality-num">100%</div>
-        <div class="quality-label">Das peças passa por revisão visual antes de sair pra entrega</div>
-      </div>
-    </div>
-
-    <div class="materials-head fade-up">
-      <h3>Materiais que trabalhamos</h3>
-      <p>Cada material tem seu ponto forte — a escolha certa depende da peça, não é sempre a mesma.</p>
-    </div>
-    <div class="materials-showcase fade-up">
-      <div class="material-piece" style="--ang:20deg; --mc:#a259ff">
-        <div class="poly-piece"></div>
-        <span>PLA</span>
-      </div>
-      <div class="material-piece" style="--ang:90deg; --mc:#cdab73">
-        <div class="poly-piece"></div>
-        <span>PETG</span>
-      </div>
-      <div class="material-piece" style="--ang:160deg; --mc:#8dc9ff">
-        <div class="poly-piece"></div>
-        <span>ABS</span>
-      </div>
-      <div class="material-piece" style="--ang:250deg; --mc:#f0708a">
-        <div class="poly-piece"></div>
-        <span>Resina</span>
-      </div>
-      <div class="material-piece custom">
-        <div class="poly-piece"></div>
-        <span>Sob consulta</span>
-      </div>
-    </div>
-  </div>
-</section>
-
-<section id="rede">
-  <div class="wrap">
-    <div class="section-head fade-up">
-      <div class="eyebrow">Rede de impressão</div>
-      <h2>Uma rede de impressoras, perto de você</h2>
-      <p>A Voxxel conecta seu pedido à impressora parceira mais próxima disponível — entrega mais rápida, sem abrir mão do mesmo padrão de qualidade em cada peça.</p>
-    </div>
-    <div class="cats">
-      <div class="cat-card fade-up">
-        <div class="cat-inner">
-          <div class="cat-num">01</div>
-          <h3>Você pede</h3>
-          <p>Escolhe uma peça do catálogo ou monta um orçamento sob medida — com sua localização, pra entrega mais rápida.</p>
-        </div>
-      </div>
-      <div class="cat-card fade-up">
-        <div class="cat-inner">
-          <div class="cat-num">02</div>
-          <h3>A rede responde</h3>
-          <p>A impressora parceira mais próxima e disponível recebe a oferta — se não aceitar, passa pra próxima em minutos.</p>
-        </div>
-      </div>
-      <div class="cat-card fade-up">
-        <div class="cat-inner">
-          <div class="cat-num">03</div>
-          <h3>Você recebe</h3>
-          <p>Mesmo padrão Voxxel em cada peça, não importa qual impressora da rede produziu a sua.</p>
-        </div>
-      </div>
-    </div>
-    <div style="text-align:center; margin-top:var(--space-3);">
-      <a class="btn btn-outline" href="{{ url_for('impressora_cadastro') }}">Tem uma impressora 3D? Entre para a rede</a>
-    </div>
-  </div>
-</section>
-
+</div></section>
+<section class="studio-process" id="sobre"><div class="wrap process-grid"><div><div class="eyebrow">FEITO A PARTIR DA SUA IDEIA</div><h2>Precisa de uma<br>peça personalizada?</h2><p>Mostre uma referência e explique como pretende usar a peça. Vamos avaliar o formato, as medidas e o material antes de confirmar o orçamento.</p><a class="btn btn-outline" href="{{ url_for('orcamento') }}">Solicitar orçamento</a></div><ol class="process-list"><li><span>01</span><div><h3>Conte o que precisa</h3><p>Escolha no catálogo ou informe as medidas e o uso da peça.</p></div></li><li><span>02</span><div><h3>Combine os detalhes</h3><p>Combine material, acabamento, valor e prazo antes da produção.</p></div></li><li><span>03</span><div><h3>Receba sua peça</h3><p>Entrega ou retirada conforme o combinado no atendimento.</p></div></li></ol></div></section>
+<section class="studio-network" id="rede"><div class="wrap"><div class="network-panel"><div><div class="eyebrow">REDE VOXXEL</div><h2>Tem uma<br>impressora 3D?</h2><p>Crie sua conta de parceiro e fique disponível para receber solicitações na sua região. Você avalia cada pedido antes de aceitar.</p></div><a class="btn btn-primary" href="{{ url_for('impressora_cadastro') }}">Conhecer o cadastro <span aria-hidden="true">↗</span></a></div></div></section>
 {% endblock %}

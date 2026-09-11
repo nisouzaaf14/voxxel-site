@@ -1,108 +1,58 @@
 {% extends "base.html" %}
-{% block title %}Finalizar pedido — Voxxel{% endblock %}
+{% block title %}Seus dados — Voxxel{% endblock %}
 {% block content %}
-
-<section style="padding-top:var(--space-3);">
-  <div class="wrap">
-    <div class="section-head fade-up" style="margin-bottom:var(--space-2);">
-      <div class="eyebrow">Checkout</div>
-      <h2>Finalizar pedido</h2>
-      <p>Comprando como {{ cliente['nome'] }} · <a href="{{ url_for('conta_sair') }}" style="color:var(--muted);">não é você?</a></p>
-    </div>
-
-    <form method="post" action="{{ url_for('checkout') }}" id="form-checkout">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-          <input type="hidden" name="cliente_lat" id="cliente_lat">
-          <input type="hidden" name="cliente_lng" id="cliente_lng">
-      <div class="calc fade-up">
-        <div class="calc-form">
-          <div class="eyebrow" style="margin-bottom:24px;">Seus dados</div>
-          <div class="field">
-            <label>Nome completo</label>
-            <input type="text" name="nome" required placeholder="Seu nome" value="{{ request.form.get('nome', cliente['nome']) }}">
-          </div>
-          <div class="field">
-            <label>WhatsApp / telefone</label>
-            <input type="text" name="telefone" required placeholder="(41) 9XXXX-XXXX" value="{{ request.form.get('telefone', cliente['telefone']) }}">
-          </div>
-          <div class="field">
-            <label>Forma de pagamento</label>
-            <div class="chip-group" id="pagamento" data-name="forma_pagamento">
-              <button type="button" class="chip active" data-val="pix">Pix (na hora)</button>
-              <button type="button" class="chip" data-val="cartao">Cartão (crédito/débito)</button>
-              <button type="button" class="chip" data-val="combinar">Combinar no WhatsApp</button>
-            </div>
-            <input type="hidden" name="forma_pagamento" id="forma_pagamento-input" value="pix">
-          </div>
-
-          <div class="field">
-            <label>Localização (pra achar a impressora parceira mais próxima)</label>
-            <div class="printer-dispatch-box" id="localizacao-status">
-              <span class="printer-status-dot" id="localizacao-dot" style="display:inline-block; margin-right:8px;"></span>
-              <span id="localizacao-texto">Detectando sua localização...</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="calc-result">
-          <div class="result-label">Resumo do pedido</div>
-          <div class="checkout-itens">
-            {% for i in itens %}
-            <div class="checkout-item">
-              <span>{{ i.qtd }}x {{ i.produto['nome'] }}</span>
-              <span>R$ {{ "%.2f"|format(i.subtotal)|replace('.', ',') }}</span>
-            </div>
-            {% endfor %}
-          </div>
-          <div class="result-price" style="margin-top:18px;">R$ {{ "%.2f"|format(total)|replace('.', ',') }}</div>
-          <button type="submit" class="btn btn-primary btn-block" style="margin-top:20px;">Confirmar pedido</button>
-          <p class="disclaimer">Ao confirmar, você recebe na hora o QR Code Pix (ou o combinado direto com a gente pelo assistente virtual).</p>
-        </div>
+<section class="customer-section"><div class="wrap">
+  <nav class="purchase-steps" aria-label="Etapas da compra"><a href="{{ url_for('carrinho') }}">1. Carrinho</a><strong aria-current="step">2. Seus dados</strong><span>3. Pedido</span></nav>
+  <div class="section-head"><h1>Como você quer receber?</h1><p>Confira seus dados. A Voxxel combina com você os próximos passos pelo WhatsApp.</p></div>
+  <form method="post" id="form-checkout">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="cliente_lat" id="cliente_lat"><input type="hidden" name="cliente_lng" id="cliente_lng">
+    <div class="calc">
+      <div class="calc-form">
+        <div class="field"><label for="nome">Nome completo</label><input id="nome" name="nome" autocomplete="name" maxlength="120" required value="{{ request.form.get('nome', cliente['nome']) }}"></div>
+        <div class="field"><label for="telefone">WhatsApp com DDD</label><input id="telefone" name="telefone" type="tel" autocomplete="tel" maxlength="40" required placeholder="(41) 99999-9999" value="{{ request.form.get('telefone', cliente['telefone']) }}"></div>
+        <div class="field"><label for="recebimento">Recebimento</label><select id="recebimento" name="recebimento">
+          {% for valor, texto in [('combinar','Quero combinar pelo WhatsApp'),('retirada','Tenho interesse em retirar'),('entrega','Quero consultar a entrega')] %}
+          <option value="{{ valor }}" {{ 'selected' if request.form.get('recebimento', 'combinar') == valor }}>{{ texto }}</option>{% endfor %}
+        </select></div>
+        <div class="field" id="endereco-field"><label for="endereco">Endereço para consultar entrega</label><textarea id="endereco" name="endereco" rows="3" maxlength="350" autocomplete="street-address" placeholder="CEP, rua, número, complemento, bairro, cidade e estado">{{ request.form.get('endereco', '') }}</textarea><p class="helper-text">Para entrega, informe o endereço completo. A disponibilidade, o frete e o prazo serão confirmados antes do pagamento.</p></div>
+        <div class="field"><label for="forma_pagamento">Pagamento</label><select id="forma_pagamento" name="forma_pagamento">{% for valor, texto in pagamentos.items() %}<option value="{{ valor }}" {{ 'selected' if request.form.get('forma_pagamento', 'combinar') == valor }}>{{ texto }}</option>{% endfor %}</select><p class="helper-text" id="payment-help">Para entrega ou recebimento a combinar, o pagamento será acertado após a confirmação do frete e do prazo.</p></div>
+        <div class="field"><label for="observacoes">Observações <span class="helper-text">(opcional)</span></label><textarea id="observacoes" name="observacoes" rows="2" maxlength="500" placeholder="Algum detalhe que precisamos saber?">{{ request.form.get('observacoes', '') }}</textarea></div>
+        <button class="btn btn-ghost" type="button" id="share-location">Usar minha localização aproximada</button><p class="helper-text" id="location-status" role="status">Opcional: ajuda a encontrar parceiros próximos. Não substitui o endereço de entrega.</p>
       </div>
-    </form>
-  </div>
-</section>
-
+      <aside class="calc-result">
+        <h2 class="checkout-heading">Resumo do pedido</h2>
+        <div class="checkout-itens">{% for i in itens %}<div class="checkout-item"><span>{{ i.qtd }} × {{ i.produto['nome'] }}</span><strong>R$ {{ '%.2f'|format(i.subtotal)|replace('.', ',') }}</strong></div>{% endfor %}</div>
+        <p class="helper-text">Subtotal das peças</p><div class="result-price">R$ {{ '%.2f'|format(total)|replace('.', ',') }}</div>
+        <div class="customer-note">Frete não incluído. Retirada, disponibilidade e prazo precisam ser confirmados com a Voxxel.</div>
+        <button type="submit" class="btn btn-primary btn-block">Confirmar pedido</button><p class="helper-text">Você verá o número do pedido e poderá falar com a Voxxel. Este botão não realiza uma cobrança.</p>
+        <a href="{{ url_for('carrinho') }}">Voltar e editar itens</a>
+      </aside>
+    </div>
+  </form>
+</div></section>
 {% endblock %}
-
-{% block scripts %}
-<script>
-  document.querySelectorAll('.chip-group').forEach(group=>{
-    group.addEventListener('click', (e)=>{
-      if(e.target.classList.contains('chip')){
-        group.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
-        e.target.classList.add('active');
-        document.getElementById(group.dataset.name + '-input').value = e.target.dataset.val;
-      }
-    });
-  });
-
-  // Localização: ajuda a achar a impressora parceira mais próxima pra
-  // imprimir o pedido (a mesma "rede de impressão" anunciada no site) --
-  // mostramos o status pro cliente em vez de pedir a permissão em
-  // silêncio, já que isso afeta diretamente a rapidez da entrega dele.
-  const localizacaoDot = document.getElementById('localizacao-dot');
-  const localizacaoTexto = document.getElementById('localizacao-texto');
-
-  function definirStatusLocalizacao(texto, online) {
-    localizacaoTexto.textContent = texto;
-    localizacaoDot.classList.toggle('online', online);
-  }
-
-  if (navigator.geolocation) {
-    navigator.geolocation.getCurrentPosition(
-      pos => {
-        document.getElementById('cliente_lat').value = pos.coords.latitude;
-        document.getElementById('cliente_lng').value = pos.coords.longitude;
-        definirStatusLocalizacao('Localização compartilhada — vamos buscar uma impressora parceira perto de você.', true);
-      },
-      () => {
-        definirStatusLocalizacao('Sem acesso à localização — seu pedido vai direto pra produção da Voxxel.', false);
-      },
-      { timeout: 6000 }
-    );
-  } else {
-    definirStatusLocalizacao('Seu navegador não suporta localização — seu pedido vai direto pra produção da Voxxel.', false);
-  }
-</script>
-{% endblock %}
+{% block scripts %}<script>
+const receiving = document.getElementById('recebimento');
+const address = document.getElementById('endereco');
+const payment = document.getElementById('forma_pagamento');
+function updateReceiving() {
+  const delivery = receiving.value === 'entrega';
+  document.getElementById('endereco-field').hidden = !delivery;
+  address.required = delivery;
+  if (receiving.value !== 'retirada') payment.value = 'combinar';
+  for (const option of payment.options) option.disabled = receiving.value !== 'retirada' && option.value !== 'combinar';
+  document.getElementById('payment-help').textContent = receiving.value === 'retirada' ? 'Confirme o local, o horário e a disponibilidade com a Voxxel antes de pagar ou se deslocar.' : 'O pagamento será combinado após a confirmação de frete, disponibilidade e prazo.';
+}
+receiving.addEventListener('change', updateReceiving); updateReceiving();
+document.getElementById('share-location').addEventListener('click', () => {
+  const status = document.getElementById('location-status');
+  if (!navigator.geolocation) { status.textContent = 'Localização indisponível. Você pode continuar normalmente.'; return; }
+  status.textContent = 'Buscando sua localização…';
+  navigator.geolocation.getCurrentPosition(pos => {
+    document.getElementById('cliente_lat').value = pos.coords.latitude;
+    document.getElementById('cliente_lng').value = pos.coords.longitude;
+    status.textContent = 'Localização adicionada ao pedido.';
+  }, () => { status.textContent = 'Não foi possível obter sua localização. Você pode continuar normalmente.'; }, {timeout:6000});
+});
+</script>{% endblock %}

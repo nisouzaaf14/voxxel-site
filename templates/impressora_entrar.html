@@ -1,22 +1,23 @@
 {% extends "base.html" %}
-{% block title %}Entrar — Impressora parceira — Voxxel{% endblock %}
+{% block title %}Entrar — Área do parceiro — Voxxel{% endblock %}
 {% block content %}
 
 <section style="padding-top:var(--space-3);">
   <div class="wrap" style="max-width:440px; margin:0 auto;">
     <div class="section-head fade-up" style="margin-bottom:var(--space-2);">
-      <div class="eyebrow">Impressoras parceiras</div>
-      <h2>Entrar</h2>
-      <p>Entre pra ficar online e acompanhar os pedidos atribuídos a você.</p>
+      <div class="eyebrow">Área do parceiro</div>
+      <h2>Acesse seu painel</h2>
+      <p>Use o cadastro de parceiro para ficar disponível e acompanhar suas solicitações de impressão.</p>
     </div>
 
     {% if erro %}<div class="flash" style="border-color:var(--err); color:var(--err);">{{ erro }}</div>{% endif %}
 
+    <p class="helper-text">Quer comprar uma peça? <a href="{{ url_for('conta_entrar') }}">Acesse sua conta de cliente</a>.</p>
     <form method="post" class="form-card fade-up">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <input type="hidden" name="next" value="{{ request.args.get('next', '') }}">
       <div class="field">
-        <label>WhatsApp / telefone</label>
+        <label>Telefone do parceiro com DDD</label>
         <input type="text" name="telefone" required placeholder="(41) 9XXXX-XXXX" autofocus>
       </div>
       <div class="field">
@@ -27,8 +28,8 @@
     </form>
 
     <p style="text-align:center; margin-top:18px; color:var(--muted); font-size:.9rem;">
-      Ainda não cadastrou sua impressora?
-      <a href="{{ url_for('impressora_cadastro') }}" style="color:var(--violet-bright);">Cadastre-se</a>
+      Ainda não faz parte da rede?
+      <a href="{{ url_for('impressora_cadastro') }}" style="color:var(--gold-soft);">Cadastre-se</a>
     </p>
   </div>
 </section>

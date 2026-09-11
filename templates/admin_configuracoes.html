@@ -43,23 +43,12 @@
     Pagamento por cartão usa o <strong>Mercado Pago</strong>: o cliente é redirecionado pra uma página
     segura do Mercado Pago pra digitar os dados do cartão (eles nunca passam pelo nosso site — isso
     é o que garante a segurança). Crie uma conta gratuita em
-    <a href="https://www.mercadopago.com.br" target="_blank" rel="noopener" style="color:var(--violet-bright);">mercadopago.com.br</a>,
+    <a href="https://www.mercadopago.com.br" target="_blank" rel="noopener" style="color:var(--gold-soft);">mercadopago.com.br</a>,
     vá em "Seu negócio → Configurações → Credenciais" e cole abaixo o <strong>Access Token de produção</strong>.
   </p>
   <div class="field">
     <label>Access Token do Mercado Pago</label>
     <input type="text" name="mp_access_token" value="{{ config.mp_access_token }}" placeholder="APP_USR-...">
-  </div>
-
-  <div class="eyebrow" style="margin:28px 0 16px;">Marketplace de impressão</div>
-  <p style="color:var(--muted); font-size:.85rem; margin-bottom:22px; line-height:1.6;">
-    Quando um pedido é atribuído a uma impressora parceira, esse percentual do valor do pedido
-    fica com a Voxxel — o restante é o que a impressora recebe. Vale só pra pedidos com impressora
-    parceira; os que a própria Voxxel produz não têm essa comissão.
-  </p>
-  <div class="field">
-    <label>Comissão da Voxxel (%)</label>
-    <input type="text" name="comissao_percentual" value="{{ config.comissao_percentual }}" placeholder="15" inputmode="decimal">
   </div>
 
   <button type="submit" class="btn btn-primary btn-block">Salvar configurações</button>
