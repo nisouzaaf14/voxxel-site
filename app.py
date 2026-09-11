@@ -19,12 +19,10 @@ from database import (
     criar_impressora, buscar_impressora_por_telefone, buscar_impressora_por_id, listar_impressoras,
     definir_status_impressora, atualizar_localizacao_impressora, definir_impressora_ativa,
     listar_pedidos_da_impressora, resumo_comissoes, percentual_comissao,
-    atualizar_perfil_impressora, atualizar_senha_impressora,
 )
 from calculadora import (
     calcular_orcamento, formatar_horas, MATERIAIS, QUALIDADE, COMPLEXIDADE,
-    PRECO_HORA_IMPRESSAO, SHELL_FRACTION, CAT_ACABAMENTO, ACABAMENTO_IMPRESSAO,
-    ACABAMENTOS_POR_CATEGORIA,
+    PRECO_HORA_IMPRESSAO, SHELL_FRACTION, CAT_ACABAMENTO,
 )
 import pix
 import mercadopago_pay
@@ -252,16 +250,24 @@ def carrinho_sessao():
 
 
 def carrinho_detalhado(conn):
-    itens = []
-    total = 0.0
-    for pid, qtd in carrinho_sessao().items():
+    itens, total, atualizado = [], 0.0, {}
+    for pid, qtd in list(carrinho_sessao().items()):
         row = conn.execute(
-            f"SELECT {COLUNAS_PRODUTO_LISTA} FROM produtos WHERE id = ?", (int(pid),)
+            f"SELECT {COLUNAS_PRODUTO_LISTA} FROM produtos WHERE id = ? AND ativo = 1", (int(pid),)
         ).fetchone()
-        if row:
-            subtotal = row["preco"] * qtd
-            total += subtotal
-            itens.append({"produto": row, "qtd": qtd, "subtotal": subtotal})
+        if not row or (row["estoque"] is not None and row["estoque"] <= 0):
+            continue
+        qtd = max(1, min(int(qtd), 999))
+        if row["estoque"] is not None:
+            qtd = min(qtd, row["estoque"])
+        atualizado[pid] = qtd
+        subtotal = row["preco"] * qtd
+        total += subtotal
+        itens.append({"produto": row, "qtd": qtd, "subtotal": subtotal})
+    if atualizado != carrinho_sessao():
+        session["carrinho"] = atualizado
+        session.modified = True
+        flash("Atualizamos seu carrinho conforme a disponibilidade. Confira os itens e o subtotal.")
     return itens, total
 
 
@@ -269,14 +275,14 @@ def carrinho_detalhado(conn):
 def inject_globals():
     qtd_carrinho = sum(carrinho_sessao().values())
     chat_auto_message = session.pop("voxxel_chat_auto", None)
-    vendedor_nome = None
-    if session.get("admin_logado"):
-        conn = get_db()
-        vendedor_nome = get_configs(conn)["vendedor_nome"]
-        conn.close()
+    conn = get_db()
+    config = get_configs(conn)
+    conn.close()
+    vendedor_nome = config["vendedor_nome"] if session.get("admin_logado") else None
+    whatsapp_numero = "".join(c for c in config["whatsapp"] if c.isdigit())
     return dict(
         categorias=CATEGORIAS, qtd_carrinho=qtd_carrinho, chat_auto_message=chat_auto_message,
-        vendedor_nome=vendedor_nome,
+        vendedor_nome=vendedor_nome, whatsapp_numero=whatsapp_numero,
     )
 
 
@@ -348,7 +354,7 @@ def carrinho_adicionar(produto_id):
         quantidade_pedida = 1
     carrinho = carrinho_sessao()
     pid = str(produto_id)
-    nova_qtd = carrinho.get(pid, 0) + quantidade_pedida
+    nova_qtd = min(999, carrinho.get(pid, 0) + quantidade_pedida)
 
     if produto["estoque"] is not None:
         if produto["estoque"] <= 0:
@@ -361,6 +367,25 @@ def carrinho_adicionar(produto_id):
     session.modified = True
     flash("Produto adicionado ao carrinho.")
     return redirect(redirecionamento_seguro(url_for("loja")))
+
+
+@app.route("/carrinho/atualizar/<int:produto_id>", methods=["POST"])
+def carrinho_atualizar(produto_id):
+    try:
+        quantidade = int(request.form.get("quantidade", ""))
+        if not 1 <= quantidade <= 999:
+            raise ValueError
+    except ValueError:
+        flash("Informe uma quantidade entre 1 e 999.")
+        return redirect(url_for("carrinho"))
+    carrinho = carrinho_sessao()
+    if str(produto_id) in carrinho:
+        carrinho[str(produto_id)] = quantidade
+        session.modified = True
+        conn = get_db()
+        carrinho_detalhado(conn)
+        conn.close()
+    return redirect(url_for("carrinho"))
 
 
 @app.route("/carrinho/remover/<int:produto_id>", methods=["POST"])
@@ -384,26 +409,50 @@ def carrinho():
 @login_cliente_obrigatorio
 def checkout():
     conn = get_db()
+    carrinho_anterior = dict(carrinho_sessao())
     itens, total = carrinho_detalhado(conn)
+    if request.method == "POST" and carrinho_anterior != carrinho_sessao():
+        conn.close()
+        return redirect(url_for("carrinho"))
     if not itens:
         conn.close()
         return redirect(url_for("loja"))
 
     cliente = buscar_cliente_por_id(conn, session["cliente_id"])
+    config = get_configs(conn)
+    pagamentos = {"combinar": "Combinar no WhatsApp"}
+    if config["pix_chave"].strip():
+        pagamentos["pix"] = "Pix"
+    if config["mp_access_token"].strip():
+        pagamentos["cartao"] = "Cartão"
 
     if request.method == "POST":
         nome = texto_seguro(request.form.get("nome"), 120)
         telefone = texto_seguro(request.form.get("telefone"), 40)
-        forma_pagamento = request.form.get("forma_pagamento", "pix")
-        if forma_pagamento not in ("pix", "cartao", "combinar"):
+        forma_pagamento = request.form.get("forma_pagamento", "combinar")
+        if forma_pagamento not in pagamentos:
             forma_pagamento = "combinar"
 
-        if not nome or not telefone:
-            flash("Preencha nome e telefone para finalizar o pedido.")
+        recebimento = request.form.get("recebimento", "combinar")
+        if recebimento not in ("combinar", "retirada", "entrega"):
+            recebimento = "combinar"
+        endereco = texto_seguro(request.form.get("endereco"), 350)
+        observacoes = texto_seguro(request.form.get("observacoes"), 500)
+        telefone_digitos = "".join(c for c in telefone if c.isdigit())
+        if recebimento != "retirada":
+            forma_pagamento = "combinar"
+        if not nome or not 10 <= len(telefone_digitos) <= 13 or (recebimento == "entrega" and len(endereco) < 15):
+            flash("Confira seu nome, telefone com DDD e, para entrega, o endereço completo com CEP.")
             conn.close()
-            return render_template("checkout.html", itens=itens, total=total, cliente=cliente)
+            return render_template("checkout.html", itens=itens, total=total, cliente=cliente, pagamentos=pagamentos)
 
         linhas = [f"{i['qtd']}x {i['produto']['nome']} - R$ {i['subtotal']:.2f}".replace(".", ",") for i in itens]
+        nomes_recebimento = {"combinar": "A combinar pelo WhatsApp", "retirada": "Retirada — local e horário a confirmar", "entrega": "Entrega — frete e prazo a confirmar antes do pagamento"}
+        linhas.append("Recebimento: " + nomes_recebimento[recebimento])
+        if recebimento == "entrega":
+            linhas.append("Endereço: " + endereco)
+        if observacoes:
+            linhas.append("Observações: " + observacoes)
         detalhes = "\n".join(linhas)
 
         cliente_lat = ler_coordenada_formulario(request.form.get("cliente_lat"))
@@ -424,7 +473,7 @@ def checkout():
         return redirect(url_for("pedido_pagamento", pedido_id=pedido_id))
 
     conn.close()
-    return render_template("checkout.html", itens=itens, total=total, cliente=cliente)
+    return render_template("checkout.html", itens=itens, total=total, cliente=cliente, pagamentos=pagamentos)
 
 
 @app.route("/pedido/<int:pedido_id>/pagamento")
@@ -527,7 +576,7 @@ def pedido_retorno_cartao(pedido_id):
             )
             session["voxxel_chat_auto"] = msg
             session.modified = True
-            flash("Pagamento aprovado! Confirme com nosso assistente virtual.")
+            flash("Pagamento aprovado na consulta. Fale com a Voxxel para confirmar os próximos passos.")
         elif status == "pending" or request.args.get("status") == "pending":
             flash("Pagamento em análise. Assim que for aprovado, atualizamos seu pedido.")
         else:
@@ -613,41 +662,9 @@ def pedido_confirmar_pagamento(pedido_id):
         )
         session["voxxel_chat_auto"] = msg
         session.modified = True
-        flash("Pagamento informado! Confirme com nosso assistente virtual.")
+        flash("Pagamento informado. Aguarde a conferência da Voxxel.")
     conn.close()
     return redirect(url_for("pedido_pagamento", pedido_id=pedido_id))
-
-
-def _orcamento_template_kwargs(form, resultado, cliente_logado):
-    """Kwargs comuns às três chamadas de render_template("orcamento.html", ...)
-    dessa rota -- reunidas aqui pra evitar que as três fiquem dessincronizadas
-    entre si (era só questão de tempo até uma delas ficar pra trás depois de
-    algum ajuste, como já quase aconteceu com o acabamento de impressão)."""
-    return dict(
-        form=form, resultado=resultado,
-        materiais=MATERIAIS, qualidades=QUALIDADE, complexidades=COMPLEXIDADE,
-        acabamentos=ACABAMENTO_IMPRESSAO,
-        acabamentos_por_categoria=ACABAMENTOS_POR_CATEGORIA,
-        # pra cada acabamento, em quais categorias ele aparece -- usado só
-        # pra montar o atributo data-cats no HTML (quais finish-cards
-        # mostrar quando o cliente troca de categoria).
-        acabamento_categorias={
-            chave: [cat for cat, finishes in ACABAMENTOS_POR_CATEGORIA.items() if chave in finishes]
-            for chave in ACABAMENTO_IMPRESSAO
-        },
-        materiais_js=json.dumps(MATERIAIS), qualidade_js=json.dumps(QUALIDADE),
-        complexidade_js=json.dumps(COMPLEXIDADE), cliente_logado=cliente_logado,
-        acabamentos_js=json.dumps({chave: a["nome"] for chave, a in ACABAMENTO_IMPRESSAO.items()}),
-        regra_js=json.dumps({
-            "hora_maquina": PRECO_HORA_IMPRESSAO,
-            "shell_fraction": SHELL_FRACTION,
-            "cat_acabamento": CAT_ACABAMENTO,
-            # dict aninhado categoria -> acabamento -> multiplicador; é a
-            # mesma fonte usada pelo calcular_orcamento no servidor, pra não
-            # repetir aqui o bug de preview dessincronizado do preço real.
-            "acabamento_por_categoria": ACABAMENTOS_POR_CATEGORIA,
-        }),
-    )
 
 
 @app.route("/orcamento", methods=["GET", "POST"])
@@ -656,7 +673,6 @@ def orcamento():
     form = {
         "categoria": "tecnica", "altura": 10, "largura": 10, "profundidade": 10,
         "quantidade": 1, "material": "pla", "qualidade": "padrao", "complexidade": "media",
-        "acabamento_impressao": "branca",
     }
 
     cliente_logado = None
@@ -667,16 +683,8 @@ def orcamento():
 
     if request.method == "POST":
         try:
-            categoria = request.form.get("categoria", "tecnica")
-            finishes_da_categoria = ACABAMENTOS_POR_CATEGORIA.get(categoria, ACABAMENTOS_POR_CATEGORIA["tecnica"])
-            acabamento_impressao = request.form.get("acabamento_impressao", "branca")
-            if acabamento_impressao not in finishes_da_categoria:
-                # ou o valor nem existe, ou é um acabamento que essa
-                # categoria não vende (ex: colorido pra peça técnica) --
-                # validado aqui pra não confiar só no JS do front-end.
-                acabamento_impressao = "branca"
             form.update({
-                "categoria": categoria,
+                "categoria": request.form.get("categoria", "tecnica"),
                 "altura": max(0.0, float(request.form.get("altura") or 0)),
                 "largura": max(0.0, float(request.form.get("largura") or 0)),
                 "profundidade": max(0.0, float(request.form.get("profundidade") or 0)),
@@ -684,18 +692,19 @@ def orcamento():
                 "material": request.form.get("material", "pla"),
                 "qualidade": request.form.get("qualidade", "padrao"),
                 "complexidade": request.form.get("complexidade", "media"),
-                "acabamento_impressao": acabamento_impressao,
             })
         except (ValueError, TypeError):
             flash("Verifique os valores preenchidos na calculadora.")
             return render_template(
-                "orcamento.html",
-                **_orcamento_template_kwargs(form, None, cliente_logado),
+                "orcamento.html", form=form, resultado=None,
+                materiais=MATERIAIS, qualidades=QUALIDADE, complexidades=COMPLEXIDADE,
+                materiais_js=json.dumps(MATERIAIS), qualidade_js=json.dumps(QUALIDADE),
+                complexidade_js=json.dumps(COMPLEXIDADE), cliente_logado=cliente_logado,
+                regra_js=json.dumps({"hora_maquina": PRECO_HORA_IMPRESSAO, "shell_fraction": SHELL_FRACTION, "cat_acabamento": CAT_ACABAMENTO}),
             )
         resultado = calcular_orcamento(
             form["altura"], form["largura"], form["profundidade"], form["quantidade"],
             form["categoria"], form["complexidade"], form["material"], form["qualidade"],
-            form["acabamento_impressao"],
         )
         resultado["tempo_formatado"] = formatar_horas(resultado["horas_total"])
 
@@ -713,8 +722,11 @@ def orcamento():
             if not nome or not telefone:
                 flash("Preencha nome e telefone para enviar o orçamento.")
                 return render_template(
-                    "orcamento.html",
-                    **_orcamento_template_kwargs(form, resultado, cliente_logado),
+                    "orcamento.html", form=form, resultado=resultado,
+                    materiais=MATERIAIS, qualidades=QUALIDADE, complexidades=COMPLEXIDADE,
+                    materiais_js=json.dumps(MATERIAIS), qualidade_js=json.dumps(QUALIDADE),
+                    complexidade_js=json.dumps(COMPLEXIDADE), cliente_logado=cliente_logado,
+                    regra_js=json.dumps({"hora_maquina": PRECO_HORA_IMPRESSAO, "shell_fraction": SHELL_FRACTION, "cat_acabamento": CAT_ACABAMENTO}),
                 )
 
             detalhes = (
@@ -722,7 +734,6 @@ def orcamento():
                 f"Dimensões: {form['altura']}x{form['largura']}x{form['profundidade']} cm\n"
                 f"Material: {resultado['material_nome']}\n"
                 f"Qualidade: {form['qualidade']}\n"
-                f"Acabamento: {resultado['acabamento_nome']}\n"
                 f"Quantidade: {form['quantidade']}"
             )
             cliente_lat = ler_coordenada_formulario(request.form.get("cliente_lat"))
@@ -739,8 +750,11 @@ def orcamento():
             return redirect(url_for("pedido_pagamento", pedido_id=pedido_id))
 
     return render_template(
-        "orcamento.html",
-        **_orcamento_template_kwargs(form, resultado, cliente_logado),
+        "orcamento.html", form=form, resultado=resultado,
+        materiais=MATERIAIS, qualidades=QUALIDADE, complexidades=COMPLEXIDADE,
+        materiais_js=json.dumps(MATERIAIS), qualidade_js=json.dumps(QUALIDADE),
+        complexidade_js=json.dumps(COMPLEXIDADE), cliente_logado=cliente_logado,
+        regra_js=json.dumps({"hora_maquina": PRECO_HORA_IMPRESSAO, "shell_fraction": SHELL_FRACTION, "cat_acabamento": CAT_ACABAMENTO}),
     )
 
 
@@ -782,7 +796,9 @@ def conta_cadastro():
         cliente_id = criar_cliente(conn, nome, telefone, generate_password_hash(senha))
         conn.close()
 
+        carrinho_salvo = dict(carrinho_sessao())
         session.clear()
+        session["carrinho"] = carrinho_salvo
         session["cliente_id"] = cliente_id
         session["cliente_nome"] = nome
         session.permanent = True
@@ -811,13 +827,15 @@ def conta_entrar():
             cliente = buscar_cliente_por_telefone(conn, telefone)
             conn.close()
             if cliente and check_password_hash(cliente["senha_hash"], senha):
+                carrinho_salvo = dict(carrinho_sessao())
                 session.clear()
+                session["carrinho"] = carrinho_salvo
                 session["cliente_id"] = cliente["id"]
                 session["cliente_nome"] = cliente["nome"]
                 session.permanent = True
                 return redirect(next_seguro(url_for("conta_dashboard")))
             registrar_falha_login(chave_rate_limit)
-            erro = "Telefone ou senha incorretos."
+            erro = "Não foi possível entrar. Confira o telefone com DDD e a senha deste cadastro."
 
     return render_template("conta_entrar.html", erro=erro)
 
@@ -1178,10 +1196,8 @@ def admin_pedido_atribuir_impressora(pedido_id):
 def admin_impressoras():
     conn = get_db()
     impressoras = listar_impressoras(conn)
-    comissoes = resumo_comissoes(conn)
     conn.close()
-    stats_por_id = {i["id"]: i for i in comissoes["por_impressora"]}
-    return render_template("admin_impressoras.html", impressoras=impressoras, stats_por_id=stats_por_id)
+    return render_template("admin_impressoras.html", impressoras=impressoras)
 
 
 @app.route("/admin/impressoras/<int:impressora_id>/toggle", methods=["POST"])
@@ -1282,7 +1298,7 @@ def impressora_entrar():
                 session.permanent = True
                 return redirect(next_seguro(url_for("impressora_painel")))
             registrar_falha_login(chave_rate_limit)
-            erro = "Telefone ou senha incorretos."
+            erro = "Não foi possível entrar. Confira o telefone com DDD e a senha deste cadastro."
 
     return render_template("impressora_entrar.html", erro=erro)
 
@@ -1333,142 +1349,12 @@ def impressora_painel():
     )
     conn.close()
 
-    pedidos_recentes = pedidos_atribuidos[:5]
-
     return render_template(
         "impressora_painel.html", impressora=impressora, oferta=oferta, oferta_pedido=oferta_pedido,
         oferta_distancia_km=oferta_distancia_km, oferta_segundos_restantes=oferta_segundos_restantes,
-        oferta_ganho_estimado=oferta_ganho_estimado, pedidos=pedidos_recentes,
-        total_pedidos=len(pedidos_atribuidos),
+        oferta_ganho_estimado=oferta_ganho_estimado, pedidos=pedidos_atribuidos,
         ganho_acumulado=round(ganho_acumulado, 2), pct_comissao=pct_comissao,
     )
-
-
-@app.route("/impressora/pedidos")
-@login_impressora_obrigatorio
-def impressora_pedidos():
-    conn = get_db()
-    impressora = buscar_impressora_por_id(conn, session["impressora_id"])
-    if not impressora:
-        conn.close()
-        session.clear()
-        return redirect(url_for("impressora_entrar"))
-
-    todos = listar_pedidos_da_impressora(conn, impressora["id"])
-    conn.close()
-
-    status_filtro = request.args.get("status", "todos")
-    contagens = {
-        "todos": len(todos),
-        "novo": sum(1 for p in todos if p["status"] == "novo"),
-        "andamento": sum(1 for p in todos if p["status"] == "andamento"),
-        "concluido": sum(1 for p in todos if p["status"] == "concluido"),
-    }
-    if status_filtro in ("novo", "andamento", "concluido"):
-        pedidos = [p for p in todos if p["status"] == status_filtro]
-    else:
-        status_filtro = "todos"
-        pedidos = todos
-
-    return render_template(
-        "impressora_pedidos.html", impressora=impressora, pedidos=pedidos,
-        status_filtro=status_filtro, contagens=contagens,
-    )
-
-
-@app.route("/impressora/ganhos")
-@login_impressora_obrigatorio
-def impressora_ganhos():
-    conn = get_db()
-    impressora = buscar_impressora_por_id(conn, session["impressora_id"])
-    if not impressora:
-        conn.close()
-        session.clear()
-        return redirect(url_for("impressora_entrar"))
-
-    todos = listar_pedidos_da_impressora(conn, impressora["id"])
-    conn.close()
-
-    hoje = time.strftime("%Y-%m-%d")
-    semana_atual = time.strftime("%Y-%W")
-    mes_atual = time.strftime("%Y-%m")
-
-    def ganho_liquido(p):
-        return p["valor_estimado"] - (p["comissao_voxxel"] or 0)
-
-    ganho_hoje = ganho_semana = ganho_mes = ganho_total = 0.0
-    for p in todos:
-        liquido = ganho_liquido(p)
-        ganho_total += liquido
-        data_pedido = (p["criado_em"] or "")[:10]
-        if not data_pedido:
-            continue
-        if data_pedido == hoje:
-            ganho_hoje += liquido
-        try:
-            semana_pedido = time.strftime("%Y-%W", time.strptime(data_pedido, "%Y-%m-%d"))
-        except ValueError:
-            semana_pedido = None
-        if semana_pedido == semana_atual:
-            ganho_semana += liquido
-        if data_pedido[:7] == mes_atual:
-            ganho_mes += liquido
-
-    return render_template(
-        "impressora_ganhos.html", impressora=impressora, pedidos=todos,
-        ganho_hoje=round(ganho_hoje, 2), ganho_semana=round(ganho_semana, 2),
-        ganho_mes=round(ganho_mes, 2), ganho_total=round(ganho_total, 2),
-    )
-
-
-@app.route("/impressora/perfil", methods=["GET", "POST"])
-@login_impressora_obrigatorio
-def impressora_perfil():
-    conn = get_db()
-    impressora = buscar_impressora_por_id(conn, session["impressora_id"])
-    if not impressora:
-        conn.close()
-        session.clear()
-        return redirect(url_for("impressora_entrar"))
-
-    if request.method == "POST":
-        formulario = request.form.get("formulario")
-
-        if formulario == "dados":
-            nome = texto_seguro(request.form.get("nome"), 120)
-            telefone = normalizar_telefone(request.form.get("telefone"))
-            if not nome:
-                flash("Preencha seu nome (ou o nome da sua impressora/oficina).")
-            elif len(telefone) < TELEFONE_MIN_DIGITOS_IMPRESSORA:
-                flash("Informe um telefone válido, com DDD.")
-            else:
-                outra = buscar_impressora_por_telefone(conn, telefone)
-                if outra and outra["id"] != impressora["id"]:
-                    flash("Já existe uma impressora cadastrada com esse telefone.")
-                else:
-                    atualizar_perfil_impressora(conn, impressora["id"], nome, telefone)
-                    session["impressora_nome"] = nome
-                    flash("Dados atualizados.")
-
-        elif formulario == "senha":
-            senha_atual = request.form.get("senha_atual", "")
-            nova_senha = request.form.get("nova_senha", "")
-            confirmar_senha = request.form.get("confirmar_senha", "")
-            if not check_password_hash(impressora["senha_hash"], senha_atual):
-                flash("Senha atual incorreta.")
-            elif len(nova_senha) < 6:
-                flash("A nova senha precisa ter pelo menos 6 caracteres.")
-            elif nova_senha != confirmar_senha:
-                flash("As senhas não coincidem.")
-            else:
-                atualizar_senha_impressora(conn, impressora["id"], generate_password_hash(nova_senha))
-                flash("Senha alterada com sucesso.")
-
-        conn.close()
-        return redirect(url_for("impressora_perfil"))
-
-    conn.close()
-    return render_template("impressora_perfil.html", impressora=impressora)
 
 
 @app.route("/impressora/status", methods=["POST"])

@@ -70,7 +70,7 @@ CONFIG_PADRAO = {
     "pix_chave": "",
     "pix_nome": "Voxxel Impressao 3D",
     "pix_cidade": "Sao Jose dos Pinhais",
-    "whatsapp": "5541997193025",
+    "whatsapp": "5541998526355",
     "mp_access_token": "",
     "vendedor_nome": "Voxxel",
     # % que a Voxxel retém sobre o valor de cada pedido atribuído a uma
@@ -579,26 +579,6 @@ def listar_pedidos_da_impressora(conn, impressora_id):
     return conn.execute(
         "SELECT * FROM pedidos WHERE impressora_id = ? ORDER BY id DESC", (impressora_id,)
     ).fetchall()
-
-
-def atualizar_perfil_impressora(conn, impressora_id, nome, telefone):
-    """Atualiza nome/telefone da própria impressora parceira (editado por
-    ela mesma no painel). O telefone é normalizado igual no cadastro/login,
-    pra manter tudo consistente."""
-    telefone = normalizar_telefone(telefone)
-    conn.execute(
-        "UPDATE impressoras SET nome = ?, telefone = ? WHERE id = ?",
-        (nome, telefone, impressora_id),
-    )
-    conn.commit()
-
-
-def atualizar_senha_impressora(conn, impressora_id, senha_hash):
-    conn.execute(
-        "UPDATE impressoras SET senha_hash = ? WHERE id = ?",
-        (senha_hash, impressora_id),
-    )
-    conn.commit()
 
 
 def normalizar_telefone(telefone):
