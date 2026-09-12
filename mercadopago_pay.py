@@ -12,6 +12,7 @@
 # fica em https://www.mercadopago.com.br/developers/panel/app.
 
 import mercadopago
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
 
 def _cliente(access_token):
@@ -60,3 +61,24 @@ def buscar_pagamentos_por_pedido(access_token, pedido_id):
     filtros = {"external_reference": str(pedido_id)}
     resposta = sdk.payment().search(filtros)
     return resposta.get("response", {}).get("results", [])
+
+
+def pagamento_confere_com_pedido(dados, pedido_id, valor_esperado):
+    """Valida os campos que vinculam um pagamento aprovado ao pedido.
+
+    Nunca basta receber `status=approved`: conferimos referência externa,
+    moeda e valor consultando a API do Mercado Pago com o token da Voxxel.
+    """
+    if not isinstance(dados, dict) or dados.get("status") != "approved":
+        return False
+    if str(dados.get("external_reference") or "") != str(pedido_id):
+        return False
+    if (dados.get("currency_id") or "BRL") != "BRL":
+        return False
+    try:
+        cent = Decimal("0.01")
+        recebido = Decimal(str(dados.get("transaction_amount"))).quantize(cent, rounding=ROUND_HALF_UP)
+        esperado = Decimal(str(valor_esperado)).quantize(cent, rounding=ROUND_HALF_UP)
+    except (InvalidOperation, TypeError, ValueError):
+        return False
+    return recebido == esperado

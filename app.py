@@ -2,6 +2,7 @@ import os
 import io
 import json
 import time
+import math
 import secrets
 import zipfile
 from datetime import timedelta
@@ -20,7 +21,7 @@ from database import (
     listar_pedidos_cliente, ler_coordenada_formulario,
     criar_impressora, buscar_impressora_por_telefone, buscar_impressora_por_id, listar_impressoras,
     definir_status_impressora, atualizar_localizacao_impressora, atualizar_materiais_impressora, definir_impressora_ativa,
-    listar_pedidos_da_impressora, resumo_comissoes, percentual_comissao,
+    listar_pedidos_da_impressora, resumo_comissoes, percentual_comissao, aplicar_comissao_pedido,
 )
 from calculadora import (
     calcular_orcamento, formatar_horas, MATERIAIS, QUALIDADE, COMPLEXIDADE,
@@ -30,23 +31,14 @@ import pix
 import mercadopago_pay
 import distribuicao
 
-SECRET_KEY_PADRAO = "troque-esta-chave-em-producao"
-ADMIN_PASSWORD_PADRAO = "@NI04041"
+SECRET_KEY_ENV = os.environ.get("VOXXEL_SECRET_KEY", "").strip()
+ADMIN_PASSWORD = os.environ.get("VOXXEL_ADMIN_PASSWORD", "").strip()
 
-ADMIN_PASSWORD = os.environ.get("VOXXEL_ADMIN_PASSWORD", ADMIN_PASSWORD_PADRAO)
-SECRET_KEY = os.environ.get("VOXXEL_SECRET_KEY", SECRET_KEY_PADRAO)
-
-# Usuário mestre de homologação. A senha NÃO fica em texto puro no código:
-# somente o hash é versionado. Antes de abrir o site ao público, desative
-# VOXXEL_TEST_MASTER_ENABLED ou troque as credenciais via ambiente.
-TEST_MASTER_ENABLED = os.environ.get("VOXXEL_TEST_MASTER_ENABLED", "true").lower() == "true"
-TEST_MASTER_EMAIL = os.environ.get("VOXXEL_TEST_MASTER_EMAIL", "nialbach12@gmail.com").strip().lower()
-TEST_MASTER_PASSWORD_HASH = os.environ.get(
-    "VOXXEL_TEST_MASTER_PASSWORD_HASH",
-    "pbkdf2:sha256:600000$voxxel-test-master-2026$729d04fa36112709ce8548506714b9bc15f5a9b290bf4db3db56335e60bc6de5",
-)
-TEST_MASTER_CLIENT_PHONE = os.environ.get("VOXXEL_TEST_MASTER_CLIENT_PHONE", "41900000001")
-TEST_MASTER_PRINTER_PHONE = os.environ.get("VOXXEL_TEST_MASTER_PRINTER_PHONE", "41900000002")
+# Nunca mantenha credenciais reais no repositório. Em produção, defina
+# VOXXEL_SECRET_KEY e VOXXEL_ADMIN_PASSWORD nas variáveis de ambiente.
+# Sem SECRET_KEY configurada, uma chave efêmera é usada apenas para permitir
+# execução local; sessões serão invalidadas quando o processo reiniciar.
+SECRET_KEY = SECRET_KEY_ENV or secrets.token_hex(32)
 
 TIPOS_IMAGEM_PERMITIDOS = {
     "image/jpeg": "jpg",
@@ -72,13 +64,25 @@ FLUXO_LABELS = {
 }
 
 app = Flask(__name__)
+
+# Em produção não é seguro assinar sessões com uma chave efêmera: cada
+# reinício invalidaria logins e, pior, um deploy mal configurado pareceria
+# saudável. Localmente ainda aceitamos a chave temporária para facilitar o
+# desenvolvimento, mas em PaaS/produção a configuração passa a ser
+# obrigatória (fail closed).
+EM_PRODUCAO = bool(os.environ.get("PORT") or os.environ.get("VOXXEL_PRODUCTION") == "1")
+if EM_PRODUCAO and not SECRET_KEY_ENV:
+    raise RuntimeError("VOXXEL_SECRET_KEY é obrigatória em produção.")
 app.secret_key = SECRET_KEY
 
-# O Render/Heroku (e qualquer PaaS) coloca a aplicação atrás de um proxy
-# reverso: sem isso, o Flask acha que toda requisição chegou por HTTP puro
-# (mesmo quando o visitante acessou via HTTPS), o que quebra o cookie
-# "Secure" e os links de retorno do Mercado Pago.
-app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
+# ProxyFix só deve confiar em X-Forwarded-* quando sabemos que a aplicação
+# está atrás de um proxy reverso confiável. Confiar nesses headers em um
+# servidor exposto diretamente permitiria falsificar IP/esquema/host.
+CONFIAR_PROXY = os.environ.get(
+    "VOXXEL_TRUST_PROXY", "true" if os.environ.get("PORT") else "false"
+).lower() == "true"
+if CONFIAR_PROXY:
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 
 app.config.update(
     MAX_CONTENT_LENGTH=35 * 1024 * 1024,  # referências do projeto: imagens + arquivo 3D
@@ -93,16 +97,15 @@ app.config.update(
     PERMANENT_SESSION_LIFETIME=timedelta(hours=4),
 )
 
-if SECRET_KEY == SECRET_KEY_PADRAO:
+if not SECRET_KEY_ENV:
     print(
-        "[AVISO DE SEGURANÇA] VOXXEL_SECRET_KEY não foi definida -- usando uma chave "
-        "padrão insegura. Defina essa variável de ambiente antes de publicar o site "
-        "(qualquer valor aleatório e longo serve)."
+        "[AVISO DE SEGURANÇA] VOXXEL_SECRET_KEY não foi definida. Uma chave efêmera "
+        "foi criada para esta execução. Configure uma chave longa e aleatória em produção."
     )
-if ADMIN_PASSWORD == ADMIN_PASSWORD_PADRAO:
+if not ADMIN_PASSWORD:
     print(
-        "[AVISO DE SEGURANÇA] VOXXEL_ADMIN_PASSWORD não foi definida -- o painel está "
-        "usando a senha padrão de exemplo. Troque isso antes de publicar o site."
+        "[AVISO DE SEGURANÇA] VOXXEL_ADMIN_PASSWORD não foi definida. O login do painel "
+        "administrativo ficará desabilitado até a variável ser configurada."
     )
 
 with app.app_context():
@@ -138,66 +141,6 @@ def login_cliente_obrigatorio(rota):
     return rota_protegida
 
 
-def _garantir_contas_teste():
-    """Cria/atualiza os perfis internos usados pelo modo mestre de teste.
-
-    Cliente e impressora continuam sendo registros reais e separados no banco,
-    então os testes passam pelas mesmas consultas e permissões do fluxo normal.
-    """
-    conn = get_db()
-    cliente = buscar_cliente_por_telefone(conn, TEST_MASTER_CLIENT_PHONE)
-    if cliente:
-        conn.execute(
-            "UPDATE clientes SET nome=?, senha_hash=? WHERE id=?",
-            ("Voxxel Teste — Cliente", TEST_MASTER_PASSWORD_HASH, cliente["id"]),
-        )
-        cliente_id = cliente["id"]
-    else:
-        cliente_id = criar_cliente(
-            conn, "Voxxel Teste — Cliente", TEST_MASTER_CLIENT_PHONE, TEST_MASTER_PASSWORD_HASH
-        )
-
-    impressora = buscar_impressora_por_telefone(conn, TEST_MASTER_PRINTER_PHONE)
-    if impressora:
-        conn.execute(
-            "UPDATE impressoras SET nome=?, senha_hash=?, materiais=?, ativo=1 WHERE id=?",
-            ("Voxxel Teste — Impressora", TEST_MASTER_PASSWORD_HASH, "pla,petg,abs,resina", impressora["id"]),
-        )
-        impressora_id = impressora["id"]
-    else:
-        impressora_id = criar_impressora(
-            conn, "Voxxel Teste — Impressora", TEST_MASTER_PRINTER_PHONE,
-            TEST_MASTER_PASSWORD_HASH, "pla,petg,abs,resina"
-        )
-    conn.commit()
-    conn.close()
-    return cliente_id, impressora_id
-
-
-def _ativar_papel_teste(papel):
-    """Troca a visão ativa sem misturar permissões entre cliente/impressor/admin."""
-    if not session.get("test_master"):
-        abort(403)
-    session.pop("admin_logado", None)
-    session.pop("cliente_id", None)
-    session.pop("cliente_nome", None)
-    session.pop("impressora_id", None)
-    session.pop("impressora_nome", None)
-
-    if papel == "cliente":
-        session["cliente_id"] = session["test_cliente_id"]
-        session["cliente_nome"] = "Voxxel Teste"
-    elif papel == "impressora":
-        session["impressora_id"] = session["test_impressora_id"]
-        session["impressora_nome"] = "Voxxel Teste — Impressora"
-    elif papel == "admin":
-        session["admin_logado"] = True
-    else:
-        abort(404)
-    session["test_role"] = papel
-    session.permanent = True
-
-
 def login_impressora_obrigatorio(rota):
     """Mesma ideia do `login_cliente_obrigatorio`, só que pra conta da
     impressora parceira -- protege o painel dela (status, ofertas, etc)."""
@@ -221,12 +164,15 @@ def next_seguro(padrao):
 
 
 def pedido_pertence_ao_usuario(pedido):
-    """Pedidos feitos antes de existir login de cliente ficam com cliente_id
-    nulo e continuam acessíveis pelo link direto (não tinha dono pra checar).
-    Pedidos novos só podem ser vistos por quem estiver logado na conta que
-    fez a compra."""
+    """Restringe dados financeiros do pedido ao cliente dono ou ao admin.
+
+    Pedidos legados sem cliente vinculado não ficam públicos por URL previsível;
+    o administrador continua podendo acessá-los pelo painel.
+    """
+    if session.get("admin_logado"):
+        return True
     dono = pedido["cliente_id"]
-    return dono is None or dono == session.get("cliente_id")
+    return dono is not None and dono == session.get("cliente_id")
 
 
 # ---------- proteção CSRF ----------
@@ -264,12 +210,37 @@ def erro_validacao(e):
     return redirect(redirecionamento_seguro(url_for("home"))), 303
 
 
+@app.errorhandler(403)
+def erro_proibido(e):
+    return render_template(
+        "erro.html", codigo="403", titulo="Acesso não permitido",
+        mensagem="Você não tem permissão para acessar esta área com a conta atual.",
+    ), 403
+
+
+@app.errorhandler(404)
+def erro_nao_encontrado(e):
+    return render_template(
+        "erro.html", codigo="404", titulo="Página não encontrada",
+        mensagem="Este endereço não existe mais ou foi digitado incorretamente.",
+    ), 404
+
+
+@app.errorhandler(500)
+def erro_interno(e):
+    # Nunca expõe stack trace ou detalhes internos ao visitante.
+    return render_template(
+        "erro.html", codigo="500", titulo="Algo não saiu como esperado",
+        mensagem="Ocorreu um erro interno. Tente novamente em instantes.",
+    ), 500
+
+
 @app.after_request
 def adicionar_headers_seguranca(resposta):
     resposta.headers["X-Content-Type-Options"] = "nosniff"
     resposta.headers["X-Frame-Options"] = "DENY"
     resposta.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-    resposta.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+    resposta.headers["Permissions-Policy"] = "geolocation=(self), microphone=(), camera=()"
     # unsafe-inline é necessário porque o site usa scripts/estilos inline
     # nas páginas (calculadora, chat, chips) -- ainda assim isso bloqueia
     # scripts vindos de fora, iframes de terceiros e plugins tipo Flash/Java.
@@ -285,6 +256,13 @@ def adicionar_headers_seguranca(resposta):
         "form-action 'self'; "
         "object-src 'none'"
     )
+    resposta.headers["Cross-Origin-Opener-Policy"] = "same-origin"
+    resposta.headers["Cross-Origin-Resource-Policy"] = "same-origin"
+    resposta.headers["X-Permitted-Cross-Domain-Policies"] = "none"
+    if request.path.startswith(("/pedido/", "/conta", "/impressora/", "/admin", "/checkout", "/carrinho")):
+        resposta.headers["Cache-Control"] = "no-store, private"
+        resposta.headers["Pragma"] = "no-cache"
+        resposta.headers["X-Robots-Tag"] = "noindex, nofollow"
     if request.is_secure:
         resposta.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     return resposta
@@ -293,7 +271,7 @@ def adicionar_headers_seguranca(resposta):
 @app.errorhandler(413)
 def imagem_grande_demais(e):
     flash("Os arquivos enviados ultrapassaram o limite do pedido. Envie referências menores ou em menos arquivos.")
-    return redirect(redirecionamento_seguro(url_for("admin_produtos")))
+    return redirect(redirecionamento_seguro(url_for("home")))
 
 
 # ---------- rate limiting simples do login do admin ----------
@@ -317,6 +295,19 @@ def login_bloqueado(chave):
 
 def registrar_falha_login(chave):
     _LOGIN_TENTATIVAS.setdefault(chave, []).append(time.time())
+    # Evita crescimento indefinido em processo longo sob muitos IPs únicos.
+    if len(_LOGIN_TENTATIVAS) > 5000:
+        agora = time.time()
+        for k in list(_LOGIN_TENTATIVAS)[:1000]:
+            recentes = [t for t in _LOGIN_TENTATIVAS[k] if agora - t < LOGIN_JANELA_SEGUNDOS]
+            if recentes:
+                _LOGIN_TENTATIVAS[k] = recentes
+            else:
+                _LOGIN_TENTATIVAS.pop(k, None)
+
+
+def limpar_falhas_login(chave):
+    _LOGIN_TENTATIVAS.pop(chave, None)
 
 
 # ---------- helpers ----------
@@ -366,63 +357,24 @@ def carrinho_detalhado(conn):
 def inject_globals():
     qtd_carrinho = sum(carrinho_sessao().values())
     chat_auto_message = session.pop("voxxel_chat_auto", None)
-    conn = get_db()
-    config = get_configs(conn)
-    conn.close()
-    vendedor_nome = config["vendedor_nome"] if session.get("admin_logado") else None
-    whatsapp_numero = "".join(c for c in config["whatsapp"] if c.isdigit())
+    # O layout base também é usado nas páginas de erro. Se o banco estiver
+    # indisponível, o próprio fallback de erro precisa conseguir renderizar.
+    config = {"vendedor_nome": "Voxxel", "whatsapp": ""}
+    conn = None
+    try:
+        conn = get_db()
+        config = get_configs(conn)
+    except Exception:
+        pass
+    finally:
+        if conn is not None:
+            conn.close()
+    vendedor_nome = config.get("vendedor_nome", "Voxxel") if session.get("admin_logado") else None
+    whatsapp_numero = "".join(c for c in config.get("whatsapp", "") if c.isdigit())
     return dict(
-        categorias=CATEGORIAS, qtd_carrinho=qtd_carrinho, chat_auto_message=chat_auto_message,
+        categorias=CATEGORIAS, materiais_catalogo=MATERIAIS, qtd_carrinho=qtd_carrinho, chat_auto_message=chat_auto_message,
         vendedor_nome=vendedor_nome, whatsapp_numero=whatsapp_numero,
-        test_master_enabled=TEST_MASTER_ENABLED,
     )
-
-
-# ---------- modo mestre de teste ----------
-
-@app.route("/teste/entrar", methods=["GET", "POST"])
-def teste_entrar():
-    if not TEST_MASTER_ENABLED:
-        abort(404)
-    erro = None
-    if request.method == "POST":
-        email = (request.form.get("email") or "").strip().lower()
-        senha = request.form.get("senha", "")
-        if email == TEST_MASTER_EMAIL and check_password_hash(TEST_MASTER_PASSWORD_HASH, senha):
-            cliente_id, impressora_id = _garantir_contas_teste()
-            carrinho_salvo = dict(carrinho_sessao())
-            session.clear()
-            session["carrinho"] = carrinho_salvo
-            session["test_master"] = True
-            session["test_email"] = TEST_MASTER_EMAIL
-            session["test_cliente_id"] = cliente_id
-            session["test_impressora_id"] = impressora_id
-            _ativar_papel_teste("cliente")
-            flash("Modo mestre de teste ativado. Você pode alternar entre Cliente, Impressor e Admin.")
-            return redirect(url_for("conta_dashboard"))
-        erro = "E-mail ou senha de teste incorretos."
-    return render_template("teste_entrar.html", erro=erro, email_padrao=TEST_MASTER_EMAIL)
-
-
-@app.route("/teste/trocar/<papel>", methods=["POST"])
-def teste_trocar_papel(papel):
-    if not TEST_MASTER_ENABLED or not session.get("test_master"):
-        abort(404)
-    _ativar_papel_teste(papel)
-    destinos = {
-        "cliente": "conta_dashboard",
-        "impressora": "impressora_painel",
-        "admin": "admin_dashboard",
-    }
-    return redirect(url_for(destinos[papel]))
-
-
-@app.route("/teste/sair")
-def teste_sair():
-    carrinho_salvo = dict(carrinho_sessao())
-    session.clear()
-    session["carrinho"] = carrinho_salvo
-    return redirect(url_for("home"))
 
 
 # ---------- páginas públicas ----------
@@ -432,11 +384,23 @@ def home():
     return render_template("index.html")
 
 
+@app.route("/health")
+def health():
+    """Health check simples para Render/monitoramento, incluindo o banco."""
+    try:
+        conn = get_db()
+        conn.execute("SELECT 1").fetchone()
+        conn.close()
+        return {"ok": True, "database": "postgres" if USING_POSTGRES else "sqlite"}
+    except Exception:
+        return {"ok": False}, 503
+
+
 # Colunas usadas nas listagens (loja e admin): evita carregar o BLOB da
 # imagem inteiro só pra mostrar a lista de produtos -- só um indicador
 # booleano (tem_imagem) que a rota /produto/<id>/imagem resolve de verdade.
 COLUNAS_PRODUTO_LISTA = """
-    id, nome, categoria, preco, descricao, imagem_ang, ativo, estoque,
+    id, nome, categoria, preco, descricao, imagem_ang, ativo, estoque, material,
     (imagem_mimetype IS NOT NULL) AS tem_imagem
 """
 
@@ -585,7 +549,12 @@ def checkout():
             conn.close()
             return render_template("checkout.html", itens=itens, total=total, cliente=cliente, pagamentos=pagamentos)
 
-        linhas = [f"{i['qtd']}x {i['produto']['nome']} - R$ {i['subtotal']:.2f}".replace(".", ",") for i in itens]
+        linhas = [
+            (f"{i['qtd']}x {i['produto']['nome']} · "
+             f"{MATERIAIS.get(i['produto']['material'], {}).get('nome', i['produto']['material'].upper())} - "
+             f"R$ {i['subtotal']:.2f}").replace(".", ",")
+            for i in itens
+        ]
         nomes_recebimento = {"combinar": "A combinar pelo WhatsApp", "retirada": "Retirada — local e horário a confirmar", "entrega": "Entrega — frete e prazo a confirmar antes do pagamento"}
         linhas.append("Recebimento: " + nomes_recebimento[recebimento])
         if recebimento == "entrega":
@@ -594,15 +563,46 @@ def checkout():
             linhas.append("Observações: " + observacoes)
         detalhes = "\n".join(linhas)
 
-        cliente_lat = ler_coordenada_formulario(request.form.get("cliente_lat"))
-        cliente_lng = ler_coordenada_formulario(request.form.get("cliente_lng"))
+        cliente_lat = ler_coordenada_formulario(request.form.get("cliente_lat"), -90, 90)
+        cliente_lng = ler_coordenada_formulario(request.form.get("cliente_lng"), -180, 180)
 
+        materiais_pedido = sorted({
+            (i["produto"]["material"] or "pla").strip().lower() for i in itens
+        })
+        # O pedido + snapshot dos itens + reserva de estoque formam uma só
+        # transação. Se outra compra levar a última unidade entre a tela e
+        # este POST, a atualização condicional falha e nada é gravado.
         pedido_id = criar_pedido(
             conn, "loja", detalhes, total, nome, telefone, forma_pagamento,
             cliente_id=session["cliente_id"], cliente_lat=cliente_lat, cliente_lng=cliente_lng,
+            material_requisito=",".join(materiais_pedido), commit=False,
         )
-        # Já entra na fila de despacho pra impressora parceira mais
-        # próxima (se o cliente permitiu compartilhar a localização).
+        estoque_ok = True
+        for item in itens:
+            produto = item["produto"]
+            if produto["estoque"] is not None:
+                cur = conn.execute(
+                    "UPDATE produtos SET estoque = estoque - ? WHERE id = ? AND ativo = 1 AND estoque >= ?",
+                    (item["qtd"], produto["id"], item["qtd"]),
+                )
+                if cur.rowcount != 1:
+                    estoque_ok = False
+                    break
+            conn.execute(
+                """INSERT INTO pedido_itens
+                   (pedido_id, produto_id, nome, quantidade, preco_unitario, subtotal, material)
+                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                (pedido_id, produto["id"], produto["nome"], item["qtd"], produto["preco"],
+                 item["subtotal"], produto["material"] or "pla"),
+            )
+        if not estoque_ok:
+            conn.rollback()
+            conn.close()
+            flash("O estoque mudou enquanto você finalizava. Revise o carrinho antes de continuar.")
+            return redirect(url_for("carrinho"))
+        conn.commit()
+
+        # Só depois da compra estar persistida ela entra na fila de despacho.
         distribuicao.despachar_pedido(conn, pedido_id)
         conn.close()
 
@@ -635,8 +635,9 @@ def pedido_pagamento(pedido_id):
     config = get_configs(conn)
     conn.close()
 
-    pix_disponivel = bool(config["pix_chave"].strip()) and pedido["forma_pagamento"] == "pix"
-    cartao_disponivel = bool(config["mp_access_token"].strip()) and pedido["forma_pagamento"] == "cartao"
+    pagamento_liberado = pedido["tipo"] != "orcamento" or bool(pedido["producao_autorizada"])
+    pix_disponivel = pagamento_liberado and bool(config["pix_chave"].strip()) and pedido["forma_pagamento"] == "pix"
+    cartao_disponivel = pagamento_liberado and bool(config["mp_access_token"].strip()) and pedido["forma_pagamento"] == "cartao"
     pix_payload = ""
     if pix_disponivel:
         pix_payload = pix.gerar_payload(
@@ -650,7 +651,7 @@ def pedido_pagamento(pedido_id):
     )
 
 
-@app.route("/pedido/<int:pedido_id>/pagar-cartao")
+@app.route("/pedido/<int:pedido_id>/pagar-cartao", methods=["POST"])
 def pedido_pagar_cartao(pedido_id):
     conn = get_db()
     pedido = conn.execute("SELECT * FROM pedidos WHERE id = ?", (pedido_id,)).fetchone()
@@ -661,6 +662,14 @@ def pedido_pagar_cartao(pedido_id):
     if not pedido_pertence_ao_usuario(pedido):
         conn.close()
         abort(403)
+    if pedido["forma_pagamento"] != "cartao" or pedido["status_pagamento"] == "confirmado":
+        conn.close()
+        flash("Esse pedido não está disponível para pagamento por cartão.")
+        return redirect(url_for("pedido_pagamento", pedido_id=pedido_id))
+    if pedido["tipo"] == "orcamento" and not pedido["producao_autorizada"]:
+        conn.close()
+        flash("O pagamento do projeto é liberado depois da sua aprovação final.")
+        return redirect(url_for("pedido_projeto", pedido_id=pedido_id))
 
     url_base = request.url_root.rstrip("/")
     descricao = f"Pedido Voxxel #{pedido_id} - {pedido['detalhes'].splitlines()[0]}"
@@ -703,19 +712,22 @@ def pedido_retorno_cartao(pedido_id):
                 status = dados_pagamento.get("status")
             except Exception:
                 status = None
-        if status == "approved":
+        pagamento_valido = status == "approved" and mercadopago_pay.pagamento_confere_com_pedido(
+            dados_pagamento, pedido_id, pedido["valor_estimado"]
+        ) if payment_id else False
+        if pagamento_valido:
             conn.execute(
-                "UPDATE pedidos SET status_pagamento = 'informado', mp_payment_id = ? WHERE id = ?",
-                (payment_id, pedido_id),
+                "UPDATE pedidos SET status_pagamento = 'confirmado', mp_payment_id = ? WHERE id = ?",
+                (str(payment_id), pedido_id),
             )
             conn.commit()
             msg = (
-                f"Olá! Acabei de pagar com cartão o pedido #{pedido_id} no site da Voxxel 🙂\n\n"
+                f"Olá! Acabei de pagar com cartão o pedido #{pedido_id} no site da Voxxel.\n\n"
                 f"{pedido['detalhes']}\n\nTotal: R$ {pedido['valor_estimado']:.2f}".replace(".", ",")
             )
             session["voxxel_chat_auto"] = msg
             session.modified = True
-            flash("Pagamento aprovado na consulta. Fale com a Voxxel para confirmar os próximos passos.")
+            flash("Pagamento aprovado e confirmado pelo Mercado Pago. Você pode acompanhar os próximos passos na área do cliente.")
         elif status == "pending" or request.args.get("status") == "pending":
             flash("Pagamento em análise. Assim que for aprovado, atualizamos seu pedido.")
         else:
@@ -746,17 +758,19 @@ def webhook_mercadopago():
         return "", 200
 
     pedido_id = dados_pagamento.get("external_reference")
-    if pedido_id and dados_pagamento.get("status") == "approved":
+    if pedido_id:
         try:
             pedido_id = int(pedido_id)
         except (TypeError, ValueError):
             conn.close()
             return "", 200
-        conn.execute(
-            "UPDATE pedidos SET status_pagamento = 'informado', mp_payment_id = ? WHERE id = ?",
-            (payment_id, pedido_id),
-        )
-        conn.commit()
+        pedido = conn.execute("SELECT id, valor_estimado FROM pedidos WHERE id=?", (pedido_id,)).fetchone()
+        if pedido and mercadopago_pay.pagamento_confere_com_pedido(dados_pagamento, pedido_id, pedido["valor_estimado"]):
+            conn.execute(
+                "UPDATE pedidos SET status_pagamento='confirmado', mp_payment_id=? WHERE id=? AND status_pagamento<>'confirmado'",
+                (str(payment_id), pedido_id),
+            )
+            conn.commit()
     conn.close()
     return "", 200
 
@@ -790,12 +804,20 @@ def pedido_confirmar_pagamento(pedido_id):
         conn.close()
         abort(403)
     if pedido:
+        if pedido["forma_pagamento"] != "pix" or pedido["status_pagamento"] == "confirmado":
+            conn.close()
+            flash("Esse pedido não está aguardando confirmação de Pix.")
+            return redirect(url_for("pedido_pagamento", pedido_id=pedido_id))
+        if pedido["tipo"] == "orcamento" and not pedido["producao_autorizada"]:
+            conn.close()
+            flash("Aguarde a aprovação final do projeto antes de realizar o pagamento.")
+            return redirect(url_for("pedido_projeto", pedido_id=pedido_id))
         conn.execute("UPDATE pedidos SET status_pagamento = 'informado' WHERE id = ?", (pedido_id,))
         conn.commit()
 
         linhas = pedido["detalhes"]
         msg = (
-            f"Olá! Acabei de fazer o pagamento do pedido #{pedido_id} no site da Voxxel 🙂\n\n"
+            f"Olá! Acabei de fazer o pagamento do pedido #{pedido_id} no site da Voxxel.\n\n"
             f"{linhas}\n\n"
             f"Total: R$ {pedido['valor_estimado']:.2f}".replace(".", ",")
         )
@@ -827,7 +849,10 @@ def validar_modelo_3d(arquivo, limite=MAX_MODELO_BYTES):
     if ext == "3mf":
         try:
             with zipfile.ZipFile(io.BytesIO(dados)) as zf:
-                nomes = {n.lower() for n in zf.namelist()}
+                infos = zf.infolist()
+                if len(infos) > 5000 or sum(i.file_size for i in infos) > 200 * 1024 * 1024:
+                    raise ValueError
+                nomes = {i.filename.lower() for i in infos}
                 if "[content_types].xml" not in nomes or not any(n.startswith("3d/") for n in nomes):
                     raise ValueError
         except Exception:
@@ -852,8 +877,10 @@ def validar_imagem_referencia(arquivo, limite=MAX_IMAGEM_REFERENCIA_BYTES):
         raise ValueError("Cada imagem de referência pode ter no máximo 6 MB.")
     try:
         imagem = Image.open(io.BytesIO(dados))
-        imagem.verify()
+        if imagem.width <= 0 or imagem.height <= 0 or imagem.width * imagem.height > 25_000_000:
+            raise ValueError
         formato = (imagem.format or "").upper()
+        imagem.verify()
     except Exception:
         raise ValueError("Uma das referências não é uma imagem válida.")
     formatos = {"JPEG": "image/jpeg", "PNG": "image/png", "WEBP": "image/webp"}
@@ -949,6 +976,20 @@ def orcamento():
             flash("Verifique os valores preenchidos na calculadora.")
             return render_template("orcamento.html", **contexto_orcamento(None))
 
+        if not all(math.isfinite(form[chave]) for chave in ("altura", "largura", "profundidade")):
+            flash("As dimensões informadas não são válidas.")
+            return render_template("orcamento.html", **contexto_orcamento(None))
+        if (form["categoria"] not in CAT_ACABAMENTO or form["material"] not in MATERIAIS or
+                form["qualidade"] not in QUALIDADE or form["complexidade"] not in COMPLEXIDADE):
+            flash("Uma das opções selecionadas não é válida. Revise a configuração do projeto.")
+            return render_template("orcamento.html", **contexto_orcamento(None))
+        if any(form[chave] <= 0 or form[chave] > 300 for chave in ("altura", "largura", "profundidade")):
+            flash("Informe dimensões maiores que zero e de até 300 cm por eixo para usar a simulação automática.")
+            return render_template("orcamento.html", **contexto_orcamento(None))
+        if form["quantidade"] > 100:
+            flash("Para mais de 100 unidades, envie o projeto em lotes ou fale com a Voxxel para uma cotação específica.")
+            return render_template("orcamento.html", **contexto_orcamento(None))
+
         resultado = calcular_orcamento(
             form["altura"], form["largura"], form["profundidade"], form["quantidade"],
             form["categoria"], form["complexidade"], form["material"], form["qualidade"],
@@ -962,9 +1003,9 @@ def orcamento():
                 return redirect(url_for("conta_entrar", next=url_for("orcamento")))
 
             nome = texto_seguro(request.form.get("nome"), 120)
-            telefone = texto_seguro(request.form.get("telefone"), 40)
-            if not nome or not telefone:
-                flash("Preencha nome e telefone para enviar o orçamento.")
+            telefone = normalizar_telefone(request.form.get("telefone"))
+            if not nome or not 10 <= len(telefone) <= 13:
+                flash("Preencha seu nome e um telefone válido com DDD para enviar o orçamento.")
                 return render_template("orcamento.html", **contexto_orcamento(resultado))
 
             descricao_projeto = texto_seguro(request.form.get("descricao_projeto"), 1400)
@@ -1000,11 +1041,13 @@ def orcamento():
                 f"Quantidade: {form['quantidade']}\n"
                 f"Projeto: {descricao_projeto}"
             )
-            cliente_lat = ler_coordenada_formulario(request.form.get("cliente_lat"))
-            cliente_lng = ler_coordenada_formulario(request.form.get("cliente_lng"))
+            cliente_lat = ler_coordenada_formulario(request.form.get("cliente_lat"), -90, 90)
+            cliente_lng = ler_coordenada_formulario(request.form.get("cliente_lng"), -180, 180)
             conn = get_db()
             pedido_id = criar_pedido(
-                conn, "orcamento", detalhes, resultado["preco_total"], nome, telefone, "pix",
+                conn, "orcamento", detalhes, resultado["preco_total"], nome, telefone,
+                ("pix" if config_precos.get("pix_chave", "").strip() else
+                 "cartao" if config_precos.get("mp_access_token", "").strip() else "combinar"),
                 cliente_id=session["cliente_id"], cliente_lat=cliente_lat, cliente_lng=cliente_lng,
                 material_requisito=form["material"],
             )
@@ -1177,11 +1220,23 @@ def pedido_projeto_status(pedido_id):
     if papel not in ("impressora", "admin"):
         conn.close(); abort(403)
     acao = request.form.get("acao")
-    if acao == "solicitar_info":
+    atual = pedido["fluxo_status"] or "recebido"
+    if acao == "solicitar_info" and atual in ("em_analise", "cliente_respondeu", "aguardando_aprovacao", "recebido"):
         novo, texto = "precisa_info", "A parceira precisa de mais informações para compreender o projeto."
-    elif acao == "enviar_aprovacao":
-        novo, texto = "aguardando_aprovacao", "A parceira concluiu a análise. Revise as referências e confirme se o projeto está correto."
-    elif acao == "iniciar_producao" and pedido["producao_autorizada"] and pedido["status_pagamento"] == "informado":
+    elif acao == "enviar_aprovacao" and atual in ("em_analise", "cliente_respondeu", "recebido"):
+        if pedido["tipo"] == "orcamento" and pedido["status_pagamento"] != "confirmado":
+            bruto = (request.form.get("valor_final") or "").strip().replace(",", ".")
+            try:
+                valor_final = round(float(bruto), 2)
+            except (TypeError, ValueError):
+                conn.close(); flash("Informe um valor final válido para enviar à aprovação."); return redirect(url_for("pedido_projeto", pedido_id=pedido_id))
+            if not 1 <= valor_final <= 100000:
+                conn.close(); flash("O valor final precisa ficar entre R$ 1,00 e R$ 100.000,00."); return redirect(url_for("pedido_projeto", pedido_id=pedido_id))
+            conn.execute("UPDATE pedidos SET valor_estimado=? WHERE id=?", (valor_final, pedido_id))
+            if pedido["impressora_id"]:
+                aplicar_comissao_pedido(conn, pedido_id, valor_final)
+        novo, texto = "aguardando_aprovacao", "A parceira concluiu a análise. Revise as referências, o valor final e confirme se o projeto está correto."
+    elif acao == "iniciar_producao" and atual == "producao_autorizada" and pedido["producao_autorizada"] and pedido["status_pagamento"] == "confirmado":
         novo, texto = "em_producao", "A produção foi iniciada pela impressora parceira."
         conn.execute("UPDATE pedidos SET status='andamento' WHERE id=?", (pedido_id,))
     elif acao == "marcar_pronto" and pedido["fluxo_status"] == "em_producao":
@@ -1232,10 +1287,10 @@ def conta_cadastro():
         erro = None
         if not nome:
             erro = "Preencha seu nome."
-        elif len(telefone) < TELEFONE_MIN_DIGITOS:
+        elif not TELEFONE_MIN_DIGITOS <= len(telefone) <= 13:
             erro = "Informe um telefone válido, com DDD."
-        elif len(senha) < 6:
-            erro = "A senha precisa ter pelo menos 6 caracteres."
+        elif not 8 <= len(senha) <= 128:
+            erro = "A senha precisa ter entre 8 e 128 caracteres."
         elif senha != confirmar_senha:
             erro = "As senhas não coincidem."
 
@@ -1282,6 +1337,7 @@ def conta_entrar():
             cliente = buscar_cliente_por_telefone(conn, telefone)
             conn.close()
             if cliente and check_password_hash(cliente["senha_hash"], senha):
+                limpar_falhas_login(chave_rate_limit)
                 carrinho_salvo = dict(carrinho_sessao())
                 session.clear()
                 session["carrinho"] = carrinho_salvo
@@ -1295,7 +1351,7 @@ def conta_entrar():
     return render_template("conta_entrar.html", erro=erro)
 
 
-@app.route("/conta/sair")
+@app.route("/conta/sair", methods=["POST"])
 def conta_sair():
     session.pop("cliente_id", None)
     session.pop("cliente_nome", None)
@@ -1308,7 +1364,7 @@ def conta_dashboard():
     conn = get_db()
     pedidos = listar_pedidos_cliente(conn, session["cliente_id"])
     conn.close()
-    return render_template("conta_dashboard.html", pedidos=pedidos)
+    return render_template("conta_dashboard.html", pedidos=pedidos, fluxo_labels=FLUXO_LABELS)
 
 
 # ---------- admin ----------
@@ -1321,7 +1377,10 @@ def admin_login():
     if request.method == "POST":
         if login_bloqueado(chave_rate_limit):
             erro = "Muitas tentativas de login. Aguarde alguns minutos e tente novamente."
+        elif not ADMIN_PASSWORD:
+            erro = "O acesso administrativo ainda não foi configurado no servidor."
         elif secrets.compare_digest(request.form.get("senha", ""), ADMIN_PASSWORD):
+            limpar_falhas_login(chave_rate_limit)
             session.clear()
             session["admin_logado"] = True
             session.permanent = True  # expira sozinho após PERMANENT_SESSION_LIFETIME
@@ -1332,7 +1391,7 @@ def admin_login():
     return render_template("admin_login.html", erro=erro)
 
 
-@app.route("/admin/logout")
+@app.route("/admin/logout", methods=["POST"])
 def admin_logout():
     session.pop("admin_logado", None)
     return redirect(url_for("home"))
@@ -1348,7 +1407,7 @@ def admin_dashboard():
     comissoes = resumo_comissoes(conn)
     conn.close()
 
-    receita_confirmada = sum(p["valor_estimado"] for p in pedidos if p["status_pagamento"] == "informado")
+    receita_confirmada = sum(p["valor_estimado"] for p in pedidos if p["status_pagamento"] == "confirmado")
     pedidos_novos = sum(1 for p in pedidos if p["status"] == "novo")
     total_pedidos = len(pedidos)
     ticket_medio = (sum(p["valor_estimado"] for p in pedidos) / total_pedidos) if total_pedidos else 0
@@ -1378,12 +1437,16 @@ def admin_configuracoes():
     if request.method == "POST":
         try:
             comissao_pct = float(request.form.get("comissao_percentual", "15").replace(",", "."))
-        except ValueError:
+            if not math.isfinite(comissao_pct):
+                raise ValueError
+        except (ValueError, AttributeError):
             comissao_pct = 15.0
-        comissao_pct = max(0.0, min(comissao_pct, 100.0))  # nunca deixa negativo ou acima de 100%
+        comissao_pct = max(0.0, min(comissao_pct, 80.0))  # alinhado ao limite da calculadora
         def _numero_config(nome, padrao, minimo=0.0, maximo=None):
             try:
                 valor = float(request.form.get(nome, str(padrao)).replace(",", "."))
+                if not math.isfinite(valor):
+                    raise ValueError
             except (ValueError, AttributeError):
                 valor = float(padrao)
             valor = max(minimo, valor)
@@ -1391,13 +1454,15 @@ def admin_configuracoes():
                 valor = min(maximo, valor)
             return str(valor)
 
+        config_atual = get_configs(conn)
+        token_novo = request.form.get("mp_access_token", "").strip()
         set_configs(conn, {
-            "vendedor_nome": request.form.get("vendedor_nome", "").strip() or "Voxxel",
-            "pix_chave": request.form.get("pix_chave", "").strip(),
-            "pix_nome": request.form.get("pix_nome", "").strip() or "Voxxel Impressao 3D",
-            "pix_cidade": request.form.get("pix_cidade", "").strip() or "Sao Jose dos Pinhais",
-            "whatsapp": request.form.get("whatsapp", "").strip(),
-            "mp_access_token": request.form.get("mp_access_token", "").strip(),
+            "vendedor_nome": texto_seguro(request.form.get("vendedor_nome"), 120) or "Voxxel",
+            "pix_chave": texto_seguro(request.form.get("pix_chave"), 180),
+            "pix_nome": texto_seguro(request.form.get("pix_nome"), 80) or "Voxxel Impressao 3D",
+            "pix_cidade": texto_seguro(request.form.get("pix_cidade"), 80) or "Sao Jose dos Pinhais",
+            "whatsapp": normalizar_telefone(request.form.get("whatsapp"))[:15],
+            "mp_access_token": token_novo if token_novo else config_atual.get("mp_access_token", ""),
             "comissao_percentual": str(comissao_pct),
             "custo_kg_pla": _numero_config("custo_kg_pla", 95),
             "custo_kg_petg": _numero_config("custo_kg_petg", 110),
@@ -1438,16 +1503,38 @@ def processar_upload_imagem(arquivo):
     if arquivo.mimetype not in TIPOS_IMAGEM_PERMITIDOS:
         flash("Formato de imagem não suportado. Envie um JPG, PNG ou WEBP.")
         return None
-    dados = arquivo.read()
+    dados = arquivo.read(8 * 1024 * 1024 + 1)
     if not dados:
+        return None
+    if len(dados) > 8 * 1024 * 1024:
+        flash("A imagem do produto pode ter no máximo 8 MB.")
         return None
     try:
         imagem = Image.open(io.BytesIO(dados))
+        if imagem.width <= 0 or imagem.height <= 0 or imagem.width * imagem.height > 25_000_000:
+            raise ValueError
+        formato = (imagem.format or "").upper()
         imagem.verify()
     except Exception:
         flash("O arquivo enviado não é uma imagem válida.")
         return None
-    return dados, arquivo.mimetype
+    mimetype_real = {"JPEG":"image/jpeg","PNG":"image/png","WEBP":"image/webp"}.get(formato)
+    if not mimetype_real:
+        flash("Formato de imagem não suportado. Envie JPG, PNG ou WEBP.")
+        return None
+    return dados, mimetype_real
+
+
+
+def normalizar_angulo_imagem(valor):
+    bruto = str(valor or "0deg").strip().lower()
+    if bruto.endswith("deg"):
+        bruto = bruto[:-3]
+    try:
+        grau = float(bruto) % 360
+    except (TypeError, ValueError):
+        grau = 0
+    return f"{grau:.0f}deg"
 
 
 def ler_estoque_formulario():
@@ -1463,8 +1550,11 @@ def ler_estoque_formulario():
 
 def ler_preco_formulario():
     try:
-        return max(0.0, round(float(request.form.get("preco", "0").replace(",", ".")), 2))
-    except (ValueError, TypeError):
+        valor = float(request.form.get("preco", "0").replace(",", "."))
+        if not math.isfinite(valor) or valor < 0.01:
+            return None
+        return round(valor, 2)
+    except (ValueError, TypeError, AttributeError):
         return None
 
 
@@ -1473,28 +1563,31 @@ def ler_preco_formulario():
 def admin_produto_novo():
     if request.method == "POST":
         preco = ler_preco_formulario()
-        if preco is None or not request.form.get("nome", "").strip():
-            flash("Preencha nome e preço corretamente.")
-            return render_template("admin_produto_form.html", produto=None)
+        categoria = request.form.get("categoria", "")
+        material = request.form.get("material", "pla")
+        if (preco is None or not request.form.get("nome", "").strip() or
+                categoria not in CATEGORIAS or material not in MATERIAIS):
+            flash("Preencha nome, categoria, material e preço corretamente.")
+            return render_template("admin_produto_form.html", produto=None, materiais=MATERIAIS)
 
         conn = get_db()
         resultado_imagem = processar_upload_imagem(request.files.get("imagem"))
         imagem_dados, imagem_mimetype = resultado_imagem if resultado_imagem else (None, None)
         conn.execute(
             """INSERT INTO produtos
-               (nome, categoria, preco, descricao, imagem_ang, ativo, imagem_dados, imagem_mimetype, estoque)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+               (nome, categoria, preco, descricao, imagem_ang, ativo, imagem_dados, imagem_mimetype, estoque, material)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
-                texto_seguro(request.form["nome"], 120), request.form["categoria"], preco,
-                texto_seguro(request.form.get("descricao"), 2000), request.form.get("imagem_ang", "0deg"),
+                texto_seguro(request.form["nome"], 120), categoria, preco,
+                texto_seguro(request.form.get("descricao"), 2000), normalizar_angulo_imagem(request.form.get("imagem_ang")),
                 1 if request.form.get("ativo") else 0,
-                to_blob(imagem_dados), imagem_mimetype, ler_estoque_formulario(),
+                to_blob(imagem_dados), imagem_mimetype, ler_estoque_formulario(), material,
             ),
         )
         conn.commit()
         conn.close()
         return redirect(url_for("admin_produtos"))
-    return render_template("admin_produto_form.html", produto=None)
+    return render_template("admin_produto_form.html", produto=None, materiais=MATERIAIS)
 
 
 @app.route("/admin/produtos/<int:produto_id>/editar", methods=["GET", "POST"])
@@ -1503,8 +1596,11 @@ def admin_produto_editar(produto_id):
     conn = get_db()
     if request.method == "POST":
         preco = ler_preco_formulario()
-        if preco is None or not request.form.get("nome", "").strip():
-            flash("Preencha nome e preço corretamente.")
+        categoria = request.form.get("categoria", "")
+        material = request.form.get("material", "pla")
+        if (preco is None or not request.form.get("nome", "").strip() or
+                categoria not in CATEGORIAS or material not in MATERIAIS):
+            flash("Preencha nome, categoria, material e preço corretamente.")
             conn.close()
             return redirect(url_for("admin_produto_editar", produto_id=produto_id))
 
@@ -1518,33 +1614,33 @@ def admin_produto_editar(produto_id):
             imagem_dados, imagem_mimetype = resultado_imagem
             conn.execute(
                 """UPDATE produtos SET nome=?, categoria=?, preco=?, descricao=?, imagem_ang=?, ativo=?,
-                   imagem_dados=?, imagem_mimetype=?, estoque=? WHERE id=?""",
+                   imagem_dados=?, imagem_mimetype=?, estoque=?, material=? WHERE id=?""",
                 (
-                    nome, request.form["categoria"], preco,
-                    descricao, request.form.get("imagem_ang", "0deg"),
+                    nome, categoria, preco,
+                    descricao, normalizar_angulo_imagem(request.form.get("imagem_ang")),
                     1 if request.form.get("ativo") else 0,
-                    to_blob(imagem_dados), imagem_mimetype, estoque, produto_id,
+                    to_blob(imagem_dados), imagem_mimetype, estoque, material, produto_id,
                 ),
             )
         elif request.form.get("remover_imagem"):
             # Usuário marcou pra remover a imagem atual, sem enviar outra
             conn.execute(
                 """UPDATE produtos SET nome=?, categoria=?, preco=?, descricao=?, imagem_ang=?, ativo=?,
-                   imagem_dados=NULL, imagem_mimetype=NULL, estoque=? WHERE id=?""",
+                   imagem_dados=NULL, imagem_mimetype=NULL, estoque=?, material=? WHERE id=?""",
                 (
-                    nome, request.form["categoria"], preco,
-                    descricao, request.form.get("imagem_ang", "0deg"),
-                    1 if request.form.get("ativo") else 0, estoque, produto_id,
+                    nome, categoria, preco,
+                    descricao, normalizar_angulo_imagem(request.form.get("imagem_ang")),
+                    1 if request.form.get("ativo") else 0, estoque, material, produto_id,
                 ),
             )
         else:
             # Mantém a imagem que já existia
             conn.execute(
-                "UPDATE produtos SET nome=?, categoria=?, preco=?, descricao=?, imagem_ang=?, ativo=?, estoque=? WHERE id=?",
+                "UPDATE produtos SET nome=?, categoria=?, preco=?, descricao=?, imagem_ang=?, ativo=?, estoque=?, material=? WHERE id=?",
                 (
-                    nome, request.form["categoria"], preco,
-                    descricao, request.form.get("imagem_ang", "0deg"),
-                    1 if request.form.get("ativo") else 0, estoque, produto_id,
+                    nome, categoria, preco,
+                    descricao, normalizar_angulo_imagem(request.form.get("imagem_ang")),
+                    1 if request.form.get("ativo") else 0, estoque, material, produto_id,
                 ),
             )
         conn.commit()
@@ -1554,7 +1650,7 @@ def admin_produto_editar(produto_id):
         f"SELECT {COLUNAS_PRODUTO_LISTA} FROM produtos WHERE id = ?", (produto_id,)
     ).fetchone()
     conn.close()
-    return render_template("admin_produto_form.html", produto=produto)
+    return render_template("admin_produto_form.html", produto=produto, materiais=MATERIAIS)
 
 
 @app.route("/admin/produtos/<int:produto_id>/toggle", methods=["POST"])
@@ -1648,7 +1744,10 @@ def admin_pedido_atribuir_impressora(pedido_id):
         return redirect(url_for("admin_pedidos"))
 
     conn = get_db()
-    pedido = conn.execute("SELECT id FROM pedidos WHERE id = ?", (pedido_id,)).fetchone()
+    pedido = conn.execute(
+        "SELECT id, impressora_id, fluxo_status FROM pedidos WHERE id = ?",
+        (pedido_id,),
+    ).fetchone()
     impressora = buscar_impressora_por_id(conn, impressora_id)
     if not pedido:
         conn.close()
@@ -1657,6 +1756,10 @@ def admin_pedido_atribuir_impressora(pedido_id):
     if not impressora or not impressora["ativo"]:
         conn.close()
         flash("Essa impressora não está disponível pra receber pedidos.")
+        return redirect(url_for("admin_pedidos"))
+    if pedido["impressora_id"] and pedido["fluxo_status"] in ("em_producao", "pronto", "concluido"):
+        conn.close()
+        flash("Não é seguro trocar a impressora depois que a produção já começou.")
         return redirect(url_for("admin_pedidos"))
 
     distribuicao.atribuir_manualmente(conn, pedido_id, impressora_id)
@@ -1693,10 +1796,45 @@ def admin_pedido_status(pedido_id):
         flash("Status inválido.")
         return redirect(url_for("admin_pedidos"))
     conn = get_db()
-    conn.execute("UPDATE pedidos SET status = ? WHERE id = ?", (novo_status, pedido_id))
+    if novo_status == "concluido":
+        conn.execute(
+            "UPDATE pedidos SET status = ?, fluxo_status = 'concluido' WHERE id = ?",
+            (novo_status, pedido_id),
+        )
+    else:
+        conn.execute("UPDATE pedidos SET status = ? WHERE id = ?", (novo_status, pedido_id))
     conn.commit()
     conn.close()
     return redirect(url_for("admin_pedidos"))
+
+
+@app.route("/admin/pedidos/<int:pedido_id>/pagamento", methods=["POST"])
+@login_obrigatorio
+def admin_pedido_pagamento(pedido_id):
+    """Confirma ou reabre o pagamento sem confundir aviso do cliente com liquidação."""
+    acao = request.form.get("acao", "")
+    if acao not in ("confirmar", "reabrir"):
+        abort(400)
+    conn = get_db()
+    pedido = conn.execute(
+        "SELECT id, status_pagamento, fluxo_status FROM pedidos WHERE id = ?",
+        (pedido_id,),
+    ).fetchone()
+    if not pedido:
+        conn.close()
+        abort(404)
+    if acao == "reabrir" and pedido["fluxo_status"] in ("em_producao", "pronto", "concluido"):
+        conn.close()
+        flash("Não é seguro reabrir o pagamento depois que a produção já começou.")
+        return redirect(redirecionamento_seguro(url_for("admin_pedidos")))
+    novo = "confirmado" if acao == "confirmar" else "aguardando"
+    conn.execute("UPDATE pedidos SET status_pagamento = ? WHERE id = ?", (novo, pedido_id))
+    if acao == "confirmar":
+        _mensagem_sistema(conn, pedido_id, "Pagamento confirmado pela Voxxel.")
+    conn.commit()
+    conn.close()
+    flash("Pagamento confirmado." if acao == "confirmar" else "Pagamento reaberto para conferência.")
+    return redirect(redirecionamento_seguro(url_for("admin_pedidos")))
 
 
 # ---------- painel da impressora parceira (marketplace) ----------
@@ -1719,10 +1857,10 @@ def impressora_cadastro():
         erro = None
         if not nome:
             erro = "Preencha seu nome (ou o nome da sua impressora/oficina)."
-        elif len(telefone) < TELEFONE_MIN_DIGITOS_IMPRESSORA:
+        elif not TELEFONE_MIN_DIGITOS_IMPRESSORA <= len(telefone) <= 13:
             erro = "Informe um telefone válido, com DDD."
-        elif len(senha) < 6:
-            erro = "A senha precisa ter pelo menos 6 caracteres."
+        elif not 8 <= len(senha) <= 128:
+            erro = "A senha precisa ter entre 8 e 128 caracteres."
         elif senha != confirmar_senha:
             erro = "As senhas não coincidem."
         elif not materiais_selecionados:
@@ -1771,6 +1909,7 @@ def impressora_entrar():
             impressora = buscar_impressora_por_telefone(conn, telefone)
             conn.close()
             if impressora and check_password_hash(impressora["senha_hash"], senha):
+                limpar_falhas_login(chave_rate_limit)
                 session.clear()
                 session["impressora_id"] = impressora["id"]
                 session["impressora_nome"] = impressora["nome"]
@@ -1782,7 +1921,7 @@ def impressora_entrar():
     return render_template("impressora_entrar.html", erro=erro)
 
 
-@app.route("/impressora/sair")
+@app.route("/impressora/sair", methods=["POST"])
 def impressora_sair():
     session.pop("impressora_id", None)
     session.pop("impressora_nome", None)
@@ -1794,6 +1933,9 @@ def impressora_sair():
 def impressora_painel():
     conn = get_db()
     impressora = buscar_impressora_por_id(conn, session["impressora_id"])
+    if impressora and impressora["online"] and not distribuicao.localizacao_recente(impressora):
+        definir_status_impressora(conn, impressora["id"], False)
+        impressora = buscar_impressora_por_id(conn, session["impressora_id"])
     if not impressora:
         conn.close()
         session.clear()
@@ -1824,7 +1966,8 @@ def impressora_painel():
 
     pedidos_atribuidos = listar_pedidos_da_impressora(conn, impressora["id"])
     ganho_acumulado = sum(
-        (p["valor_estimado"] - (p["comissao_voxxel"] or 0)) for p in pedidos_atribuidos
+        (p["valor_estimado"] - (p["comissao_voxxel"] or 0))
+        for p in pedidos_atribuidos if p["status_pagamento"] == "confirmado"
     )
     conn.close()
 
@@ -1833,6 +1976,7 @@ def impressora_painel():
         oferta_distancia_km=oferta_distancia_km, oferta_segundos_restantes=oferta_segundos_restantes,
         oferta_ganho_estimado=oferta_ganho_estimado, pedidos=pedidos_atribuidos,
         ganho_acumulado=round(ganho_acumulado, 2), pct_comissao=pct_comissao, materiais=MATERIAIS,
+        fluxo_labels=FLUXO_LABELS,
     )
 
 
@@ -1863,8 +2007,8 @@ def impressora_status():
         return redirect(url_for("impressora_painel"))
 
     online = request.form.get("online") == "1"
-    latitude = ler_coordenada_formulario(request.form.get("latitude"))
-    longitude = ler_coordenada_formulario(request.form.get("longitude"))
+    latitude = ler_coordenada_formulario(request.form.get("latitude"), -90, 90)
+    longitude = ler_coordenada_formulario(request.form.get("longitude"), -180, 180)
     if online and (latitude is None or longitude is None):
         conn.close()
         flash("Precisamos da sua localização pra te colocar online -- permita o acesso à localização no navegador.")
@@ -1885,8 +2029,8 @@ def impressora_status():
 def impressora_localizacao():
     """Ping em segundo plano (AJAX) enviado pelo painel enquanto a
     impressora está online, pra manter a posição sempre atualizada."""
-    latitude = ler_coordenada_formulario(request.form.get("latitude"))
-    longitude = ler_coordenada_formulario(request.form.get("longitude"))
+    latitude = ler_coordenada_formulario(request.form.get("latitude"), -90, 90)
+    longitude = ler_coordenada_formulario(request.form.get("longitude"), -180, 180)
     if latitude is None or longitude is None:
         return {"ok": False}, 400
     conn = get_db()
@@ -1910,6 +2054,29 @@ def voxxel_service_worker():
     return resposta
 
 
+def _resumo_seguro_oferta(pedido):
+    """Resumo pré-aceite sem telefone, endereço ou observações privadas.
+
+    A parceira recebe informação suficiente para decidir se quer analisar o
+    trabalho; dados completos ficam disponíveis somente depois da atribuição.
+    """
+    if pedido["tipo"] == "orcamento":
+        resumo = (pedido["descricao_projeto"] or "Projeto personalizado para análise.").strip()
+        return resumo[:240]
+    linhas = []
+    for linha in (pedido["detalhes"] or "").splitlines():
+        limpa = linha.strip()
+        if not limpa:
+            continue
+        baixo = limpa.lower()
+        if baixo.startswith(("recebimento:", "endereço:", "endereco:", "observações:", "observacoes:")):
+            continue
+        linhas.append(limpa)
+        if len(linhas) >= 3:
+            break
+    return " · ".join(linhas)[:240] or "Pedido do catálogo para análise."
+
+
 @app.route("/impressora/api/oferta-atual")
 @login_impressora_obrigatorio
 def impressora_api_oferta_atual():
@@ -1918,6 +2085,10 @@ def impressora_api_oferta_atual():
     sem precisar manter o painel aberto."""
     conn = get_db()
     impressora = buscar_impressora_por_id(conn, session["impressora_id"])
+    distribuicao.avancar_filas_pendentes(conn)
+    if impressora and impressora["online"] and not distribuicao.localizacao_recente(impressora):
+        definir_status_impressora(conn, impressora["id"], False)
+        impressora = buscar_impressora_por_id(conn, impressora["id"])
     if not impressora or not impressora["ativo"] or not impressora["online"]:
         conn.close()
         return {"ok": True, "oferta": None}
@@ -1943,13 +2114,19 @@ def impressora_api_oferta_atual():
     pct = percentual_comissao(conn)
     ganho = round(float(pedido["valor_estimado"] or 0) * (1 - pct / 100), 2)
     material_chave = pedido["material_requisito"] if "material_requisito" in pedido.keys() else None
-    material_nome = MATERIAIS.get(material_chave, {}).get("nome") if material_chave else None
+    material_nome = None
+    if material_chave:
+        nomes_materiais = [
+            MATERIAIS.get(chave.strip().lower(), {}).get("nome", chave.strip().upper())
+            for chave in material_chave.split(",") if chave.strip()
+        ]
+        material_nome = " + ".join(nomes_materiais)
     segundos = distribuicao.segundos_restantes_oferta(oferta)
     dados = {
         "id": oferta["id"],
         "pedido_id": pedido["id"],
         "tipo": "Pedido do catálogo" if pedido["tipo"] == "loja" else "Orçamento personalizado",
-        "detalhes": pedido["detalhes"],
+        "detalhes": _resumo_seguro_oferta(pedido),
         "material": material_nome,
         "distancia_km": distancia,
         "ganho": ganho,

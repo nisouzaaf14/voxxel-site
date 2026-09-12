@@ -1,8 +1,8 @@
-# Como colocar a Voxxel no ar (Render — gratuito)
+# Como colocar a Voxxel no ar (Render)
 
-O jeito mais simples de publicar esse site é o **Render**: ele conecta direto
-no GitHub, detecta que é um projeto Flask e sobe sozinho toda vez que você
-atualizar o código.
+Uma opção prática para publicar a Voxxel é o **Render**: ele conecta ao
+GitHub e pode fazer o deploy do Flask a cada atualização. Planos, limites e
+preços mudam com o tempo; confira as condições atuais no painel do provedor.
 
 ## Passo 1 — Colocar o código no GitHub
 
@@ -31,11 +31,12 @@ atualizar o código.
    - **Runtime**: Python 3
    - **Build Command**: `pip install -r requirements.txt`
    - **Start Command**: `gunicorn app:app`
-   - **Instance Type**: Free
+   - **Instance Type**: escolha o plano adequado ao ambiente/teste
 5. Em **Environment Variables**, adicione:
-   - `VOXXEL_ADMIN_PASSWORD` → uma senha forte sua (troque o `voxxel123`)
+   - `VOXXEL_ADMIN_PASSWORD` → uma senha forte e única (não existe senha padrão no código)
    - `VOXXEL_SECRET_KEY` → qualquer texto longo e aleatório
    - `VOXXEL_DEBUG` → `false`
+   - `VOXXEL_TRUST_PROXY` → `true` no Render/proxy confiável
 6. Clique em **Create Web Service**.
 
 Em alguns minutos o Render te dá uma URL tipo `https://voxxel.onrender.com` —
@@ -66,9 +67,8 @@ O `database.py` já está preparado para os dois modos:
    exemplo dentro do Postgres, e esses dados agora **persistem** entre
    reinicializações e deploys.
 
-> Atenção: o Postgres free do Render expira depois de um tempo (atualmente
-> ~30 dias de banco gratuito, verifique as condições atuais no site deles).
-> Depois disso ele cobra um valor baixo mensal pra manter o banco ativo.
+> Os planos, políticas de retenção e preços do PostgreSQL no Render podem
+> mudar. Confirme as condições atuais antes de depender de um plano específico.
 
 ### Como confirmar que está usando Postgres de verdade
 
@@ -83,8 +83,7 @@ pela primeira linha que o site imprime ao iniciar:
 O `database.py` já vem preparado pra produção de verdade, não só pra
 funcionar no teste:
 - **Pool de conexões**: reaproveita conexões com o Postgres em vez de abrir
-  uma nova a cada clique no site -- importante porque planos free costumam
-  limitar bastante o número de conexões simultâneas.
+  uma nova a cada clique no site, reduzindo custo e pressão sobre o banco.
 - **Reconexão automática**: se o banco estiver "acordando" ou a conexão
   cair por um instante, o site tenta de novo (com espera crescente) antes
   de mostrar erro.
@@ -96,14 +95,17 @@ funcionar no teste:
 ### Se preferir continuar só com SQLite por enquanto
 
 Não precisa fazer nada — sem a variável `DATABASE_URL`, o site continua
-funcionando com SQLite normalmente (só que sem persistir dados no plano
-free do Render, como explicado antes).
+funcionando com SQLite local. Em hospedagens com filesystem efêmero, porém,
+esses dados podem não sobreviver a deploys/reinicializações; confirme a
+política do provedor antes de usar SQLite em produção.
 
 ## Alternativas ao Render
 
-- **PythonAnywhere** — também tem plano grátis, é um pouco mais manual de
-  configurar mas o disco é permanente mesmo no free.
-- **Railway** — parecido com o Render, também baseado em GitHub.
+- **PythonAnywhere** — alternativa de hospedagem Python com configuração mais manual.
+- **Railway** — alternativa com deploy integrado a repositórios Git.
+
+Planos, armazenamento e preços desses serviços mudam; consulte a documentação
+atual antes de escolher a infraestrutura.
 
 Se quiser, me diz qual você escolheu que eu ajusto as instruções certinho
 pra ela.
@@ -115,16 +117,15 @@ tentativas de login, cabeçalhos de segurança no navegador, validação de
 imagens enviadas, cookies seguros, etc). Mas duas coisas **dependem de
 você configurar** na hora do deploy:
 
-1. **`VOXXEL_ADMIN_PASSWORD`** — troque a senha padrão (`voxxel123`) por
-   uma senha forte e única. É a senha que protege o painel inteiro.
-2. **`VOXXEL_SECRET_KEY`** — defina qualquer texto longo e aleatório
-   (ex: gere um em https://randomkeygen.com, categoria "CodeIgniter
-   Encryption Keys"). Sem isso, os cookies de sessão do site usam uma
-   chave conhecida publicamente (documentada aqui mesmo), o que é
-   inseguro.
+1. **`VOXXEL_ADMIN_PASSWORD`** — defina uma senha forte e única. Sem essa
+   variável o login administrativo fica desabilitado; não existe fallback
+   ou senha mestra no repositório.
+2. **`VOXXEL_SECRET_KEY`** — defina um valor longo e aleatório. Em ambiente
+   de produção a aplicação recusa iniciar sem essa variável; localmente uma
+   chave efêmera ainda pode ser usada para desenvolvimento.
 
 Sem essas duas variáveis configuradas, o site imprime um aviso nos logs
-do Render toda vez que inicia, lembrando de trocar.
+do Render ao iniciar.
 
 Outras variáveis relacionadas à segurança (opcionais):
 - `VOXXEL_DEBUG` → deixe `false` em produção (é o padrão). Nunca ligue o
@@ -134,3 +135,15 @@ Outras variáveis relacionadas à segurança (opcionais):
 - `VOXXEL_COOKIE_SECURE` → normalmente não precisa mexer: o site já detecta
   sozinho se está rodando publicado (Render) ou só testando no seu
   computador. Só use essa variável se notar problemas de sessão/login.
+
+
+## Health check
+
+O endpoint `/health` verifica aplicação e banco. Configure o monitoramento do
+serviço para consultar esse caminho. Resposta saudável: HTTP 200 com `ok=true`.
+
+## Antes de liberar vendas
+
+Leia `AUDITORIA-PROFISSIONAL-V11.md`. Além do deploy, faça um ensaio completo
+no domínio publicado: conta de cliente, conta de parceiro, geolocalização,
+referências, chat, aprovação, Pix/Mercado Pago, início e conclusão da produção.

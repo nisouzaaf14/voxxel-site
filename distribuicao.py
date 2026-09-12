@@ -26,6 +26,7 @@ import time
 from database import aplicar_comissao_pedido
 
 TIMEOUT_OFERTA_SEGUNDOS = 5 * 60  # 5 minutos pra impressora aceitar/recusar
+LOCALIZACAO_VALIDADE_SEGUNDOS = 3 * 60  # impressora some da fila se parar de enviar heartbeat
 
 STATUS_SEM_LOCALIZACAO = "sem_localizacao"
 STATUS_BUSCANDO = "buscando"
@@ -53,8 +54,30 @@ def _segundos_desde(timestamp_str):
     try:
         estrutura = time.strptime(timestamp_str[:19], "%Y-%m-%d %H:%M:%S")
     except (ValueError, TypeError):
-        return 0
-    return time.time() - time.mktime(estrutura)
+        # Timestamp inválido nunca deve transformar uma localização/oferta
+        # antiga em "recente". Trate como infinitamente velha.
+        return float("inf")
+    return max(0.0, time.time() - time.mktime(estrutura))
+
+
+def localizacao_recente(impressora):
+    if not impressora or not impressora["localizacao_em"]:
+        return False
+    return _segundos_desde(impressora["localizacao_em"]) <= LOCALIZACAO_VALIDADE_SEGUNDOS
+
+
+def avancar_filas_pendentes(conn, limite=100):
+    """Expira ofertas vencidas de toda a rede de forma oportunista.
+
+    Como o MVP não usa worker/Redis, qualquer parceiro online que esteja
+    consultando ofertas ajuda a fila global a continuar andando.
+    """
+    rows = conn.execute(
+        "SELECT DISTINCT pedido_id FROM ofertas_impressao WHERE status='pendente' ORDER BY pedido_id LIMIT ?",
+        (int(limite),),
+    ).fetchall()
+    for row in rows:
+        avancar_distribuicao(conn, row["pedido_id"])
 
 
 def despachar_pedido(conn, pedido_id):
@@ -94,17 +117,33 @@ def _candidatos_disponiveis(conn, pedido_id, cliente_lat, cliente_lng):
         "SELECT material_requisito FROM pedidos WHERE id = ?", (pedido_id,)
     ).fetchone()
     material_requisito = pedido["material_requisito"] if pedido else None
+    materiais_requeridos = {
+        m.strip().lower() for m in (material_requisito or "").split(",") if m.strip()
+    }
 
     impressoras = conn.execute(
-        """SELECT id, nome, latitude, longitude, materiais FROM impressoras
+        """SELECT id, nome, latitude, longitude, localizacao_em, materiais FROM impressoras
            WHERE online = 1 AND ativo = 1 AND latitude IS NOT NULL AND longitude IS NOT NULL"""
     ).fetchall()
+
+    # Uma parceira não deve receber duas "corridas" simultâneas. Ofertas
+    # antigas que já ultrapassaram o timeout não a bloqueiam aqui; serão
+    # expiradas pelo avanço normal da fila.
+    ocupadas = set()
+    for pendente in conn.execute(
+        "SELECT impressora_id, criado_em FROM ofertas_impressao WHERE status = 'pendente'"
+    ).fetchall():
+        if _segundos_desde(pendente["criado_em"]) < TIMEOUT_OFERTA_SEGUNDOS:
+            ocupadas.add(pendente["impressora_id"])
+
     candidatos = []
     for imp in impressoras:
-        if imp["id"] in ja_ofertadas:
+        if imp["id"] in ja_ofertadas or imp["id"] in ocupadas:
+            continue
+        if not localizacao_recente(imp):
             continue
         materiais_suportados = {m.strip().lower() for m in (imp["materiais"] or "pla").split(",") if m.strip()}
-        if material_requisito and material_requisito.lower() not in materiais_suportados:
+        if materiais_requeridos and not materiais_requeridos.issubset(materiais_suportados):
             continue
         distancia = haversine_km(cliente_lat, cliente_lng, imp["latitude"], imp["longitude"])
         candidatos.append((distancia, imp))
@@ -129,10 +168,24 @@ def avancar_distribuicao(conn, pedido_id):
     ).fetchone()
 
     if oferta_pendente:
-        if _segundos_desde(oferta_pendente["criado_em"]) < TIMEOUT_OFERTA_SEGUNDOS:
-            return  # ainda dentro do prazo, deixa a impressora responder
+        # Não segura a fila por cinco minutos se a parceira saiu do ar ou
+        # deixou a localização vencer. Em uso real isso evita pedidos
+        # "presos" quando o navegador do parceiro fecha no meio da oferta.
+        parceira_ofertada = conn.execute(
+            "SELECT ativo, online, localizacao_em FROM impressoras WHERE id = ?",
+            (oferta_pendente["impressora_id"],),
+        ).fetchone()
+        oferta_ainda_valida = (
+            parceira_ofertada
+            and parceira_ofertada["ativo"]
+            and parceira_ofertada["online"]
+            and localizacao_recente(parceira_ofertada)
+            and _segundos_desde(oferta_pendente["criado_em"]) < TIMEOUT_OFERTA_SEGUNDOS
+        )
+        if oferta_ainda_valida:
+            return  # ainda dentro do prazo e parceira realmente disponível
         conn.execute(
-            "UPDATE ofertas_impressao SET status = 'expirada', respondido_em = ? WHERE id = ?",
+            "UPDATE ofertas_impressao SET status = 'expirada', respondido_em = ? WHERE id = ? AND status = 'pendente'",
             (_agora(), oferta_pendente["id"]),
         )
         conn.commit()
@@ -189,9 +242,7 @@ def oferta_pendente_da_impressora(conn, impressora_id):
 
 
 def responder_oferta(conn, oferta_id, impressora_id, aceitar):
-    """A impressora aceita ou recusa a oferta que está vendo no painel
-    dela. Devolve True se a ação foi aplicada, False se a oferta não era
-    (mais) dela ou já tinha sido respondida/expirado."""
+    """Aceita/recusa de forma atômica o máximo possível sem worker externo."""
     oferta = conn.execute(
         "SELECT * FROM ofertas_impressao WHERE id = ? AND impressora_id = ?",
         (oferta_id, impressora_id),
@@ -199,43 +250,54 @@ def responder_oferta(conn, oferta_id, impressora_id, aceitar):
     if not oferta or oferta["status"] != "pendente":
         return False
     impressora = conn.execute(
-        "SELECT ativo FROM impressoras WHERE id = ?", (impressora_id,)
+        "SELECT ativo, online, localizacao_em FROM impressoras WHERE id = ?", (impressora_id,)
     ).fetchone()
-    if not impressora or not impressora["ativo"]:
-        return False  # impressora foi bloqueada pelo admin depois da oferta ser criada
+    if (not impressora or not impressora["ativo"] or not impressora["online"]
+            or not localizacao_recente(impressora)):
+        # A oferta não pode ser aceita por uma parceira que deixou de estar
+        # realmente disponível durante o cronômetro.
+        avancar_distribuicao(conn, oferta["pedido_id"])
+        return False
     if _segundos_desde(oferta["criado_em"]) >= TIMEOUT_OFERTA_SEGUNDOS:
         avancar_distribuicao(conn, oferta["pedido_id"])
         return False
 
     if aceitar:
-        conn.execute(
-            "UPDATE ofertas_impressao SET status = 'aceita', respondido_em = ? WHERE id = ?",
+        cur = conn.execute(
+            "UPDATE ofertas_impressao SET status='aceita', respondido_em=? WHERE id=? AND status='pendente'",
             (_agora(), oferta_id),
         )
-        conn.execute(
-            "UPDATE pedidos SET impressora_id = ?, distribuicao_status = ?, fluxo_status = 'em_analise' WHERE id = ?",
-            (impressora_id, STATUS_ATRIBUIDO, oferta["pedido_id"]),
+        if cur.rowcount != 1:
+            conn.rollback(); return False
+        pedido = conn.execute("SELECT tipo, valor_estimado FROM pedidos WHERE id=?", (oferta["pedido_id"],)).fetchone()
+        if not pedido:
+            conn.rollback(); return False
+        fluxo = "producao_autorizada" if pedido["tipo"] == "loja" else "em_analise"
+        aprovado = 1 if pedido["tipo"] == "loja" else 0
+        autorizado = aprovado
+        cur = conn.execute(
+            """UPDATE pedidos SET impressora_id=?, distribuicao_status=?, fluxo_status=?,
+               aprovado_cliente=?, producao_autorizada=? WHERE id=? AND impressora_id IS NULL""",
+            (impressora_id, STATUS_ATRIBUIDO, fluxo, aprovado, autorizado, oferta["pedido_id"]),
         )
-        # Pedido passou a ser de uma impressora parceira -- é aqui que a
-        # Voxxel garante sua fatia (comissão %) sobre o valor do pedido,
-        # essencial pro modelo de marketplace escalar (a Voxxel ganha em
-        # todo pedido produzido por qualquer impressora da rede, não só
-        # nos que ela mesma imprime).
-        pedido = conn.execute(
-            "SELECT valor_estimado FROM pedidos WHERE id = ?", (oferta["pedido_id"],)
-        ).fetchone()
-        if pedido:
-            aplicar_comissao_pedido(conn, oferta["pedido_id"], pedido["valor_estimado"])
+        if cur.rowcount != 1:
+            conn.rollback(); return False
+        conn.execute(
+            "UPDATE ofertas_impressao SET status='expirada', respondido_em=? WHERE pedido_id=? AND id<>? AND status='pendente'",
+            (_agora(), oferta["pedido_id"], oferta_id),
+        )
+        aplicar_comissao_pedido(conn, oferta["pedido_id"], pedido["valor_estimado"])
         conn.commit()
     else:
-        conn.execute(
-            "UPDATE ofertas_impressao SET status = 'recusada', respondido_em = ? WHERE id = ?",
+        cur = conn.execute(
+            "UPDATE ofertas_impressao SET status='recusada', respondido_em=? WHERE id=? AND status='pendente'",
             (_agora(), oferta_id),
         )
+        if cur.rowcount != 1:
+            conn.rollback(); return False
         conn.commit()
         avancar_distribuicao(conn, oferta["pedido_id"])
     return True
-
 
 def reconsiderar_pedidos_sem_impressora(conn):
     """Pedidos que ficaram sem nenhuma impressora disponível não tentam de
@@ -260,13 +322,15 @@ def atribuir_manualmente(conn, pedido_id, impressora_id):
            VALUES (?, ?, 'aceita', ?, ?)""",
         (pedido_id, impressora_id, _agora(), _agora()),
     )
+    pedido = conn.execute("SELECT tipo, valor_estimado FROM pedidos WHERE id = ?", (pedido_id,)).fetchone()
+    fluxo = "producao_autorizada" if pedido and pedido["tipo"] == "loja" else "em_analise"
+    aprovado = 1 if pedido and pedido["tipo"] == "loja" else 0
     conn.execute(
-        "UPDATE pedidos SET impressora_id = ?, distribuicao_status = ?, fluxo_status = 'em_analise' WHERE id = ?",
-        (impressora_id, STATUS_ATRIBUIDO, pedido_id),
+        "UPDATE pedidos SET impressora_id=?, distribuicao_status=?, fluxo_status=?, aprovado_cliente=?, producao_autorizada=? WHERE id=?",
+        (impressora_id, STATUS_ATRIBUIDO, fluxo, aprovado, aprovado, pedido_id),
     )
     # Mesma regra de comissão da aceitação automática -- atribuição manual
     # também é um pedido indo pra rede de parceiros, não muda o negócio.
-    pedido = conn.execute("SELECT valor_estimado FROM pedidos WHERE id = ?", (pedido_id,)).fetchone()
     if pedido:
         aplicar_comissao_pedido(conn, pedido_id, pedido["valor_estimado"])
     conn.commit()

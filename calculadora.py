@@ -1,3 +1,5 @@
+import math
+
 """Motor de simulação de orçamento da Voxxel.
 
 A regra procura equilibrar quatro coisas:
@@ -61,6 +63,8 @@ PRECIFICACAO_PADRAO = {
 def _float_config(config, chave, padrao, minimo=0.0, maximo=None):
     try:
         valor = float(str(config.get(chave, padrao)).replace(",", ".")) if config else float(padrao)
+        if not math.isfinite(valor):
+            raise ValueError
     except (TypeError, ValueError):
         valor = float(padrao)
     valor = max(minimo, valor)

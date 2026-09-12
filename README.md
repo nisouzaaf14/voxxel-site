@@ -19,10 +19,11 @@ execução, já com os 9 produtos de exemplo.
 
 ## Painel administrativo
 
-Acesse http://127.0.0.1:5000/admin/login
+Acesse `http://127.0.0.1:5000/admin/login`.
 
-Senha padrão: `voxxel123`
-(troque definindo a variável de ambiente `VOXXEL_ADMIN_PASSWORD` antes de rodar)
+Não existe senha mestra nem senha padrão no código. Antes de usar o painel,
+defina `VOXXEL_ADMIN_PASSWORD` no ambiente. Em produção, defina também uma
+`VOXXEL_SECRET_KEY` longa e aleatória para assinar as sessões.
 
 No painel você pode:
 - Cadastrar, editar, ativar/desativar e excluir produtos da loja
@@ -43,28 +44,39 @@ pra próxima impressora online mais próxima do cliente.
 Detalhes técnicos e decisões de design estão comentados em `distribuicao.py`.
 Resumo:
 - A localização do cliente é capturada (com permissão do navegador) no
-  checkout e no orçamento; sem ela, o pedido não entra na fila de despacho
-  e fica marcado pra produção direta pela Voxxel.
+  checkout e no orçamento; sem ela, o pedido não entra na fila automática e
+  fica aguardando roteamento/atribuição manual.
 - A distância é calculada em linha reta (fórmula de Haversine) — não é a
   distância real de rota, mas é suficiente pra ordenar "quem está mais perto".
-- Como o site roda num único processo Flask sem worker em segundo plano,
-  o avanço da fila (expirar oferta vencida, tentar a próxima impressora) é
-  "preguiçoso": acontece sempre que alguém abre uma tela que depende disso
-  (painel da impressora, painel do admin, página de pagamento do pedido).
+- Enquanto o MVP não usa um worker dedicado, o avanço da fila é oportunista:
+  parceiros online e telas operacionais expiram ofertas antigas e tentam a
+  próxima impressora. Para alto volume/múltiplas instâncias, a recomendação é
+  migrar isso para uma fila/worker dedicado.
 
 ## Estrutura
 
 ```
-app.py            -> rotas Flask (páginas, carrinho, orçamento, admin)
-database.py       -> conexão SQLite + criação das tabelas + produtos iniciais
-calculadora.py    -> lógica de precificação do orçamento (usada pelo servidor)
+app.py            -> rotas Flask, autenticação, checkout, projetos e admin
+database.py       -> SQLite/PostgreSQL, schema, transações e consultas
+distribuicao.py   -> matching e fila da rede de impressoras
+calculadora.py    -> precificação do orçamento
+mercadopago_pay.py -> Checkout Pro e validação de pagamentos
+pix.py            -> payload e QR Pix
 templates/        -> páginas HTML (Jinja2)
 static/css/       -> estilo do site
 voxxel.db         -> banco de dados (criado automaticamente)
 ```
 
-## Próximos passos possíveis
-- Trocar a senha fixa do admin por login de verdade (usuário/senha com hash)
-- Upload de imagens reais dos produtos em vez do placeholder facetado
-- Enviar o pedido automaticamente por e-mail além do WhatsApp
-- Deploy em um servidor (Render, Railway, PythonAnywhere etc.)
+## Observações de produção
+- O acesso administrativo depende exclusivamente da variável `VOXXEL_ADMIN_PASSWORD`; não há credencial padrão versionada.
+- Pagamento Pix informado pelo cliente fica **em conferência**; só o admin pode confirmá-lo. Cartão aprovado pelo Mercado Pago entra como confirmado.
+- A produção só pode ser iniciada depois de projeto autorizado e pagamento confirmado.
+- Notificações do parceiro funcionam enquanto o site estiver aberto em alguma aba. Push com o navegador totalmente fechado exige Web Push com assinatura do dispositivo.
+- Para produção, use PostgreSQL e configure `DATABASE_URL`; SQLite é adequado apenas para desenvolvimento local.
+
+
+## Auditoria técnica atual
+
+A revisão consolidada mais recente está documentada em
+`AUDITORIA-PROFISSIONAL-V11.md`, com correções aplicadas, testes executados,
+limites conhecidos e checklist de publicação.

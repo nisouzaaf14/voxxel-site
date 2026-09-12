@@ -1,6 +1,7 @@
 import os
 import re
 import time
+import math
 import sqlite3
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
@@ -158,8 +159,21 @@ class _Connection:
     def commit(self):
         self._conn.commit()
 
+    def rollback(self):
+        try:
+            self._conn.rollback()
+        except Exception:
+            pass
+
     def close(self):
+        # Nunca devolva ao pool uma conexão presa em transação abortada.
+        # Um rollback após SELECT/COMMIT é inofensivo e evita contaminar a
+        # próxima requisição quando alguma operação SQL falha no meio.
         if USING_POSTGRES:
+            try:
+                self._conn.rollback()
+            except Exception:
+                pass
             self._pool.putconn(self._conn)
         else:
             self._conn.close()
@@ -223,6 +237,8 @@ def _criar_tabelas(conn, is_new_sqlite):
         conn.execute("ALTER TABLE produtos ADD COLUMN IF NOT EXISTS imagem_dados BYTEA")
         conn.execute("ALTER TABLE produtos ADD COLUMN IF NOT EXISTS imagem_mimetype TEXT")
         conn.execute("ALTER TABLE produtos ADD COLUMN IF NOT EXISTS estoque INTEGER")
+        conn.execute("ALTER TABLE produtos ADD COLUMN IF NOT EXISTS material TEXT DEFAULT 'pla'")
+        conn.execute("UPDATE produtos SET material='pla' WHERE material IS NULL OR material='' ")
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS pedidos (
@@ -387,11 +403,13 @@ def _criar_tabelas(conn, is_new_sqlite):
             "ALTER TABLE produtos ADD COLUMN imagem_dados BLOB",
             "ALTER TABLE produtos ADD COLUMN imagem_mimetype TEXT",
             "ALTER TABLE produtos ADD COLUMN estoque INTEGER",
+            "ALTER TABLE produtos ADD COLUMN material TEXT DEFAULT 'pla'",
         ):
             try:
                 conn.execute(coluna_sql)
             except sqlite3.OperationalError:
                 pass
+        conn.execute("UPDATE produtos SET material='pla' WHERE material IS NULL OR material='' ")
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS pedidos (
@@ -544,13 +562,50 @@ def _criar_tabelas(conn, is_new_sqlite):
         )
         conn.commit()
 
+    # Snapshot dos itens de pedidos do catálogo. Além de preservar o preço e
+    # material no momento da compra, permite reservar estoque de forma
+    # transacional sem depender do catálogo mudar depois.
+    if USING_POSTGRES:
+        conn.execute(
+            """CREATE TABLE IF NOT EXISTS pedido_itens (
+                id SERIAL PRIMARY KEY,
+                pedido_id INTEGER NOT NULL REFERENCES pedidos(id) ON DELETE CASCADE,
+                produto_id INTEGER REFERENCES produtos(id) ON DELETE SET NULL,
+                nome TEXT NOT NULL,
+                quantidade INTEGER NOT NULL,
+                preco_unitario REAL NOT NULL,
+                subtotal REAL NOT NULL,
+                material TEXT DEFAULT 'pla'
+            )"""
+        )
+    else:
+        conn.execute(
+            """CREATE TABLE IF NOT EXISTS pedido_itens (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                pedido_id INTEGER NOT NULL REFERENCES pedidos(id) ON DELETE CASCADE,
+                produto_id INTEGER REFERENCES produtos(id) ON DELETE SET NULL,
+                nome TEXT NOT NULL,
+                quantidade INTEGER NOT NULL,
+                preco_unitario REAL NOT NULL,
+                subtotal REAL NOT NULL,
+                material TEXT DEFAULT 'pla'
+            )"""
+        )
+    conn.commit()
+
     # Índices pra manter as listagens rápidas conforme o catálogo/pedidos
     # crescem (o filtro por categoria e por status são os mais usados).
     conn.execute("CREATE INDEX IF NOT EXISTS idx_produtos_categoria_ativo ON produtos(categoria, ativo)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_pedidos_status ON pedidos(status)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_pedidos_cliente ON pedidos(cliente_id)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_pedidos_impressora ON pedidos(impressora_id, id)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_pedidos_distribuicao ON pedidos(distribuicao_status, impressora_id)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_pedidos_pagamento ON pedidos(status_pagamento, id)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_impressoras_disponiveis ON impressoras(ativo, online)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_ofertas_pedido ON ofertas_impressao(pedido_id)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_ofertas_impressora ON ofertas_impressao(impressora_id, status)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_ofertas_status_criado ON ofertas_impressao(status, criado_em)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_pedido_itens_pedido ON pedido_itens(pedido_id, id)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_referencias_pedido ON pedido_referencias(pedido_id)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_mensagens_pedido ON pedido_mensagens(pedido_id, id)")
     conn.commit()
@@ -566,7 +621,7 @@ def _criar_tabelas(conn, is_new_sqlite):
 
 def criar_pedido(conn, tipo, detalhes, valor_estimado, cliente_nome="", cliente_telefone="",
                   forma_pagamento="combinar", cliente_id=None, cliente_lat=None, cliente_lng=None,
-                  material_requisito=None):
+                  material_requisito=None, commit=True):
     """Insere um pedido (venda da loja ou orçamento) e devolve o id gerado,
     já lidando com a diferença de sintaxe entre SQLite e Postgres.
     `cliente_id` liga o pedido à conta logada -- fica None só para pedidos
@@ -594,18 +649,24 @@ def criar_pedido(conn, tipo, detalhes, valor_estimado, cliente_nome="", cliente_
             params,
         )
         novo_id = cur.lastrowid
-    conn.commit()
+    if commit:
+        conn.commit()
     return novo_id
 
 
-def ler_coordenada_formulario(valor):
-    """Converte o valor de latitude/longitude vindo do formulário (campo
-    hidden preenchido por JS) pra float, ou None se estiver vazio/inválido
-    -- cliente pode ter negado a permissão de localização."""
+def ler_coordenada_formulario(valor, minimo=-180.0, maximo=180.0):
+    """Converte e limita coordenadas vindas do navegador.
+
+    Latitude deve ser chamada com -90..90; longitude com -180..180. Valores
+    fora da faixa são tratados como ausentes para não poluir o roteamento.
+    """
     try:
         if valor is None or str(valor).strip() == "":
             return None
-        return float(valor)
+        numero = float(valor)
+        if not math.isfinite(numero) or numero < minimo or numero > maximo:
+            return None
+        return numero
     except (TypeError, ValueError):
         return None
 
@@ -750,9 +811,11 @@ def percentual_comissao(conn):
     ).fetchone()
     try:
         pct = float(valor["valor"]) if valor else 15.0
+        if not math.isfinite(pct):
+            raise ValueError
     except (TypeError, ValueError):
         pct = 15.0
-    return max(0.0, min(pct, 100.0))
+    return max(0.0, min(pct, 80.0))
 
 
 def aplicar_comissao_pedido(conn, pedido_id, valor_estimado):
@@ -773,14 +836,14 @@ def resumo_comissoes(conn):
     impressoras parceiras, e o detalhamento por impressora -- pra exibir
     no painel do admin (quanto o marketplace já rendeu, e quem gerou mais)."""
     total = conn.execute(
-        "SELECT COALESCE(SUM(comissao_voxxel), 0) AS total FROM pedidos WHERE comissao_voxxel IS NOT NULL"
+        "SELECT COALESCE(SUM(comissao_voxxel), 0) AS total FROM pedidos WHERE comissao_voxxel IS NOT NULL AND status_pagamento='confirmado' "
     ).fetchone()["total"]
     por_impressora = conn.execute(
         """SELECT i.id, i.nome, COUNT(p.id) AS pedidos,
                   COALESCE(SUM(p.comissao_voxxel), 0) AS comissao_total,
                   COALESCE(SUM(p.valor_estimado), 0) AS faturamento_total
            FROM impressoras i
-           JOIN pedidos p ON p.impressora_id = i.id AND p.comissao_voxxel IS NOT NULL
+           JOIN pedidos p ON p.impressora_id = i.id AND p.comissao_voxxel IS NOT NULL AND p.status_pagamento='confirmado' 
            GROUP BY i.id, i.nome
            ORDER BY comissao_total DESC"""
     ).fetchall()

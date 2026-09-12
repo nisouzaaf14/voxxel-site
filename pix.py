@@ -9,6 +9,7 @@
 import io
 import re
 import unicodedata
+from decimal import Decimal, ROUND_HALF_UP
 
 import qrcode
 
@@ -57,7 +58,7 @@ def gerar_payload(chave, nome, cidade, valor, txid="VOXXEL"):
         merchant_account,                # 26 — informações da conta Pix
         _campo("52", "0000"),            # Merchant Category Code
         _campo("53", "986"),             # moeda: Real (BRL)
-        _campo("54", f"{float(valor):.2f}"),  # valor da cobrança
+        _campo("54", format(Decimal(str(valor)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP), "f")),  # valor da cobrança
         _campo("58", "BR"),              # país
         _campo("59", nome),              # nome do recebedor
         _campo("60", cidade),            # cidade do recebedor
