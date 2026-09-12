@@ -1,8 +1,10 @@
 {% extends "base.html" %}
 {% block title %}{{ p['nome'] }} — Voxxel{% endblock %}
+{% block body_class %}commerce-page product-page{% endblock %}
+{% block extra_styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/commerce.css') }}">{% endblock %}
 {% block content %}
 
-<section style="padding-top:var(--space-3);">
+<section class="product-shell">
   <div class="wrap">
     <div class="breadcrumb fade-up">
       <a href="{{ url_for('loja') }}">Catálogo</a>
@@ -12,71 +14,104 @@
       <span class="breadcrumb-atual">{{ p['nome'] }}</span>
     </div>
 
-    <div class="pdp fade-up">
-      <div class="pdp-media" style="--ang:{{ p['imagem_ang'] }}" {% if p['tem_imagem'] %}data-tem-foto="1"{% endif %}>
-        {% if p['tem_imagem'] %}
-          <img src="{{ url_for('produto_imagem', produto_id=p['id']) }}" alt="{{ p['nome'] }}">
-        {% else %}<div class="product-no-photo"><strong>VOXXEL</strong><span>Este produto ainda não tem foto. Solicite uma referência antes de comprar.</span></div>{% endif %}
+    <div class="product-hero fade-up">
+      <div class="product-visual-column">
+        <div class="pdp-media product-media" style="--ang:{{ p['imagem_ang'] }}" {% if p['tem_imagem'] %}data-tem-foto="1"{% endif %}>
+          {% if p['tem_imagem'] %}
+            <img src="{{ url_for('produto_imagem', produto_id=p['id']) }}" alt="{{ p['nome'] }}">
+          {% else %}
+            <div class="product-no-photo product-placeholder">
+              <img src="{{ url_for('static', filename='images/voxxel-mark.png') }}" alt="" width="68" height="68">
+              <strong>Referência visual sob consulta</strong>
+              <span>Este item ainda não tem foto cadastrada. Fale com a Voxxel se precisar confirmar o visual antes do pedido.</span>
+            </div>
+          {% endif %}
+        </div>
+        <div class="product-media-note">
+          <span>Visual do produto</span>
+          <span>{% if p['tem_imagem'] %}Imagem cadastrada no catálogo{% else %}Sem imagem cadastrada{% endif %}</span>
+        </div>
       </div>
 
-      <div class="pdp-info">
-        <div class="produto-cat">{{ categorias[p['categoria']] }}</div>
+      <article class="product-buy-card">
+        <p class="commerce-kicker">{{ categorias[p['categoria']] }}</p>
         <h1 class="pdp-title">{{ p['nome'] }}</h1>
-        <div class="pdp-price">R$ {{ "%.2f"|format(p['preco'])|replace('.', ',') }}</div>
+        <div class="product-price-row">
+          <div class="pdp-price">R$ {{ "%.2f"|format(p['preco'])|replace('.', ',') }}</div>
+          {% if p['estoque'] is not none and p['estoque'] <= 0 %}
+            <span class="stock-pill stock-pill-out">Esgotado</span>
+          {% elif p['estoque'] is not none and p['estoque'] <= 3 %}
+            <span class="stock-pill">{{ p['estoque'] }} em estoque</span>
+          {% elif p['estoque'] is none %}
+            <span class="stock-pill">Sob confirmação</span>
+          {% else %}
+            <span class="stock-pill stock-pill-ok">Disponível</span>
+          {% endif %}
+        </div>
+
+        <p class="pdp-desc">{{ p['descricao'] or 'Peça disponível no catálogo Voxxel. Material, acabamento, disponibilidade e prazo são confirmados antes da produção ou separação do pedido.' }}</p>
+
+        <div class="product-assurances" aria-label="Como funciona a compra">
+          <div><span class="assurance-icon">01</span><p><strong>Detalhes alinhados</strong><small>Você pode confirmar material, cor e outras possibilidades antes de produzir.</small></p></div>
+          <div><span class="assurance-icon">02</span><p><strong>Prazo confirmado</strong><small>Produção, retirada ou entrega são combinadas conforme o pedido.</small></p></div>
+          <div><span class="assurance-icon">03</span><p><strong>Atendimento Voxxel</strong><small>Se algo precisar de ajuste, você fala com a gente antes de seguir.</small></p></div>
+        </div>
 
         {% if p['estoque'] is not none and p['estoque'] <= 0 %}
-          <div class="pdp-stock pdp-stock-out">Esgotado no momento — fale com a gente para encomendar.</div>
-        {% elif p['estoque'] is not none and p['estoque'] <= 3 %}
-          <div class="pdp-stock">{{ p['estoque'] }} unidade{{ 's' if p['estoque'] != 1 }} em estoque.</div>
-        {% elif p['estoque'] is none %}
-          <div class="pdp-stock">Disponibilidade e prazo a confirmar.</div>
+          <div class="product-unavailable">Este item está sem estoque no momento. Consulte a possibilidade de produzir sob encomenda.</div>
         {% else %}
-          <div class="pdp-stock pdp-stock-ok">Disponível em estoque. Prazo de recebimento a combinar.</div>
-        {% endif %}
-
-        <p class="pdp-desc">{{ p['descricao'] or 'Peça produzida sob demanda com controle de qualidade Voxxel.' }}</p>
-
-        {% if p['estoque'] is none or p['estoque'] > 0 %}
-        <form method="post" action="{{ url_for('carrinho_adicionar', produto_id=p['id']) }}" class="pdp-add">
+        <form method="post" action="{{ url_for('carrinho_adicionar', produto_id=p['id']) }}" class="pdp-add product-add">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-          <div class="qty-picker">
-            <button type="button" class="qty-btn" data-qty="menos">−</button>
-            <input type="number" name="quantidade" id="pdp-qtd" aria-label="Quantidade" value="1" min="1" {% if p['estoque'] is not none %}max="{{ p['estoque'] }}"{% endif %}>
-            <button type="button" class="qty-btn" data-qty="mais">+</button>
+          <div class="product-qty-block">
+            <label for="pdp-qtd">Quantidade</label>
+            <div class="qty-picker">
+              <button type="button" class="qty-btn" data-qty="menos" aria-label="Diminuir quantidade">−</button>
+              <input type="number" name="quantidade" id="pdp-qtd" aria-label="Quantidade" value="1" min="1" {% if p['estoque'] is not none %}max="{{ p['estoque'] }}"{% endif %}>
+              <button type="button" class="qty-btn" data-qty="mais" aria-label="Aumentar quantidade">+</button>
+            </div>
           </div>
-          <button type="submit" class="btn btn-primary">Adicionar ao carrinho</button>
+          <button type="submit" class="btn btn-primary product-main-cta">Adicionar ao carrinho</button>
         </form>
         {% endif %}
 
-        <div class="customer-note">Precisa de outra cor, tamanho ou material? Consulte a possibilidade de personalização antes de fazer o pedido.
-          {% if whatsapp_numero %}<a href="https://wa.me/{{ whatsapp_numero }}?text={{ ('Olá! Tenho uma dúvida sobre: ' ~ p['nome'])|urlencode }}" target="_blank" rel="noopener">Tirar dúvida no WhatsApp</a>{% endif %}
+        <div class="product-actions-secondary">
+          <a class="btn btn-outline" href="{{ url_for('carrinho') }}">Ver meu carrinho</a>
+          {% if whatsapp_numero %}<a class="product-whatsapp-link" href="https://wa.me/{{ whatsapp_numero }}?text={{ ('Olá! Tenho uma dúvida sobre: ' ~ p['nome'])|urlencode }}" target="_blank" rel="noopener"><img src="{{ url_for('static', filename='images/voxxel-mark.png') }}" alt="" width="22" height="22">Tirar dúvida antes de pedir</a>{% endif %}
         </div>
-        <a class="btn btn-outline" href="{{ url_for('carrinho') }}">Ver meu carrinho</a>
-        <div class="pdp-trust">
-          <div><span>✓</span> Detalhes da peça confirmados no atendimento</div>
-          <div><span>✓</span> Pagamento combinado ao finalizar o pedido</div>
-          <div><span>✓</span> Atendimento Voxxel em São José dos Pinhais</div>
-        </div>
+
+        <p class="product-fineprint">Precisa de outra cor, tamanho ou material? Consulte a disponibilidade. As características finais podem variar conforme o projeto, material e impressora responsável.</p>
+      </article>
+    </div>
+
+    <div class="product-confirmation fade-up">
+      <div class="product-confirmation-heading">
+        <p class="commerce-kicker">SEM SURPRESA NO FLUXO</p>
+        <h2>O que fica claro antes da produção</h2>
+      </div>
+      <div class="product-confirmation-grid">
+        <div><span>Material e acabamento</span><p>As opções disponíveis são confirmadas para o seu pedido; não assumimos padrão idêntico entre impressoras parceiras.</p></div>
+        <div><span>Prazo e recebimento</span><p>Retirada, entrega, disponibilidade e prazo são combinados de acordo com o pedido.</p></div>
+        <div><span>Produção</span><p>Quando houver produção sob demanda, o pedido segue após a confirmação necessária no atendimento.</p></div>
       </div>
     </div>
 
     {% if relacionados %}
-    <div class="section-head fade-up" style="margin-top:var(--space-4); text-align:left; align-items:flex-start;">
-      <div class="eyebrow">Você também pode gostar</div>
-      <h2 style="font-size:1.4rem;">Mais de {{ categorias[p['categoria']] }}</h2>
+    <div class="related-heading fade-up">
+      <div><p class="commerce-kicker">CONTINUE EXPLORANDO</p><h2>Mais de {{ categorias[p['categoria']] }}</h2></div>
+      <a href="{{ url_for('loja', categoria=p['categoria']) }}">Ver categoria completa →</a>
     </div>
-    <div class="produtos fade-up">
+    <div class="produtos related-products fade-up">
       {% for r in relacionados %}
       <div class="produto-card">
         <a href="{{ url_for('produto_detalhe', produto_id=r['id']) }}" class="produto-thumb" style="--ang:{{ r['imagem_ang'] }}" {% if r['tem_imagem'] %}data-tem-foto="1"{% endif %}>
-          {% if r['tem_imagem'] %}<img src="{{ url_for('produto_imagem', produto_id=r['id']) }}" alt="{{ r['nome'] }}" loading="lazy">{% else %}<div class="product-no-photo"><strong>VOXXEL</strong><span>Foto ainda não disponível</span></div>{% endif %}
+          {% if r['tem_imagem'] %}<img src="{{ url_for('produto_imagem', produto_id=r['id']) }}" alt="{{ r['nome'] }}" loading="lazy">{% else %}<div class="product-no-photo"><img src="{{ url_for('static', filename='images/voxxel-mark.png') }}" alt="" width="44" height="44"><span>Foto ainda não disponível</span></div>{% endif %}
         </a>
         <div class="produto-info">
           <div class="produto-cat">{{ categorias[r['categoria']] }}</div>
           <h4><a href="{{ url_for('produto_detalhe', produto_id=r['id']) }}">{{ r['nome'] }}</a></h4>
           <div class="produto-foot">
             <span class="produto-preco">R$ {{ "%.2f"|format(r['preco'])|replace('.', ',') }}</span>
-            <a class="btn btn-ghost" href="{{ url_for('produto_detalhe', produto_id=r['id']) }}">Ver</a>
+            <a class="btn btn-ghost" href="{{ url_for('produto_detalhe', produto_id=r['id']) }}">Ver produto</a>
           </div>
         </div>
       </div>
@@ -91,15 +126,17 @@
 {% block scripts %}
 <script>
   const qtdInput = document.getElementById('pdp-qtd');
-  document.querySelectorAll('.qty-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const max = qtdInput.getAttribute('max');
-      let valor = parseInt(qtdInput.value) || 1;
-      valor += btn.dataset.qty === 'mais' ? 1 : -1;
-      valor = Math.max(1, valor);
-      if (max) valor = Math.min(valor, parseInt(max));
-      qtdInput.value = valor;
+  if (qtdInput) {
+    document.querySelectorAll('.qty-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const max = qtdInput.getAttribute('max');
+        let valor = parseInt(qtdInput.value) || 1;
+        valor += btn.dataset.qty === 'mais' ? 1 : -1;
+        valor = Math.max(1, valor);
+        if (max) valor = Math.min(valor, parseInt(max));
+        qtdInput.value = valor;
+      });
     });
-  });
+  }
 </script>
 {% endblock %}

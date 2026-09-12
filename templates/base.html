@@ -5,16 +5,35 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="description" content="Peças de impressão 3D, decoração, utilitários e projetos personalizados. Confira o catálogo Voxxel e combine seu pedido.">
 <title>{% block title %}Voxxel — Manufatura Aditiva de Precisão{% endblock %}</title>
+<link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='images/favicon-32.png') }}">
+<link rel="icon" type="image/png" sizes="64x64" href="{{ url_for('static', filename='images/favicon-64.png') }}">
+<link rel="apple-touch-icon" href="{{ url_for('static', filename='images/apple-touch-icon.png') }}">
+<meta name="theme-color" content="#101014">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/visual.css') }}">
 {% block extra_styles %}{% endblock %}
 </head>
 <body class="{% block body_class %}{% endblock %}">
 
+{% if session.get('test_master') %}
+<div class="test-master-bar">
+  <strong><span class="test-master-dot"></span> Modo mestre de teste</strong>
+  <div class="test-master-switch" aria-label="Trocar visão de teste">
+    {% for role, label in [('cliente','Cliente'),('impressora','Impressor'),('admin','Admin')] %}
+    <form method="post" action="{{ url_for('teste_trocar_papel', papel=role) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="{{ 'active' if session.get('test_role') == role else '' }}">{{ label }}</button>
+    </form>
+    {% endfor %}
+  </div>
+  <a class="test-master-exit" href="{{ url_for('teste_sair') }}">Sair do teste</a>
+</div>
+{% endif %}
+
 <header>
   <div class="nav">
-    <a href="{{ url_for('home') }}" class="logo">
-      <div class="mark"></div><span class="wordmark">VOX<span class="gold">X</span>EL</span>
+    <a href="{{ url_for('home') }}" class="logo" aria-label="Voxxel — início">
+      <img class="brand-lockup" src="{{ url_for('static', filename='images/voxxel-logo-horizontal.png') }}" alt="Voxxel" width="150" height="51">
     </a>
     <nav class="navlinks">
       <a href="{{ url_for('home') }}#categorias">Categorias</a>
@@ -62,6 +81,7 @@
     <a href="{{ url_for('impressora_entrar') }}">Sou parceiro de impressão</a>
     {% endif %}
     <a href="{{ url_for('admin_dashboard') if session.get('admin_logado') else url_for('admin_login') }}">Painel do vendedor</a>
+    {% if test_master_enabled and not session.get('test_master') %}<a href="{{ url_for('teste_entrar') }}">Acesso de teste</a>{% endif %}
   </div>
 </header>
 
@@ -77,7 +97,150 @@
 {% block content %}{% endblock %}
 </main>
 
-<footer class="site-footer"><div class="wrap footer-grid"><div><a href="{{ url_for('home') }}" class="logo"><div class="mark"></div><span class="wordmark">VOX<span class="gold">X</span>EL</span></a><p>Peças e projetos em impressão 3D.<br>São José dos Pinhais · Paraná</p></div><nav class="footer-links" aria-label="Links do rodapé"><a href="{{ url_for('loja') }}">Catálogo</a><a href="{{ url_for('orcamento') }}">Orçamento</a><a href="{{ url_for('conta_dashboard') }}">Meus pedidos</a><a href="{{ url_for('impressora_entrar') }}">Área do parceiro</a>{% if whatsapp_numero %}<a href="https://wa.me/{{ whatsapp_numero }}" target="_blank" rel="noopener">Falar no WhatsApp</a>{% endif %}</nav></div></footer>
+<footer class="site-footer">
+  <div class="wrap footer-grid">
+    <div class="footer-brand">
+      <a href="{{ url_for('home') }}" class="logo" aria-label="Voxxel — início">
+        <img class="brand-lockup" src="{{ url_for('static', filename='images/voxxel-logo-horizontal.png') }}" alt="Voxxel" width="190" height="64">
+      </a>
+      <p>Impressão 3D sob encomenda para peças, ideias e projetos que precisam ganhar forma.</p>
+      <span class="footer-location">São José dos Pinhais · Paraná</span>
+    </div>
+
+    <nav class="footer-column" aria-label="Explorar">
+      <span class="footer-label">Explorar</span>
+      <a href="{{ url_for('loja') }}">Catálogo</a>
+      <a href="{{ url_for('orcamento') }}">Simular orçamento</a>
+      <a href="{{ url_for('home') }}#categorias">Categorias</a>
+    </nav>
+
+    <nav class="footer-column" aria-label="Sua conta">
+      <span class="footer-label">Sua conta</span>
+      <a href="{{ url_for('conta_dashboard') }}">Meus pedidos</a>
+      <a href="{{ url_for('carrinho') }}">Carrinho</a>
+      <a href="{{ url_for('conta_entrar') }}">Entrar ou cadastrar</a>
+    </nav>
+
+    <nav class="footer-column footer-service" aria-label="Atendimento e parceiros">
+      <span class="footer-label">Atendimento</span>
+      {% if whatsapp_numero %}<a class="footer-whatsapp" href="https://wa.me/{{ whatsapp_numero }}" target="_blank" rel="noopener"><img src="{{ url_for('static', filename='images/voxxel-mark.png') }}" alt="" width="22" height="22"><span>Falar com a Voxxel</span></a>{% endif %}
+      <a href="{{ url_for('impressora_entrar') }}">Área da impressora parceira</a>
+      <a href="{{ url_for('impressora_cadastro') }}">Quero ser parceiro</a>
+    </nav>
+  </div>
+  <div class="wrap footer-bottom">
+    <span>Voxxel · impressão 3D sob encomenda</span>
+    <span>Valores, prazo, material e disponibilidade são confirmados antes da produção.</span>
+  </div>
+</footer>
+
+{% if session.get('cliente_id') or session.get('impressora_id') %}
+<a class="project-message-toast" id="project-message-toast" href="#" hidden>
+  <span class="project-message-toast-icon"><img src="{{ url_for('static', filename='images/voxxel-mark.png') }}" alt="" width="28" height="28"></span>
+  <span class="project-message-toast-copy"><small id="project-message-toast-author">Projeto Voxxel</small><strong>Nova mensagem no projeto</strong><span id="project-message-toast-text"></span></span>
+  <span class="project-message-toast-arrow">→</span>
+</a>
+<script>
+(()=>{
+  const toast=document.getElementById('project-message-toast'); if(!toast)return;
+  let shown=Number(sessionStorage.getItem('voxxel_last_project_message')||0);
+  async function checkProjectMessage(){
+    try{const r=await fetch({{ url_for('api_projeto_mensagem_pendente')|tojson }},{cache:'no-store'});if(!r.ok)return;const d=await r.json();const m=d.mensagem;if(!m||m.id<=shown)return;
+      shown=m.id;sessionStorage.setItem('voxxel_last_project_message',String(m.id));
+      document.getElementById('project-message-toast-author').textContent=m.autor+' · Projeto #'+m.pedido_id;
+      document.getElementById('project-message-toast-text').textContent=m.texto;toast.href=m.url;toast.hidden=false;
+      requestAnimationFrame(()=>toast.classList.add('show'));
+    }catch(_){ }
+  }
+  checkProjectMessage();setInterval(checkProjectMessage,10000);
+})();
+</script>
+{% endif %}
+
+{% if session.get('impressora_id') %}
+<div class="partner-alert-optin" id="partner-alert-optin" hidden>
+  <div class="partner-alert-optin-icon" aria-hidden="true">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></svg>
+  </div>
+  <div class="partner-alert-optin-copy">
+    <strong>Receba pedidos em outra aba</strong>
+    <span>Ative os alertas do navegador para não perder uma solicitação.</span>
+  </div>
+  <button type="button" class="partner-alert-optin-action" id="partner-alert-enable">Ativar alertas</button>
+  <button type="button" class="partner-alert-optin-close" id="partner-alert-optin-close" aria-label="Fechar">×</button>
+</div>
+
+<div class="partner-offer-popover" id="partner-offer-popover" hidden aria-live="assertive" aria-label="Nova solicitação da Rede Voxxel">
+  <div class="partner-offer-accent" aria-hidden="true"></div>
+  <div class="partner-offer-head">
+    <div class="partner-offer-brand">
+      <span class="partner-offer-mark"><img src="{{ url_for('static', filename='images/voxxel-mark.png') }}" alt="" width="30" height="30"></span>
+      <div>
+        <span class="partner-offer-kicker"><i></i> Rede Voxxel</span>
+        <strong>Nova solicitação</strong>
+      </div>
+    </div>
+    <div class="partner-offer-clock" aria-label="Tempo restante">
+      <svg viewBox="0 0 42 42" aria-hidden="true">
+        <circle class="partner-offer-clock-track" cx="21" cy="21" r="17"></circle>
+        <circle class="partner-offer-clock-progress" id="partner-offer-clock-progress" cx="21" cy="21" r="17"></circle>
+      </svg>
+      <span id="partner-offer-countdown">--:--</span>
+    </div>
+  </div>
+
+  <div class="partner-offer-route">
+    <span class="partner-offer-route-dot"></span>
+    <span>Pedido disponível para sua impressora</span>
+  </div>
+
+  <h3 class="partner-offer-title" id="partner-offer-title">Pedido da Rede Voxxel</h3>
+  <p class="partner-offer-description" id="partner-offer-description"></p>
+
+  <div class="partner-offer-earning">
+    <span>Seu ganho estimado</span>
+    <strong id="partner-offer-earning">—</strong>
+    <small>valor líquido estimado após comissão Voxxel</small>
+  </div>
+
+  <div class="partner-offer-facts">
+    <div id="partner-offer-material-wrap">
+      <span class="partner-offer-fact-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 2 3.5 7 12 12l8.5-5L12 2Z"/><path d="M3.5 12 12 17l8.5-5M3.5 17 12 22l8.5-5"/></svg></span>
+      <span><small>Material</small><strong id="partner-offer-material">—</strong></span>
+    </div>
+    <div id="partner-offer-distance-wrap">
+      <span class="partner-offer-fact-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></svg></span>
+      <span><small>Distância</small><strong id="partner-offer-distance">—</strong></span>
+    </div>
+    <div>
+      <span class="partner-offer-fact-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 7h16M7 3v4m10-4v4M5 21h14a1 1 0 0 0 1-1V7H4v13a1 1 0 0 0 1 1Z"/><path d="M8 12h3m2 0h3m-8 4h3"/></svg></span>
+      <span><small>Status</small><strong>Disponível agora</strong></span>
+    </div>
+  </div>
+
+  <div class="partner-offer-actions">
+    <button type="button" class="partner-offer-decline" id="partner-offer-decline">Recusar</button>
+    <button type="button" class="partner-offer-accept" id="partner-offer-accept"><span>Aceitar para análise</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m9 18 6-6-6-6"/></svg></button>
+  </div>
+
+  <div class="partner-offer-footer">
+    <a href="{{ url_for('impressora_painel') }}">Ver detalhes no painel</a>
+    <button type="button" id="partner-offer-notify" class="partner-offer-notify" hidden>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></svg>
+      Ativar alertas em outra aba
+    </button>
+  </div>
+</div>
+<script>
+window.VOXXEL_PARTNER_OFFERS = {
+  endpoint: {{ url_for('impressora_api_oferta_atual')|tojson }},
+  panelUrl: {{ url_for('impressora_painel')|tojson }},
+  csrf: {{ csrf_token()|tojson }},
+  swUrl: {{ url_for('voxxel_service_worker')|tojson }}
+};
+</script>
+<script src="{{ url_for('static', filename='js/partner-offers.js') }}"></script>
+{% endif %}
 
 <script>
   const items = document.querySelectorAll('.fade-up');

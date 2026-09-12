@@ -65,7 +65,7 @@
       <div class="printer-dispatch-box">
         {% if impressora %}
           <span class="printer-status-dot online" style="display:inline-block; margin-right:8px;"></span>
-          Impressão atribuída a <strong>{{ impressora['nome'] }}</strong> — ela vai entrar em contato pelo WhatsApp.
+          Impressão atribuída a <strong>{{ impressora['nome'] }}</strong>. A análise e as dúvidas ficam registradas na conversa do projeto.
         {% elif pedido['distribuicao_status'] == 'buscando' %}
           <span class="printer-status-dot" style="display:inline-block; margin-right:8px;"></span>
           Procurando uma impressora parceira online perto de você... assim que alguém aceitar, avisamos aqui.
@@ -78,6 +78,7 @@
       {% endif %}
     </div>
 
+    {% if pedido['tipo'] == 'orcamento' %}<a href="{{ url_for('pedido_projeto', pedido_id=pedido['id']) }}" class="btn btn-primary btn-block">Abrir projeto e conversa</a>{% endif %}
     <a href="{{ url_for('conta_dashboard') }}" class="btn btn-outline btn-block">Acompanhar meus pedidos</a>
     <a href="{{ url_for('loja') }}" class="admin-login-back">← Voltar para o catálogo</a>
   </div>

@@ -1,50 +1,120 @@
 {% extends "base.html" %}
-{% block title %}Seus dados — Voxxel{% endblock %}
+{% block title %}Finalizar pedido — Voxxel{% endblock %}
+{% block body_class %}commerce-page checkout-page{% endblock %}
+{% block extra_styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/commerce.css') }}">{% endblock %}
 {% block content %}
-<section class="customer-section"><div class="wrap">
-  <nav class="purchase-steps" aria-label="Etapas da compra"><a href="{{ url_for('carrinho') }}">1. Carrinho</a><strong aria-current="step">2. Seus dados</strong><span>3. Pedido</span></nav>
-  <div class="section-head"><h1>Como você quer receber?</h1><p>Confira seus dados. A Voxxel combina com você os próximos passos pelo WhatsApp.</p></div>
-  <form method="post" id="form-checkout">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <input type="hidden" name="cliente_lat" id="cliente_lat"><input type="hidden" name="cliente_lng" id="cliente_lng">
-    <div class="calc">
-      <div class="calc-form">
-        <div class="field"><label for="nome">Nome completo</label><input id="nome" name="nome" autocomplete="name" maxlength="120" required value="{{ request.form.get('nome', cliente['nome']) }}"></div>
-        <div class="field"><label for="telefone">WhatsApp com DDD</label><input id="telefone" name="telefone" type="tel" autocomplete="tel" maxlength="40" required placeholder="(41) 99999-9999" value="{{ request.form.get('telefone', cliente['telefone']) }}"></div>
-        <div class="field"><label for="recebimento">Recebimento</label><select id="recebimento" name="recebimento">
-          {% for valor, texto in [('combinar','Quero combinar pelo WhatsApp'),('retirada','Tenho interesse em retirar'),('entrega','Quero consultar a entrega')] %}
-          <option value="{{ valor }}" {{ 'selected' if request.form.get('recebimento', 'combinar') == valor }}>{{ texto }}</option>{% endfor %}
-        </select></div>
-        <div class="field" id="endereco-field"><label for="endereco">Endereço para consultar entrega</label><textarea id="endereco" name="endereco" rows="3" maxlength="350" autocomplete="street-address" placeholder="CEP, rua, número, complemento, bairro, cidade e estado">{{ request.form.get('endereco', '') }}</textarea><p class="helper-text">Para entrega, informe o endereço completo. A disponibilidade, o frete e o prazo serão confirmados antes do pagamento.</p></div>
-        <div class="field"><label for="forma_pagamento">Pagamento</label><select id="forma_pagamento" name="forma_pagamento">{% for valor, texto in pagamentos.items() %}<option value="{{ valor }}" {{ 'selected' if request.form.get('forma_pagamento', 'combinar') == valor }}>{{ texto }}</option>{% endfor %}</select><p class="helper-text" id="payment-help">Para entrega ou recebimento a combinar, o pagamento será acertado após a confirmação do frete e do prazo.</p></div>
-        <div class="field"><label for="observacoes">Observações <span class="helper-text">(opcional)</span></label><textarea id="observacoes" name="observacoes" rows="2" maxlength="500" placeholder="Algum detalhe que precisamos saber?">{{ request.form.get('observacoes', '') }}</textarea></div>
-        <button class="btn btn-ghost" type="button" id="share-location">Usar minha localização aproximada</button><p class="helper-text" id="location-status" role="status">Opcional: ajuda a encontrar parceiros próximos. Não substitui o endereço de entrega.</p>
-      </div>
-      <aside class="calc-result">
-        <h2 class="checkout-heading">Resumo do pedido</h2>
-        <div class="checkout-itens">{% for i in itens %}<div class="checkout-item"><span>{{ i.qtd }} × {{ i.produto['nome'] }}</span><strong>R$ {{ '%.2f'|format(i.subtotal)|replace('.', ',') }}</strong></div>{% endfor %}</div>
-        <p class="helper-text">Subtotal das peças</p><div class="result-price">R$ {{ '%.2f'|format(total)|replace('.', ',') }}</div>
-        <div class="customer-note">Frete não incluído. Retirada, disponibilidade e prazo precisam ser confirmados com a Voxxel.</div>
-        <button type="submit" class="btn btn-primary btn-block">Confirmar pedido</button><p class="helper-text">Você verá o número do pedido e poderá falar com a Voxxel. Este botão não realiza uma cobrança.</p>
-        <a href="{{ url_for('carrinho') }}">Voltar e editar itens</a>
-      </aside>
+<section class="checkout-shell">
+  <div class="wrap">
+    <nav class="purchase-steps checkout-steps" aria-label="Etapas da compra">
+      <a href="{{ url_for('carrinho') }}"><span>01</span>Carrinho</a>
+      <strong aria-current="step"><span>02</span>Seus dados</strong>
+      <span class="checkout-step-muted"><span>03</span>Pedido</span>
+    </nav>
+
+    <div class="checkout-intro fade-up">
+      <p class="commerce-kicker">FINALIZAR PEDIDO</p>
+      <h1>Como você quer receber?</h1>
+      <p>Informe seus dados e escolha a forma de recebimento. Frete, disponibilidade e prazo continuam sujeitos à confirmação quando necessário.</p>
     </div>
-  </form>
-</div></section>
+
+    <form method="post" id="form-checkout" class="checkout-layout">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="cliente_lat" id="cliente_lat">
+      <input type="hidden" name="cliente_lng" id="cliente_lng">
+
+      <div class="checkout-form-card">
+        <section class="checkout-form-section">
+          <div class="checkout-section-title"><span>01</span><div><h2>Seus dados</h2><p>Usaremos essas informações para identificar o pedido e falar com você.</p></div></div>
+          <div class="checkout-fields-grid">
+            <div class="field"><label for="nome">Nome completo</label><input id="nome" name="nome" autocomplete="name" maxlength="120" required value="{{ request.form.get('nome', cliente['nome']) }}"></div>
+            <div class="field"><label for="telefone">WhatsApp com DDD</label><input id="telefone" name="telefone" type="tel" autocomplete="tel" maxlength="40" required placeholder="(41) 99999-9999" value="{{ request.form.get('telefone', cliente['telefone']) }}"></div>
+          </div>
+        </section>
+
+        <section class="checkout-form-section">
+          <div class="checkout-section-title"><span>02</span><div><h2>Recebimento</h2><p>Escolha a opção que faz mais sentido agora. Você ainda poderá confirmar os detalhes no atendimento.</p></div></div>
+          {% set recebimento_atual = request.form.get('recebimento', 'combinar') %}
+          <div class="receiving-options" id="recebimento">
+            <label class="receiving-card">
+              <input type="radio" name="recebimento" value="combinar" {{ 'checked' if recebimento_atual == 'combinar' }}>
+              <span class="receiving-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3 1.6-4.8A8 8 0 1 1 21 15Z"/></svg></span>
+              <span><strong>Combinar pelo WhatsApp</strong><small>Ideal quando você quer confirmar tudo antes.</small></span>
+            </label>
+            <label class="receiving-card">
+              <input type="radio" name="recebimento" value="retirada" {{ 'checked' if recebimento_atual == 'retirada' }}>
+              <span class="receiving-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 10h18M5 10l1-5h12l1 5v9H5v-9Z"/><path d="M9 19v-5h6v5"/></svg></span>
+              <span><strong>Tenho interesse em retirar</strong><small>Local, horário e disponibilidade serão confirmados.</small></span>
+            </label>
+            <label class="receiving-card">
+              <input type="radio" name="recebimento" value="entrega" {{ 'checked' if recebimento_atual == 'entrega' }}>
+              <span class="receiving-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 6h11v11H3zM14 10h4l3 3v4h-7z"/><circle cx="7" cy="19" r="2"/><circle cx="18" cy="19" r="2"/></svg></span>
+              <span><strong>Consultar entrega</strong><small>Informe o endereço para verificarmos as possibilidades.</small></span>
+            </label>
+          </div>
+
+          <div class="field delivery-address" id="endereco-field">
+            <label for="endereco">Endereço para consultar entrega</label>
+            <textarea id="endereco" name="endereco" rows="3" maxlength="350" autocomplete="street-address" placeholder="CEP, rua, número, complemento, bairro, cidade e estado">{{ request.form.get('endereco', '') }}</textarea>
+            <p class="helper-text">O endereço é usado para consultar a entrega. Frete e prazo serão confirmados antes de qualquer cobrança relacionada ao envio.</p>
+          </div>
+        </section>
+
+        <section class="checkout-form-section">
+          <div class="checkout-section-title"><span>03</span><div><h2>Pagamento e observações</h2><p>A forma disponível depende do recebimento escolhido e da confirmação do pedido.</p></div></div>
+          <div class="field"><label for="forma_pagamento">Pagamento</label><select id="forma_pagamento" name="forma_pagamento">{% for valor, texto in pagamentos.items() %}<option value="{{ valor }}" {{ 'selected' if request.form.get('forma_pagamento', 'combinar') == valor }}>{{ texto }}</option>{% endfor %}</select><p class="helper-text" id="payment-help">O pagamento será combinado após a confirmação de frete, disponibilidade e prazo.</p></div>
+          <div class="field"><label for="observacoes">Observações <span class="helper-text">(opcional)</span></label><textarea id="observacoes" name="observacoes" rows="3" maxlength="500" placeholder="Cor desejada, detalhe importante, referência do pedido...">{{ request.form.get('observacoes', '') }}</textarea></div>
+
+          <div class="location-box">
+            <div><strong>Localização aproximada</strong><p id="location-status" role="status">Opcional. Pode ajudar a encontrar parceiros próximos e não substitui o endereço de entrega.</p></div>
+            <button class="btn btn-ghost" type="button" id="share-location">Usar localização</button>
+          </div>
+        </section>
+      </div>
+
+      <aside class="checkout-summary-card">
+        <div class="checkout-summary-top">
+          <p class="commerce-kicker">SEU PEDIDO</p>
+          <h2>Resumo</h2>
+        </div>
+        <div class="checkout-itens">
+          {% for i in itens %}
+          <div class="checkout-item"><span><b>{{ i.qtd }}×</b> {{ i.produto['nome'] }}</span><strong>R$ {{ '%.2f'|format(i.subtotal)|replace('.', ',') }}</strong></div>
+          {% endfor %}
+        </div>
+        <div class="checkout-total-line"><span>Subtotal das peças</span><strong>R$ {{ '%.2f'|format(total)|replace('.', ',') }}</strong></div>
+        <div class="checkout-summary-notice"><span>i</span><p>Frete não está incluído neste subtotal. Retirada, entrega, disponibilidade e prazo são confirmados conforme o pedido.</p></div>
+        <button type="submit" class="btn btn-primary btn-block checkout-submit">Confirmar pedido</button>
+        <p class="checkout-submit-note">Este botão cria o pedido. Ele não realiza uma cobrança automaticamente.</p>
+        <a class="checkout-back-link" href="{{ url_for('carrinho') }}">← Voltar e editar itens</a>
+      </aside>
+    </form>
+  </div>
+</section>
 {% endblock %}
+
 {% block scripts %}<script>
-const receiving = document.getElementById('recebimento');
+const receivingInputs = Array.from(document.querySelectorAll('input[name="recebimento"]'));
 const address = document.getElementById('endereco');
 const payment = document.getElementById('forma_pagamento');
+function currentReceiving(){
+  const checked = receivingInputs.find(input => input.checked);
+  return checked ? checked.value : 'combinar';
+}
 function updateReceiving() {
-  const delivery = receiving.value === 'entrega';
+  const value = currentReceiving();
+  const delivery = value === 'entrega';
   document.getElementById('endereco-field').hidden = !delivery;
   address.required = delivery;
-  if (receiving.value !== 'retirada') payment.value = 'combinar';
-  for (const option of payment.options) option.disabled = receiving.value !== 'retirada' && option.value !== 'combinar';
-  document.getElementById('payment-help').textContent = receiving.value === 'retirada' ? 'Confirme o local, o horário e a disponibilidade com a Voxxel antes de pagar ou se deslocar.' : 'O pagamento será combinado após a confirmação de frete, disponibilidade e prazo.';
+  if (value !== 'retirada') payment.value = 'combinar';
+  for (const option of payment.options) option.disabled = value !== 'retirada' && option.value !== 'combinar';
+  document.getElementById('payment-help').textContent = value === 'retirada'
+    ? 'Confirme local, horário e disponibilidade com a Voxxel antes de pagar ou se deslocar.'
+    : 'O pagamento será combinado após a confirmação de frete, disponibilidade e prazo.';
+  receivingInputs.forEach(input => input.closest('.receiving-card').classList.toggle('is-selected', input.checked));
 }
-receiving.addEventListener('change', updateReceiving); updateReceiving();
+receivingInputs.forEach(input => input.addEventListener('change', updateReceiving));
+updateReceiving();
+
 document.getElementById('share-location').addEventListener('click', () => {
   const status = document.getElementById('location-status');
   if (!navigator.geolocation) { status.textContent = 'Localização indisponível. Você pode continuar normalmente.'; return; }
@@ -52,7 +122,7 @@ document.getElementById('share-location').addEventListener('click', () => {
   navigator.geolocation.getCurrentPosition(pos => {
     document.getElementById('cliente_lat').value = pos.coords.latitude;
     document.getElementById('cliente_lng').value = pos.coords.longitude;
-    status.textContent = 'Localização adicionada ao pedido.';
+    status.textContent = 'Localização aproximada adicionada ao pedido.';
   }, () => { status.textContent = 'Não foi possível obter sua localização. Você pode continuar normalmente.'; }, {timeout:6000});
 });
 </script>{% endblock %}

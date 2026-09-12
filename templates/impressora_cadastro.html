@@ -21,6 +21,19 @@
         <input type="text" name="telefone" required placeholder="(41) 9XXXX-XXXX" value="{{ request.form.get('telefone','') }}">
       </div>
       <div class="field">
+        <label>Materiais que sua impressora produz</label>
+        <p class="helper-text">Isso evita receber pedidos incompatíveis com sua máquina. Você poderá alterar depois.</p>
+        <div class="partner-material-grid">
+          {% for chave, material in materiais.items() %}
+          <label class="partner-material-option">
+            <input type="checkbox" name="materiais" value="{{ chave }}" {{ 'checked' if chave in request.form.getlist('materiais') or (not request.form and chave == 'pla') }}>
+            <span><strong>{{ material.nome }}</strong><small>{{ material.processo }}</small></span>
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="field">
         <label>Senha (mínimo 6 caracteres)</label>
         <input type="password" name="senha" required minlength="6">
       </div>

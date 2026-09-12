@@ -1,41 +1,44 @@
 {% extends "base.html" %}
 {% block title %}Minha conta — Voxxel{% endblock %}
 {% block content %}
-
-<section style="padding-top:var(--space-3);">
+<section class="account-network">
   <div class="wrap">
-    <div class="section-head fade-up" style="text-align:left; align-items:flex-start; margin-bottom:var(--space-2);">
-      <div class="eyebrow">Minha conta</div>
-      <h2>Olá, {{ session.get('cliente_nome') }}</h2>
-      <p><a href="{{ url_for('conta_sair') }}" style="color:var(--muted);">Sair da conta</a></p>
+    <div class="account-network-head fade-up">
+      <div><div class="eyebrow">Minha Voxxel</div><h2>Olá, {{ session.get('cliente_nome') }}</h2><p>Acompanhe seus pedidos e o encaminhamento pela rede de impressão.</p></div>
+      <a href="{{ url_for('conta_sair') }}" class="account-logout">Sair da conta</a>
     </div>
 
     {% if pedidos %}
-    <div class="order-list fade-up">
+    <div class="network-order-list fade-up">
       {% for p in pedidos %}
-      <a href="{{ url_for('pedido_pagamento', pedido_id=p['id']) }}" class="order-card" style="text-decoration:none; color:inherit;">
-        <div class="order-card-main">
-          <div class="order-card-id">Pedido #{{ p['id'] }} · {{ p['criado_em'] }}</div>
-          <div class="order-card-tipo">{{ 'Loja' if p['tipo'] == 'loja' else 'Orçamento' }}</div>
-          <div class="order-card-detalhes">{{ p['detalhes'] }}</div>
+      {% set ds = p['distribuicao_status'] or 'nao_aplicavel' %}
+      {% set etapa = 3 if ds == 'atribuido' else (2 if ds in ('buscando','sem_impressora') else 1) %}
+      <article class="network-order-card">
+        <div class="network-order-top">
+          <div><span class="network-order-overline">{{ 'CATÁLOGO' if p['tipo'] == 'loja' else 'PROJETO PERSONALIZADO' }} · PEDIDO #{{ p['id'] }}</span><h3>{{ p['detalhes'] }}</h3><span class="network-order-date">Criado em {{ p['criado_em'] }}</span></div>
+          <div class="network-order-value"><strong>R$ {{ "%.2f"|format(p['valor_estimado'])|replace('.', ',') }}</strong><span>{{ 'Pagamento informado' if p['status_pagamento'] == 'informado' else 'Pagamento aguardando confirmação' }}</span></div>
         </div>
-        <div class="order-card-side">
-          <div class="order-card-valor">R$ {{ "%.2f"|format(p['valor_estimado'])|replace('.', ',') }}</div>
-          <span class="badge badge-{{ p['status'] }}">{{ p['status'] }}</span>
-          <span class="badge {{ 'badge-concluido' if p['status_pagamento'] == 'informado' else 'badge-novo' }}">
-            {{ 'Pago' if p['status_pagamento'] == 'informado' else 'Aguardando' }}
-          </span>
+
+        <div class="network-progress">
+          <div class="network-progress-line"><span style="width:{{ '100' if etapa == 3 else ('50' if etapa == 2 else '0') }}%"></span></div>
+          <div class="network-progress-step active"><i>1</i><div><strong>Pedido recebido</strong><span>Configuração registrada</span></div></div>
+          <div class="network-progress-step {{ 'active' if etapa >= 2 }}"><i>2</i><div><strong>Rede Voxxel</strong><span>{% if ds == 'buscando' %}Buscando parceira compatível{% elif ds == 'sem_impressora' %}Aguardando nova disponibilidade{% elif ds == 'atribuido' %}Parceira encontrada{% elif ds == 'sem_localizacao' %}Localização necessária para roteamento{% else %}Encaminhamento conforme o pedido{% endif %}</span></div></div>
+          <div class="network-progress-step {{ 'active' if etapa >= 3 }}"><i>3</i><div><strong>Parceira atribuída</strong><span>{% if p['impressora_nome'] %}{{ p['impressora_nome'] }}{% else %}Aguardando aceite{% endif %}</span></div></div>
         </div>
-      </a>
+
+        <div class="network-order-footer">
+          <div class="network-state network-state-{{ ds }}"><span></span>{% if ds == 'buscando' %}Buscando impressora compatível{% elif ds == 'atribuido' %}Pedido encaminhado para uma parceira{% elif ds == 'sem_impressora' %}Nenhuma parceira disponível neste momento{% elif ds == 'sem_localizacao' %}Roteamento automático indisponível sem localização{% else %}Pedido registrado na Voxxel{% endif %}</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            {% if p['tipo'] == 'orcamento' %}<a href="{{ url_for('pedido_projeto', pedido_id=p['id']) }}" class="btn btn-primary">Projeto e conversa{% if p['mensagens_nao_lidas'] %} <span class="unread-dot">{{ p['mensagens_nao_lidas'] }}</span>{% endif %}</a>{% endif %}
+            <a href="{{ url_for('pedido_pagamento', pedido_id=p['id']) }}" class="btn btn-outline">Ver pedido</a>
+          </div>
+        </div>
+      </article>
       {% endfor %}
     </div>
     {% else %}
-    <div class="empty-state">
-      Você ainda não fez nenhum pedido.<br><br>
-      <a class="btn btn-outline" href="{{ url_for('loja') }}">Ver produtos</a>
-    </div>
+    <div class="empty-state account-empty"><strong>Seu primeiro projeto começa aqui.</strong><span>Escolha uma peça pronta ou configure uma solicitação para a rede Voxxel.</span><div><a class="btn btn-primary" href="{{ url_for('orcamento') }}">Configurar projeto</a><a class="btn btn-outline" href="{{ url_for('loja') }}">Ver catálogo</a></div></div>
     {% endif %}
   </div>
 </section>
-
 {% endblock %}

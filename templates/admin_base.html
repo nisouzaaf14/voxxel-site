@@ -4,14 +4,31 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>{% block title %}Painel — Voxxel{% endblock %}</title>
+<link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='images/favicon-32.png') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/visual.css') }}">
 </head>
 <body>
+
+{% if session.get('test_master') %}
+<div class="test-master-bar">
+  <strong><span class="test-master-dot"></span> Modo mestre de teste</strong>
+  <div class="test-master-switch" aria-label="Trocar visão de teste">
+    {% for role, label in [('cliente','Cliente'),('impressora','Impressor'),('admin','Admin')] %}
+    <form method="post" action="{{ url_for('teste_trocar_papel', papel=role) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="{{ 'active' if session.get('test_role') == role else '' }}">{{ label }}</button>
+    </form>
+    {% endfor %}
+  </div>
+  <a class="test-master-exit" href="{{ url_for('teste_sair') }}">Sair do teste</a>
+</div>
+{% endif %}
 
 <div class="admin-layout">
   <aside class="admin-sidebar">
     <a href="{{ url_for('home') }}" class="logo">
-      <div class="mark"></div><span class="wordmark">VOX<span class="gold">X</span>EL</span>
+      <img class="brand-lockup" src="{{ url_for('static', filename='images/voxxel-logo-horizontal.png') }}" alt="Voxxel" width="150" height="51">
     </a>
     <div class="admin-sidebar-label">Painel do vendedor</div>
     {% if vendedor_nome %}
