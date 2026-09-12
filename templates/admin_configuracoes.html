@@ -48,7 +48,8 @@
   </p>
   <div class="field">
     <label>Access Token do Mercado Pago</label>
-    <input type="text" name="mp_access_token" value="{{ config.mp_access_token }}" placeholder="APP_USR-...">
+    <input type="password" name="mp_access_token" value="" autocomplete="off" placeholder="{{ 'Token configurado — deixe vazio para manter' if config.mp_access_token else 'APP_USR-...' }}">
+    <small class="helper-text">Por segurança, o token salvo nunca é exibido novamente nesta página.</small>
   </div>
 
   <div class="eyebrow" style="margin:32px 0 16px;">Precificação da rede</div>

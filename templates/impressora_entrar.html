@@ -18,11 +18,11 @@
       <input type="hidden" name="next" value="{{ request.args.get('next', '') }}">
       <div class="field">
         <label>Telefone do parceiro com DDD</label>
-        <input type="text" name="telefone" required placeholder="(41) 9XXXX-XXXX" autofocus>
+        <input type="tel" name="telefone" autocomplete="tel" maxlength="40" required placeholder="(41) 9XXXX-XXXX" autofocus>
       </div>
       <div class="field">
         <label>Senha</label>
-        <input type="password" name="senha" required>
+        <input type="password" name="senha" autocomplete="current-password" required maxlength="128">
       </div>
       <button type="submit" class="btn btn-primary btn-block">Entrar</button>
     </form>

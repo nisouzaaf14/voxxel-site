@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block title %}{{ p['nome'] }} — Voxxel{% endblock %}
-{% block body_class %}commerce-page product-page{% endblock %}
+{% block body_class %}commerce-v8 commerce-page product-page product-page-v8{% endblock %}
 {% block extra_styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/commerce.css') }}">{% endblock %}
 {% block content %}
 
@@ -50,6 +50,13 @@
         </div>
 
         <p class="pdp-desc">{{ p['descricao'] or 'Peça disponível no catálogo Voxxel. Material, acabamento, disponibilidade e prazo são confirmados antes da produção ou separação do pedido.' }}</p>
+
+        <div class="product-spec-strip-v8" aria-label="Resumo do produto">
+          <div><small>Categoria</small><strong>{{ categorias[p['categoria']] }}</strong></div>
+          <div><small>Material</small><strong>{{ materiais_catalogo.get(p['material'], {}).get('nome', p['material']|upper) }}</strong></div>
+          <div><small>Disponibilidade</small><strong>{% if p['estoque'] is none %}Sob confirmação{% elif p['estoque'] <= 0 %}Esgotado{% else %}{{ p['estoque'] }} un. disponíveis{% endif %}</strong></div>
+          <div><small>Produção</small><strong>Detalhes confirmados no pedido</strong></div>
+        </div>
 
         <div class="product-assurances" aria-label="Como funciona a compra">
           <div><span class="assurance-icon">01</span><p><strong>Detalhes alinhados</strong><small>Você pode confirmar material, cor e outras possibilidades antes de produzir.</small></p></div>

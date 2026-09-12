@@ -1,44 +1,54 @@
 {% extends "base.html" %}
-{% block title %}Minha conta — Voxxel{% endblock %}
+{% block title %}Minha Voxxel — Acompanhar pedidos{% endblock %}
+{% block extra_styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard-v9.css') }}">{% endblock %}
 {% block content %}
-<section class="account-network">
+{% set total = pedidos|length %}
+{% set ativos = pedidos|selectattr('status','ne','concluido')|list|length %}
+{% set concluidos = pedidos|selectattr('status','equalto','concluido')|list|length %}
+{% set ns = namespace(unread=0, aguardando=0) %}{% for p in pedidos %}{% set ns.unread = ns.unread + (p['mensagens_nao_lidas'] or 0) %}{% if p['fluxo_status'] in ('precisa_info','aguardando_aprovacao') %}{% set ns.aguardando = ns.aguardando + 1 %}{% endif %}{% endfor %}
+<section class="dashboard-shell">
   <div class="wrap">
-    <div class="account-network-head fade-up">
-      <div><div class="eyebrow">Minha Voxxel</div><h2>Olá, {{ session.get('cliente_nome') }}</h2><p>Acompanhe seus pedidos e o encaminhamento pela rede de impressão.</p></div>
-      <a href="{{ url_for('conta_sair') }}" class="account-logout">Sair da conta</a>
+    <header class="dash-head fade-up">
+      <div><div class="dash-eyebrow">Minha Voxxel</div><h1>Seus pedidos, sem mistério.</h1><p>Veja onde cada projeto está na Rede Voxxel, o que já aconteceu e se existe alguma ação esperando por você.</p></div>
+      <div class="dash-head-actions"><a class="btn btn-primary" href="{{ url_for('orcamento') }}">Novo projeto</a><a class="btn btn-outline" href="{{ url_for('loja') }}">Catálogo</a><form class="inline-logout-form" method="post" action="{{ url_for('conta_sair') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" class="dash-link">Sair</button></form></div>
+    </header>
+
+    <div class="dash-stats fade-up">
+      <div class="dash-stat"><div class="dash-stat-top"><span class="dash-stat-label">Pedidos</span><span class="dash-stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 7h16v13H4z"/><path d="m4 7 3-4h10l3 4M9 11h6"/></svg></span></div><strong>{{ total }}</strong><small>no seu histórico</small></div>
+      <div class="dash-stat"><div class="dash-stat-top"><span class="dash-stat-label">Em andamento</span><span class="dash-stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 3v9l5 3"/><circle cx="12" cy="12" r="9"/></svg></span></div><strong>{{ ativos }}</strong><small>pedidos ainda ativos</small></div>
+      <div class="dash-stat {{ 'attention' if ns.aguardando else '' }}"><div class="dash-stat-top"><span class="dash-stat-label">Precisam de você</span><span class="dash-stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 9v4m0 4h.01"/><path d="M10.3 3.7 2.6 17a2 2 0 0 0 1.7 3h15.4a2 2 0 0 0 1.7-3L13.7 3.7a2 2 0 0 0-3.4 0Z"/></svg></span></div><strong>{{ ns.aguardando }}</strong><small>resposta ou aprovação</small></div>
+      <div class="dash-stat {{ 'attention' if ns.unread else '' }}"><div class="dash-stat-top"><span class="dash-stat-label">Mensagens novas</span><span class="dash-stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/></svg></span></div><strong>{{ ns.unread }}</strong><small>nas conversas dos projetos</small></div>
     </div>
 
-    {% if pedidos %}
-    <div class="network-order-list fade-up">
+    <div class="dash-section">
+      <div class="dash-section-head"><div><h2>Seus pedidos</h2><p>Os mais recentes aparecem primeiro.</p></div><span class="dash-count">{{ total }} {{ 'PEDIDO' if total == 1 else 'PEDIDOS' }}</span></div>
+      {% if pedidos %}<div class="order-feed fade-up">
       {% for p in pedidos %}
-      {% set ds = p['distribuicao_status'] or 'nao_aplicavel' %}
-      {% set etapa = 3 if ds == 'atribuido' else (2 if ds in ('buscando','sem_impressora') else 1) %}
-      <article class="network-order-card">
-        <div class="network-order-top">
-          <div><span class="network-order-overline">{{ 'CATÁLOGO' if p['tipo'] == 'loja' else 'PROJETO PERSONALIZADO' }} · PEDIDO #{{ p['id'] }}</span><h3>{{ p['detalhes'] }}</h3><span class="network-order-date">Criado em {{ p['criado_em'] }}</span></div>
-          <div class="network-order-value"><strong>R$ {{ "%.2f"|format(p['valor_estimado'])|replace('.', ',') }}</strong><span>{{ 'Pagamento informado' if p['status_pagamento'] == 'informado' else 'Pagamento aguardando confirmação' }}</span></div>
-        </div>
-
-        <div class="network-progress">
-          <div class="network-progress-line"><span style="width:{{ '100' if etapa == 3 else ('50' if etapa == 2 else '0') }}%"></span></div>
-          <div class="network-progress-step active"><i>1</i><div><strong>Pedido recebido</strong><span>Configuração registrada</span></div></div>
-          <div class="network-progress-step {{ 'active' if etapa >= 2 }}"><i>2</i><div><strong>Rede Voxxel</strong><span>{% if ds == 'buscando' %}Buscando parceira compatível{% elif ds == 'sem_impressora' %}Aguardando nova disponibilidade{% elif ds == 'atribuido' %}Parceira encontrada{% elif ds == 'sem_localizacao' %}Localização necessária para roteamento{% else %}Encaminhamento conforme o pedido{% endif %}</span></div></div>
-          <div class="network-progress-step {{ 'active' if etapa >= 3 }}"><i>3</i><div><strong>Parceira atribuída</strong><span>{% if p['impressora_nome'] %}{{ p['impressora_nome'] }}{% else %}Aguardando aceite{% endif %}</span></div></div>
-        </div>
-
-        <div class="network-order-footer">
-          <div class="network-state network-state-{{ ds }}"><span></span>{% if ds == 'buscando' %}Buscando impressora compatível{% elif ds == 'atribuido' %}Pedido encaminhado para uma parceira{% elif ds == 'sem_impressora' %}Nenhuma parceira disponível neste momento{% elif ds == 'sem_localizacao' %}Roteamento automático indisponível sem localização{% else %}Pedido registrado na Voxxel{% endif %}</div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;">
-            {% if p['tipo'] == 'orcamento' %}<a href="{{ url_for('pedido_projeto', pedido_id=p['id']) }}" class="btn btn-primary">Projeto e conversa{% if p['mensagens_nao_lidas'] %} <span class="unread-dot">{{ p['mensagens_nao_lidas'] }}</span>{% endif %}</a>{% endif %}
-            <a href="{{ url_for('pedido_pagamento', pedido_id=p['id']) }}" class="btn btn-outline">Ver pedido</a>
+        {% set fs = p['fluxo_status'] or 'recebido' %}{% set ds = p['distribuicao_status'] or 'nao_aplicavel' %}
+        {% set project = p['tipo'] == 'orcamento' %}
+        {% if fs == 'concluido' or p['status']=='concluido' %}{% set pos=5 %}{% elif fs == 'pronto' %}{% set pos=4 %}{% elif fs == 'em_producao' or fs == 'producao_autorizada' %}{% set pos=4 %}{% elif fs in ('aguardando_aprovacao','precisa_info','cliente_respondeu','em_analise') %}{% set pos=3 %}{% elif ds == 'atribuido' %}{% set pos=2 %}{% else %}{% set pos=1 %}{% endif %}
+        <article class="order-feed-card">
+          <div class="order-feed-main">
+            <div class="order-feed-header">
+              <div><div class="order-feed-kicker">{{ 'Projeto personalizado' if project else 'Catálogo' }} · #{{ p['id'] }}</div><h3 class="order-feed-title">{{ p['descricao_projeto'] or p['detalhes'] }}</h3><div class="order-feed-meta"><span>{{ p['criado_em'] }}</span>{% if p['material_requisito'] %}<span>·</span><span>{{ p['material_requisito']|upper|replace(',', ' + ') }}</span>{% endif %}{% if p['impressora_nome'] %}<span>·</span><span>{{ p['impressora_nome'] }}</span>{% endif %}</div></div>
+              <div class="order-feed-value"><strong>R$ {{ "%.2f"|format(p['valor_estimado'])|replace('.', ',') }}</strong><span>{{ 'pagamento confirmado' if p['status_pagamento']=='confirmado' else ('pagamento em conferência' if p['status_pagamento']=='informado' else 'pagamento pendente') }}</span></div>
+            </div>
+            <div class="order-track" aria-label="Acompanhamento do pedido">
+              <div class="track-step {{ 'done' if pos>1 else 'current' }}"><div class="track-dot">1</div><div class="track-copy"><strong>Recebido</strong><span>Pedido registrado</span></div></div>
+              <div class="track-step {{ 'done' if pos>2 else ('current' if pos==2 else '') }}"><div class="track-dot">2</div><div class="track-copy"><strong>Rede Voxxel</strong><span>{{ 'Parceira encontrada' if ds=='atribuido' else 'Buscando compatibilidade' }}</span></div></div>
+              <div class="track-step {{ 'done' if pos>3 else ('current' if pos==3 else '') }}"><div class="track-dot">3</div><div class="track-copy"><strong>{{ 'Análise' if project else 'Preparação' }}</strong><span>{% if fs=='precisa_info' %}Precisamos de informação{% elif fs=='aguardando_aprovacao' %}Aguardando aprovação{% elif project %}Referências em revisão{% else %}Pedido confirmado{% endif %}</span></div></div>
+              <div class="track-step {{ 'done' if pos>4 else ('current' if pos==4 else '') }}"><div class="track-dot">4</div><div class="track-copy"><strong>Produção</strong><span>{{ 'Em produção' if fs=='em_producao' else ('Pronto' if fs=='pronto' else 'Após autorização') }}</span></div></div>
+              <div class="track-step {{ 'done' if pos>=5 else '' }}"><div class="track-dot">5</div><div class="track-copy"><strong>Concluído</strong><span>Fim do processo</span></div></div>
+            </div>
           </div>
-        </div>
-      </article>
-      {% endfor %}
+          <div class="order-feed-footer">
+            <div class="order-next"><span class="order-next-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M5 12h14m-5-5 5 5-5 5"/></svg></span><span>{% if fs=='precisa_info' %}<strong>Precisamos da sua resposta.</strong> Abra a conversa do projeto.{% elif fs=='aguardando_aprovacao' %}<strong>Projeto pronto para sua revisão.</strong> Confira antes de autorizar.{% elif fs=='em_producao' %}<strong>Sua peça está em produção.</strong> Acompanhe as atualizações por aqui.{% elif fs=='pronto' %}<strong>Produção finalizada.</strong> Aguarde a conclusão da entrega/retirada.{% elif fs=='concluido' or p['status']=='concluido' %}<strong>Pedido concluído.</strong> O histórico permanece disponível.{% elif ds=='buscando' %}<strong>Estamos procurando uma parceira compatível.</strong>{% elif ds=='atribuido' %}<strong>Parceira encontrada.</strong> O pedido está avançando na rede.{% else %}<strong>Pedido registrado.</strong> Acompanhe os próximos passos.{% endif %}</span></div>
+            <div class="order-feed-actions">{% if project %}<a href="{{ url_for('pedido_projeto', pedido_id=p['id']) }}" class="btn btn-primary">Abrir projeto{% if p['mensagens_nao_lidas'] %} <span class="unread-dot">{{ p['mensagens_nao_lidas'] }}</span>{% endif %}</a>{% endif %}<a href="{{ url_for('pedido_pagamento', pedido_id=p['id']) }}" class="btn btn-outline">Pedido e pagamento</a></div>
+          </div>
+        </article>
+      {% endfor %}</div>
+      {% else %}<div class="dash-empty"><strong>Seu primeiro pedido começa aqui.</strong><p>Configure uma peça personalizada ou escolha um item do catálogo. Quando o pedido entrar na Rede Voxxel, você acompanha cada etapa nesta tela.</p><div class="dash-empty-actions"><a class="btn btn-primary" href="{{ url_for('orcamento') }}">Configurar projeto</a><a class="btn btn-outline" href="{{ url_for('loja') }}">Explorar catálogo</a></div></div>{% endif %}
     </div>
-    {% else %}
-    <div class="empty-state account-empty"><strong>Seu primeiro projeto começa aqui.</strong><span>Escolha uma peça pronta ou configure uma solicitação para a rede Voxxel.</span><div><a class="btn btn-primary" href="{{ url_for('orcamento') }}">Configurar projeto</a><a class="btn btn-outline" href="{{ url_for('loja') }}">Ver catálogo</a></div></div>
-    {% endif %}
   </div>
 </section>
 {% endblock %}

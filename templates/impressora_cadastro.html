@@ -14,11 +14,11 @@
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <div class="field">
         <label>Seu nome ou nome do seu negócio</label>
-        <input type="text" name="nome" required placeholder="Ex: Ateliê 3D do João" value="{{ request.form.get('nome','') }}">
+        <input type="text" name="nome" autocomplete="name" maxlength="120" required placeholder="Ex: Ateliê 3D do João" value="{{ request.form.get('nome','') }}">
       </div>
       <div class="field">
         <label>WhatsApp com DDD</label>
-        <input type="text" name="telefone" required placeholder="(41) 9XXXX-XXXX" value="{{ request.form.get('telefone','') }}">
+        <input type="tel" name="telefone" autocomplete="tel" maxlength="40" required placeholder="(41) 9XXXX-XXXX" value="{{ request.form.get('telefone','') }}">
       </div>
       <div class="field">
         <label>Materiais que sua impressora produz</label>
@@ -34,12 +34,12 @@
       </div>
 
       <div class="field">
-        <label>Senha (mínimo 6 caracteres)</label>
-        <input type="password" name="senha" required minlength="6">
+        <label>Senha (mínimo 8 caracteres)</label>
+        <input type="password" name="senha" autocomplete="new-password" required minlength="8" maxlength="128">
       </div>
       <div class="field">
         <label>Confirmar senha</label>
-        <input type="password" name="confirmar_senha" required minlength="6">
+        <input type="password" name="confirmar_senha" autocomplete="new-password" required minlength="8" maxlength="128">
       </div>
       <button type="submit" class="btn btn-primary btn-block">Criar conta de parceiro</button>
     </form>

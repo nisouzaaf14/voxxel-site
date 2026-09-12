@@ -38,11 +38,11 @@
       {% if p['impressora_id'] or p['distribuicao_status'] in ('buscando', 'sem_impressora') %}
       <div class="order-card-impressora">
         {% if p['impressora_id'] %}
-          🖨️ Impressora: <strong>{{ impressoras_por_id.get(p['impressora_id'], 'desconhecida') }}</strong>
+          Impressora: <strong>{{ impressoras_por_id.get(p['impressora_id'], 'desconhecida') }}</strong>
         {% elif p['distribuicao_status'] == 'buscando' %}
-          🖨️ Procurando impressora parceira...
+          Procurando impressora parceira...
         {% elif p['distribuicao_status'] == 'sem_impressora' %}
-          🖨️ <span style="color:var(--err);">Sem impressora disponível</span>
+          <span style="color:var(--err);">Sem impressora disponível</span>
           {% if impressoras_disponiveis %}
           <form method="post" action="{{ url_for('admin_pedido_atribuir_impressora', pedido_id=p['id']) }}" style="display:inline-flex; gap:6px; margin-left:8px;">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -61,15 +61,28 @@
     <div class="order-card-side">
       <div class="order-card-valor">R$ {{ "%.2f"|format(p['valor_estimado'])|replace('.', ',') }}</div>
       <div class="order-card-pag">
-        <span class="badge {{ 'badge-concluido' if p['status_pagamento'] == 'informado' else 'badge-novo' }}">
-          {{ 'Pago (informado)' if p['status_pagamento'] == 'informado' else 'Aguardando pagamento' }}
+        <span class="badge {{ 'badge-concluido' if p['status_pagamento'] == 'confirmado' else ('badge-andamento' if p['status_pagamento'] == 'informado' else 'badge-novo') }}">
+          {% if p['status_pagamento'] == 'confirmado' %}Pagamento confirmado{% elif p['status_pagamento'] == 'informado' %}Aguardando conferência{% else %}Aguardando pagamento{% endif %}
         </span>
         <span class="pag-metodo">
           {% if p['forma_pagamento'] == 'pix' %}Pix
           {% elif p['forma_pagamento'] == 'cartao' %}Cartão
-          {% else %}Combinado{% endif %}
+          {% else %}A combinar{% endif %}
         </span>
       </div>
+      {% if p['status_pagamento'] != 'confirmado' %}
+      <form method="post" action="{{ url_for('admin_pedido_pagamento', pedido_id=p['id']) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="acao" value="confirmar">
+        <button type="submit" class="btn-ghost" style="margin-top:8px;">Confirmar pagamento</button>
+      </form>
+      {% else %}
+      <form method="post" action="{{ url_for('admin_pedido_pagamento', pedido_id=p['id']) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="acao" value="reabrir">
+        <button type="submit" class="btn-ghost" style="margin-top:8px;">Reabrir conferência</button>
+      </form>
+      {% endif %}
       <form method="post" action="{{ url_for('admin_pedido_status', pedido_id=p['id']) }}">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <select name="status" onchange="this.form.submit()" class="badge badge-{{ p['status'] }}">

@@ -23,7 +23,7 @@
 
 <table class="seller-table" id="tabela-produtos">
   <thead>
-    <tr><th>Produto</th><th>Preço</th><th>Estoque</th><th>Status</th><th></th></tr>
+    <tr><th>Produto</th><th>Material</th><th>Preço</th><th>Estoque</th><th>Status</th><th></th></tr>
   </thead>
   <tbody>
     {% for p in produtos %}
@@ -41,6 +41,7 @@
           </div>
         </div>
       </td>
+      <td>{{ materiais_catalogo.get(p['material'], {}).get('nome', p['material']|upper) }}</td>
       <td>R$ {{ "%.2f"|format(p['preco'])|replace('.', ',') }}</td>
       <td>
         {% if p['estoque'] is none %}

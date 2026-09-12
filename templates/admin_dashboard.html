@@ -64,8 +64,8 @@
     <div class="order-card-side">
       <div class="order-card-valor">R$ {{ "%.2f"|format(p['valor_estimado'])|replace('.', ',') }}</div>
       <span class="badge badge-{{ p['status'] }}">{{ p['status'] }}</span>
-      <span class="badge {{ 'badge-concluido' if p['status_pagamento'] == 'informado' else 'badge-novo' }}">
-        {{ 'Pago' if p['status_pagamento'] == 'informado' else 'Aguardando' }}
+      <span class="badge {{ 'badge-concluido' if p['status_pagamento'] == 'confirmado' else ('badge-andamento' if p['status_pagamento'] == 'informado' else 'badge-novo') }}">
+        {{ 'Confirmado' if p['status_pagamento'] == 'confirmado' else ('Conferir' if p['status_pagamento'] == 'informado' else 'Aguardando') }}
       </span>
     </div>
   </div>

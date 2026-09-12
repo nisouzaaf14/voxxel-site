@@ -215,11 +215,11 @@
           <div class="quote-contact-grid">
             <label class="field">
               <span>Nome</span>
-              <input type="text" name="nome" placeholder="Seu nome" value="{{ request.form.get('nome', cliente_logado['nome'] if cliente_logado else '') }}">
+              <input type="text" name="nome" autocomplete="name" maxlength="120" placeholder="Seu nome" value="{{ request.form.get('nome', cliente_logado['nome'] if cliente_logado else '') }}">
             </label>
             <label class="field">
               <span>WhatsApp / telefone</span>
-              <input type="text" name="telefone" placeholder="(41) 9XXXX-XXXX" value="{{ request.form.get('telefone', cliente_logado['telefone'] if cliente_logado else '') }}">
+              <input type="tel" name="telefone" autocomplete="tel" maxlength="40" placeholder="(41) 9XXXX-XXXX" value="{{ request.form.get('telefone', cliente_logado['telefone'] if cliente_logado else '') }}">
             </label>
           </div>
         </section>
@@ -232,14 +232,10 @@
             <span class="quote-live"><i></i> atualiza na hora</span>
           </div>
 
-          <div class="quote-preview" aria-hidden="true">
-            <div class="quote-preview-grid"></div>
-            <div class="quote-object" id="quote-object">
-              <span class="face face-top"></span>
-              <span class="face face-left"></span>
-              <span class="face face-right"></span>
-              <span class="object-layer l1"></span><span class="object-layer l2"></span><span class="object-layer l3"></span>
-            </div>
+          <div class="quote-preview quote-preview-v7" aria-label="Prévia tridimensional dinâmica das dimensões informadas">
+            <div class="quote-visualizer-glow" aria-hidden="true"></div>
+            <canvas class="quote-visualizer-canvas" id="quote-visualizer" aria-hidden="true"></canvas>
+            <span class="quote-visualizer-chip"><i></i> prévia volumétrica</span>
             <div class="quote-preview-dim" id="preview-dim">10 × 10 × 10 cm</div>
             <div class="quote-preview-material" id="preview-material">PLA · FDM</div>
           </div>
@@ -287,6 +283,7 @@
 {% endblock %}
 
 {% block scripts %}
+<script src="{{ url_for('static', filename='js/quote-visualizer.js') }}"></script>
 <script>
   const MATERIAIS = {{ materiais_js | safe }};
   const QUALIDADE = {{ qualidade_js | safe }};
@@ -380,13 +377,8 @@
     $('preview-material').textContent = `${mat.nome} · ${mat.processo}`;
     $('match-title').textContent = `Buscaremos uma parceira compatível com ${mat.nome}`;
 
-    const obj = $('quote-object');
-    if(obj){
-      const max = Math.max(alt, larg, prof, 1);
-      obj.style.setProperty('--obj-w', (70 + (larg/max)*46) + 'px');
-      obj.style.setProperty('--obj-h', (64 + (alt/max)*52) + 'px');
-      obj.style.setProperty('--obj-d', (22 + (prof/max)*20) + 'px');
-      obj.dataset.material = materialKey;
+    if(window.VoxxelQuoteVisualizer){
+      window.VoxxelQuoteVisualizer.update({ altura: alt, largura: larg, profundidade: prof, material: materialKey });
     }
   }
 

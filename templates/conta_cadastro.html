@@ -15,19 +15,19 @@
       <input type="hidden" name="next" value="{{ request.args.get('next', '') }}">
       <div class="field">
         <label for="nome">Nome</label>
-        <input id="nome" type="text" name="nome" required placeholder="Seu nome" value="{{ request.form.get('nome','') }}">
+        <input id="nome" type="text" name="nome" autocomplete="name" maxlength="120" required placeholder="Seu nome" value="{{ request.form.get('nome','') }}">
       </div>
       <div class="field">
         <label for="telefone">WhatsApp com DDD</label>
         <input id="telefone" type="tel" name="telefone" autocomplete="tel" required placeholder="(41) 9XXXX-XXXX" value="{{ request.form.get('telefone','') }}">
       </div>
       <div class="field">
-        <label for="senha">Senha (mínimo 6 caracteres)</label>
-        <input id="senha" type="password" name="senha" required minlength="6">
+        <label for="senha">Senha (mínimo 8 caracteres)</label>
+        <input id="senha" type="password" name="senha" autocomplete="new-password" required minlength="8" maxlength="128">
       </div>
       <div class="field">
         <label for="confirmar_senha">Confirmar senha</label>
-        <input id="confirmar_senha" type="password" name="confirmar_senha" required minlength="6">
+        <input id="confirmar_senha" type="password" name="confirmar_senha" autocomplete="new-password" required minlength="8" maxlength="128">
       </div>
       <button type="submit" class="btn btn-primary btn-block">Criar conta</button>
     </form>

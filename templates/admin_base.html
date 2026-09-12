@@ -10,27 +10,14 @@
 </head>
 <body>
 
-{% if session.get('test_master') %}
-<div class="test-master-bar">
-  <strong><span class="test-master-dot"></span> Modo mestre de teste</strong>
-  <div class="test-master-switch" aria-label="Trocar visão de teste">
-    {% for role, label in [('cliente','Cliente'),('impressora','Impressor'),('admin','Admin')] %}
-    <form method="post" action="{{ url_for('teste_trocar_papel', papel=role) }}">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <button type="submit" class="{{ 'active' if session.get('test_role') == role else '' }}">{{ label }}</button>
-    </form>
-    {% endfor %}
-  </div>
-  <a class="test-master-exit" href="{{ url_for('teste_sair') }}">Sair do teste</a>
-</div>
-{% endif %}
+
 
 <div class="admin-layout">
   <aside class="admin-sidebar">
     <a href="{{ url_for('home') }}" class="logo">
       <img class="brand-lockup" src="{{ url_for('static', filename='images/voxxel-logo-horizontal.png') }}" alt="Voxxel" width="150" height="51">
     </a>
-    <div class="admin-sidebar-label">Painel do vendedor</div>
+    <div class="admin-sidebar-label">Painel administrativo</div>
     {% if vendedor_nome %}
     <div class="admin-sidebar-label" style="color:var(--muted); font-size:.75rem; margin-top:-4px;">Olá, {{ vendedor_nome }}</div>
     {% endif %}
@@ -60,7 +47,7 @@
 
     <div class="admin-sidebar-foot">
       <a href="{{ url_for('home') }}" class="admin-sidebar-link">← Ver site</a>
-      <a href="{{ url_for('admin_logout') }}" class="admin-sidebar-link admin-sidebar-link-danger">Sair</a>
+      <form class="admin-logout-form" method="post" action="{{ url_for('admin_logout') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" class="admin-sidebar-link admin-sidebar-link-danger">Sair</button></form>
     </div>
   </aside>
 

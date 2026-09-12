@@ -1,174 +1,57 @@
 {% extends "base.html" %}
-{% block title %}Painel da impressora — Voxxel{% endblock %}
+{% block title %}Central da impressora — Voxxel{% endblock %}
+{% block extra_styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard-v9.css') }}">{% endblock %}
 {% block content %}
-
-<section style="padding-top:var(--space-3);">
+{% set ns = namespace(unread=0, action=0, production=0, completed=0) %}
+{% for p in pedidos %}{% set ns.unread = ns.unread + (p['mensagens_nao_lidas'] or 0) %}{% if p['fluxo_status'] in ('recebido','em_analise','cliente_respondeu','producao_autorizada') %}{% set ns.action=ns.action+1 %}{% endif %}{% if p['fluxo_status']=='em_producao' %}{% set ns.production=ns.production+1 %}{% endif %}{% if p['fluxo_status']=='concluido' or p['status']=='concluido' %}{% set ns.completed=ns.completed+1 %}{% endif %}{% endfor %}
+<section class="dashboard-shell">
   <div class="wrap">
-    <div class="section-head fade-up" style="text-align:left; align-items:flex-start; margin-bottom:var(--space-2);">
-      <div class="eyebrow">Impressora parceira</div>
-      <h2>Olá, {{ impressora['nome'] }}</h2>
-      <p><a href="{{ url_for('impressora_sair') }}" style="color:var(--muted);">Sair</a></p>
-    </div>
+    <header class="dash-head fade-up">
+      <div><div class="dash-eyebrow">Central de produção</div><h1>Olá, {{ impressora['nome'] }}.</h1><p>Gerencie sua disponibilidade, analise solicitações e acompanhe cada trabalho da Rede Voxxel até a conclusão.</p></div>
+      <div class="dash-head-actions"><a class="btn btn-outline" href="#fila">Fila de trabalho</a><form class="inline-logout-form" method="post" action="{{ url_for('impressora_sair') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" class="dash-link">Sair</button></form></div>
+    </header>
 
-    {% if not impressora['ativo'] %}
-    <div class="flash fade-up" style="border-color:var(--err); color:var(--err); margin-bottom:20px;">
-      Sua conta de impressora parceira está bloqueada pela Voxxel. Fale com a gente pra reativar.
-    </div>
-    {% endif %}
+    {% if not impressora['ativo'] %}<div class="flash fade-up" style="border-color:var(--err);color:var(--err);margin-bottom:18px;">Sua conta de parceira está temporariamente bloqueada. Entre em contato com a Voxxel para revisar o acesso.</div>{% endif %}
 
-    <div class="stat-grid fade-up" style="margin-bottom:var(--space-2);">
-      <div class="stat-card">
-        <div class="stat-label">Ganho acumulado</div>
-        <div class="stat-value">R$ {{ "%.2f"|format(ganho_acumulado)|replace('.', ',') }}</div>
+    <div class="partner-hero fade-up">
+      <div class="partner-presence">
+        <div class="presence-main"><span class="presence-light {{ 'online' if impressora['online'] }}"></span><div class="presence-copy"><strong>{{ 'Online e disponível para a rede' if impressora['online'] else 'Você está offline' }}</strong><span>{{ 'Novas solicitações compatíveis podem aparecer a qualquer momento.' if impressora['online'] else 'Fique online quando estiver pronta para analisar novos trabalhos.' }}</span></div></div>
+        {% if impressora['ativo'] %}<form method="post" action="{{ url_for('impressora_status') }}" id="form-status"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="online" id="status-online-input" value="{{ '0' if impressora['online'] else '1' }}"><input type="hidden" name="latitude" id="status-lat-input"><input type="hidden" name="longitude" id="status-lng-input"><button type="submit" class="{{ 'btn btn-outline' if impressora['online'] else 'btn btn-primary' }}" id="btn-toggle-status">{{ 'Ficar offline' if impressora['online'] else 'Ficar online' }}</button></form>{% endif %}
       </div>
-      <div class="stat-card">
-        <div class="stat-label">Pedidos atribuídos</div>
-        <div class="stat-value">{{ pedidos|length }}</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">Comissão Voxxel</div>
-        <div class="stat-value">{{ pct_comissao|int }}%</div>
-      </div>
-    </div>
-
-    <div class="partner-capabilities-card fade-up">
-      <div>
-        <div class="partner-capabilities-kicker">Compatibilidade da máquina</div>
-        <h3>Materiais que você produz</h3>
-        <p>A fila usa essa seleção para não oferecer pedidos que sua impressora não consegue executar.</p>
-      </div>
-      <form method="post" action="{{ url_for('impressora_materiais') }}" class="partner-capabilities-form">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        {% set suportados = (impressora['materiais'] or 'pla').split(',') %}
-        <div class="partner-material-grid">
-          {% for chave, material in materiais.items() %}
-          <label class="partner-material-option">
-            <input type="checkbox" name="materiais" value="{{ chave }}" {{ 'checked' if chave in suportados }}>
-            <span><strong>{{ material.nome }}</strong><small>{{ material.processo }}</small></span>
-          </label>
-          {% endfor %}
-        </div>
-        <button type="submit" class="btn btn-outline">Salvar materiais</button>
+      <form method="post" action="{{ url_for('impressora_materiais') }}" class="partner-settings">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><div class="partner-settings-head"><strong>Compatibilidade</strong><span>MATERIAIS</span></div>{% set suportados=(impressora['materiais'] or 'pla').split(',') %}<div class="partner-material-pills">{% for chave, material in materiais.items() %}<label class="partner-material-pill"><input type="checkbox" name="materiais" value="{{ chave }}" {{ 'checked' if chave in suportados }}><span>{{ material.nome }}</span></label>{% endfor %}</div><button type="submit" class="btn btn-outline">Salvar compatibilidade</button>
       </form>
     </div>
 
-    <div class="printer-status-card fade-up">
-      <div class="printer-status-info">
-        <span class="printer-status-dot {{ 'online' if impressora['online'] }}"></span>
-        <div>
-          <div class="printer-status-label">{{ 'Você está ONLINE' if impressora['online'] else 'Você está OFFLINE' }}</div>
-          <div class="printer-status-sub">
-            {{ 'Recebendo pedidos da sua região' if impressora['online'] else 'Fique online pra começar a receber pedidos' }}
+    <div class="dash-stats fade-up">
+      <div class="dash-stat"><div class="dash-stat-top"><span class="dash-stat-label">Ganho confirmado</span><span class="dash-stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 7h16v12H4z"/><path d="M8 7V5h8v2m-4 4v4m-2-2h4"/></svg></span></div><strong>R$ {{ "%.2f"|format(ganho_acumulado)|replace('.', ',') }}</strong><small>líquido dos pedidos com pagamento confirmado</small></div>
+      <div class="dash-stat {{ 'attention' if ns.action else '' }}"><div class="dash-stat-top"><span class="dash-stat-label">Pedem sua ação</span><span class="dash-stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 3v9l4 2"/><circle cx="12" cy="12" r="9"/></svg></span></div><strong>{{ ns.action }}</strong><small>análise, resposta ou início</small></div>
+      <div class="dash-stat"><div class="dash-stat-top"><span class="dash-stat-label">Em produção</span><span class="dash-stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="m12 2 8 4.5v9L12 20l-8-4.5v-9z"/><path d="m4 6.5 8 4.5 8-4.5M12 11v9"/></svg></span></div><strong>{{ ns.production }}</strong><small>trabalhos sendo produzidos</small></div>
+      <div class="dash-stat {{ 'attention' if ns.unread else '' }}"><div class="dash-stat-top"><span class="dash-stat-label">Mensagens novas</span><span class="dash-stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/></svg></span></div><strong>{{ ns.unread }}</strong><small>aguardando leitura</small></div>
+    </div>
+
+    {% if impressora['online'] %}<div class="partner-queue-note fade-up"><strong>{{ 'Nova solicitação disponível.' if oferta and oferta_pedido else 'Você está na fila da Rede Voxxel.' }}</strong> {{ 'Use o card de chamada para aceitar ou recusar a análise.' if oferta and oferta_pedido else 'Quando surgir um projeto compatível com seus materiais e localização, a chamada aparece automaticamente no site.' }}</div>{% endif %}
+
+    <section class="dash-section" id="fila">
+      <div class="dash-section-head"><div><h2>Fila de trabalho</h2><p>Priorize pedidos que estão aguardando uma ação sua.</p></div><span class="dash-count">{{ pedidos|length }} {{ 'TRABALHO' if pedidos|length==1 else 'TRABALHOS' }}</span></div>
+      {% if pedidos %}<div class="order-feed partner-worklist fade-up">
+        {% for p in pedidos %}
+        {% set fs=p['fluxo_status'] or 'recebido' %}{% set priority=fs in ('recebido','em_analise','cliente_respondeu','producao_autorizada') %}
+        {% if fs=='concluido' or p['status']=='concluido' %}{% set pos=5 %}{% elif fs=='pronto' %}{% set pos=4 %}{% elif fs in ('em_producao','producao_autorizada') %}{% set pos=4 %}{% elif fs in ('aguardando_aprovacao','precisa_info','cliente_respondeu','em_analise','recebido') %}{% set pos=3 %}{% else %}{% set pos=2 %}{% endif %}
+        <article class="order-feed-card {{ 'priority' if priority }}">
+          <div class="order-feed-main">
+            <div class="order-feed-header"><div><div class="order-feed-kicker">{{ 'Projeto personalizado' if p['tipo']=='orcamento' else 'Pedido de catálogo' }} · #{{ p['id'] }}</div><h3 class="order-feed-title">{{ p['descricao_projeto'] or p['detalhes'] }}</h3><div class="order-feed-meta"><span>{{ p['criado_em'] }}</span>{% if p['material_requisito'] %}<span>·</span><span>{{ p['material_requisito']|upper|replace(',', ' + ') }}</span>{% endif %}<span>·</span><span class="stage-pill {{ 'success' if fs in ('pronto','concluido') else ('warning' if fs in ('precisa_info','aguardando_aprovacao') else '') }}">{{ fluxo_labels.get(fs, fs)|replace('_',' ') }}</span></div></div><div class="partner-earning"><strong>R$ {{ "%.2f"|format(p['valor_estimado']-(p['comissao_voxxel'] or 0))|replace('.', ',') }}</strong><span>seu líquido estimado · pedido R$ {{ "%.2f"|format(p['valor_estimado'])|replace('.', ',') }}</span></div></div>
+            <div class="order-track"><div class="track-step done"><div class="track-dot">1</div><div class="track-copy"><strong>Atribuído</strong><span>Você aceitou a análise</span></div></div><div class="track-step {{ 'done' if pos>2 else 'current' }}"><div class="track-dot">2</div><div class="track-copy"><strong>Análise</strong><span>Referências e dúvidas</span></div></div><div class="track-step {{ 'done' if pos>3 else ('current' if pos==3 else '') }}"><div class="track-dot">3</div><div class="track-copy"><strong>Aprovação</strong><span>Alinhar com o cliente</span></div></div><div class="track-step {{ 'done' if pos>4 else ('current' if pos==4 else '') }}"><div class="track-dot">4</div><div class="track-copy"><strong>Produção</strong><span>Após liberação</span></div></div><div class="track-step {{ 'done' if pos>=5 else '' }}"><div class="track-dot">5</div><div class="track-copy"><strong>Concluído</strong><span>Trabalho finalizado</span></div></div></div>
           </div>
-        </div>
-      </div>
-      {% if impressora['ativo'] %}
-      <form method="post" action="{{ url_for('impressora_status') }}" id="form-status">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <input type="hidden" name="online" id="status-online-input" value="{{ '0' if impressora['online'] else '1' }}">
-        <input type="hidden" name="latitude" id="status-lat-input">
-        <input type="hidden" name="longitude" id="status-lng-input">
-        <button type="submit" class="{{ 'btn-danger' if impressora['online'] else 'btn btn-primary' }}" id="btn-toggle-status">
-          {{ 'Ficar offline' if impressora['online'] else 'Ficar online' }}
-        </button>
-      </form>
-      {% endif %}
-    </div>
-
-    {% if impressora['online'] %}
-    <div class="empty-state fade-up" id="aguardando-oferta">
-      {{ 'Uma nova solicitação está disponível. Responda pelo card da Rede Voxxel.' if oferta and oferta_pedido else 'Você está online e aguardando uma solicitação compatível...' }}
-    </div>
-    {% endif %}
-
-    <div class="section-head" style="text-align:left; align-items:flex-start; margin:var(--space-3) 0 16px;">
-      <h2 style="font-size:1.15rem;">Pedidos atribuídos a você</h2>
-    </div>
-
-    {% if pedidos %}
-    <div class="order-list">
-      {% for p in pedidos %}
-      <div class="order-card">
-        <div class="order-card-main">
-          <div class="order-card-id">Pedido #{{ p['id'] }} · {{ p['criado_em'] }}</div>
-          <div class="order-card-tipo">{{ 'Loja' if p['tipo'] == 'loja' else 'Orçamento' }}</div>
-          <div class="order-card-detalhes">{{ p['detalhes'] }}</div>
-        </div>
-        <div class="order-card-side">
-          <div class="order-card-valor">R$ {{ "%.2f"|format(p['valor_estimado'] - (p['comissao_voxxel'] or 0))|replace('.', ',') }}</div>
-          {% if p['comissao_voxxel'] %}
-          <div class="order-card-impressora">pedido de R$ {{ "%.2f"|format(p['valor_estimado'])|replace('.', ',') }} · comissão Voxxel R$ {{ "%.2f"|format(p['comissao_voxxel'])|replace('.', ',') }}</div>
-          {% endif %}
-          <span class="badge badge-{{ p['status'] }}">{{ p['fluxo_status'] or p['status'] }}</span>
-          <a class="btn btn-outline" href="{{ url_for('pedido_projeto', pedido_id=p['id']) }}">Abrir projeto{% if p['mensagens_nao_lidas'] %} <span class="unread-dot">{{ p['mensagens_nao_lidas'] }}</span>{% endif %}</a>
-        </div>
-      </div>
-      {% endfor %}
-    </div>
-    {% else %}
-    <div class="empty-state">Nenhum pedido atribuído a você ainda.</div>
-    {% endif %}
+          <div class="order-feed-footer"><div class="order-next"><span class="order-next-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M5 12h14m-5-5 5 5-5 5"/></svg></span><span>{% if fs in ('recebido','em_analise') %}<strong>Revise o briefing e as referências.</strong> Tire dúvidas antes de enviar para aprovação.{% elif fs=='cliente_respondeu' %}<strong>O cliente respondeu.</strong> Revise a conversa e prossiga com a análise.{% elif fs=='precisa_info' %}<strong>Aguardando o cliente.</strong> Você já solicitou mais informações.{% elif fs=='aguardando_aprovacao' %}<strong>Aguardando aprovação do cliente.</strong> Nenhuma produção deve começar ainda.{% elif fs=='producao_autorizada' %}<strong>Projeto autorizado.</strong> {{ 'Pagamento confirmado; você pode iniciar.' if p['status_pagamento']=='confirmado' else ('Pagamento informado; aguarde a conferência da Voxxel.' if p['status_pagamento']=='informado' else 'Aguarde a confirmação de pagamento.') }}{% elif fs=='em_producao' %}<strong>Produção em andamento.</strong> Marque como pronto ao finalizar.{% elif fs=='pronto' %}<strong>Peça marcada como pronta.</strong> Finalize quando o processo estiver concluído.{% else %}<strong>Trabalho concluído.</strong> Mantido no histórico da rede.{% endif %}</span></div><div class="order-feed-actions"><a class="btn {{ 'btn-primary' if priority else 'btn-outline' }}" href="{{ url_for('pedido_projeto', pedido_id=p['id']) }}">{{ 'Abrir e agir' if priority else 'Abrir projeto' }}{% if p['mensagens_nao_lidas'] %} <span class="unread-dot">{{ p['mensagens_nao_lidas'] }}</span>{% endif %}</a></div></div>
+        </article>{% endfor %}
+      </div>{% else %}<div class="dash-empty"><strong>Sua fila está livre.</strong><p>Quando você estiver online e surgir uma solicitação compatível, a Voxxel mostrará uma chamada em qualquer página do site.</p></div>{% endif %}
+    </section>
   </div>
 </section>
-
 {% endblock %}
-
 {% block scripts %}
 <script>
-  const CSRF_TOKEN = "{{ csrf_token() }}";
-  const estaOnline = {{ 'true' if impressora['online'] else 'false' }};
-
-  const formStatus = document.getElementById('form-status');
-  const btnToggle = document.getElementById('btn-toggle-status');
-  const latInput = document.getElementById('status-lat-input');
-  const lngInput = document.getElementById('status-lng-input');
-  const onlineInput = document.getElementById('status-online-input');
-
-  if (formStatus) {
-    formStatus.addEventListener('submit', function (e) {
-      // Só precisa da localização pra ENTRAR online (pra sair, não precisa).
-      if (onlineInput.value !== '1') return;
-
-      e.preventDefault();
-      if (!navigator.geolocation) {
-        alert('Seu navegador não suporta geolocalização -- não dá pra ficar online sem ela.');
-        return;
-      }
-      btnToggle.disabled = true;
-      btnToggle.textContent = 'Obtendo localização...';
-      navigator.geolocation.getCurrentPosition(
-        pos => {
-          latInput.value = pos.coords.latitude;
-          lngInput.value = pos.coords.longitude;
-          formStatus.submit();
-        },
-        () => {
-          alert('Não conseguimos acessar sua localização. Permita o acesso pelo navegador e tente de novo.');
-          btnToggle.disabled = false;
-          btnToggle.textContent = 'Ficar online';
-        },
-        { timeout: 8000, enableHighAccuracy: true }
-      );
-    });
-  }
-
-  // Enquanto online, reenvia a localização periodicamente -- assim a fila
-  // de despacho sempre calcula a distância com a posição mais recente.
-  if (estaOnline && navigator.geolocation) {
-    setInterval(() => {
-      navigator.geolocation.getCurrentPosition(pos => {
-        fetch("{{ url_for('impressora_localizacao') }}", {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: new URLSearchParams({
-            csrf_token: CSRF_TOKEN,
-            latitude: pos.coords.latitude,
-            longitude: pos.coords.longitude,
-          }),
-        }).catch(() => {});
-      });
-    }, 60000);
-  }
-
+const CSRF_TOKEN={{ csrf_token()|tojson }};const estaOnline={{ 'true' if impressora['online'] else 'false' }};const formStatus=document.getElementById('form-status');const btnToggle=document.getElementById('btn-toggle-status');const latInput=document.getElementById('status-lat-input');const lngInput=document.getElementById('status-lng-input');const onlineInput=document.getElementById('status-online-input');if(formStatus){formStatus.addEventListener('submit',function(e){if(onlineInput.value!=='1')return;e.preventDefault();if(!navigator.geolocation){alert('Seu navegador não suporta geolocalização.');return}btnToggle.disabled=true;btnToggle.textContent='Obtendo localização...';navigator.geolocation.getCurrentPosition(pos=>{latInput.value=pos.coords.latitude;lngInput.value=pos.coords.longitude;formStatus.submit()},()=>{alert('Não conseguimos acessar sua localização. Permita o acesso pelo navegador e tente novamente.');btnToggle.disabled=false;btnToggle.textContent='Ficar online'},{timeout:8000,enableHighAccuracy:true})})}if(estaOnline&&navigator.geolocation){setInterval(()=>{navigator.geolocation.getCurrentPosition(pos=>{fetch({{ url_for('impressora_localizacao')|tojson }},{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({csrf_token:CSRF_TOKEN,latitude:pos.coords.latitude,longitude:pos.coords.longitude})}).catch(()=>{})})},60000)}
 </script>
 {% endblock %}

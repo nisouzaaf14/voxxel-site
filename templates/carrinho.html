@@ -1,34 +1,85 @@
 {% extends "base.html" %}
 {% block title %}Carrinho — Voxxel{% endblock %}
+{% block body_class %}commerce-v8 cart-page-v8{% endblock %}
 {% block content %}
-<section class="customer-section"><div class="wrap cart-page">
-  <nav class="purchase-steps" aria-label="Etapas da compra"><strong aria-current="step">1. Carrinho</strong><span>2. Seus dados</span><span>3. Pedido</span></nav>
-  <div class="section-head"><h1>Seu carrinho</h1><p>Confira as peças e ajuste as quantidades antes de continuar.</p></div>
-  {% if itens %}
-  {% for i in itens %}
-  <article class="cart-row customer-cart-row">
-    <div class="cart-product-info">
-      <a class="cart-row-name" href="{{ url_for('produto_detalhe', produto_id=i.produto['id']) }}">{{ i.produto['nome'] }}</a>
-      <p class="cart-row-meta">R$ {{ '%.2f'|format(i.produto['preco'])|replace('.', ',') }} por unidade</p>
-      <p class="helper-text">{{ 'Disponibilidade e prazo a confirmar' if i.produto['estoque'] is none else 'Disponível em estoque' }}</p>
-      <form class="cart-quantity-form" method="post" action="{{ url_for('carrinho_atualizar', produto_id=i.produto['id']) }}">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <label for="qtd-{{ i.produto['id'] }}">Quantidade</label>
-        <input id="qtd-{{ i.produto['id'] }}" name="quantidade" type="number" min="1" max="{{ [i.produto['estoque'], 999]|min if i.produto['estoque'] is not none else 999 }}" value="{{ i.qtd }}" required>
-        <button class="btn btn-ghost" type="submit">Atualizar</button>
-      </form>
+<section class="commerce-shell-v8">
+  <div class="wrap">
+    <nav class="commerce-steps-v8" aria-label="Etapas da compra">
+      <strong class="is-active" aria-current="step"><span class="step-no">01</span>Carrinho</strong>
+      <span><span class="step-no">02</span>Seus dados</span>
+      <span><span class="step-no">03</span>Pedido</span>
+    </nav>
+
+    <div class="cart-v8-head fade-up">
+      <div>
+        <p class="commerce-kicker-v8">SEU PEDIDO</p>
+        <h1 class="commerce-title-v8">Revise antes de continuar.</h1>
+        <p class="commerce-lead-v8">Ajuste quantidades e confira os itens. Estoque, prazo e recebimento ainda podem exigir confirmação antes da produção ou separação.</p>
+      </div>
+      {% if itens %}<span class="cart-v8-count">{{ itens|length }} {{ 'item' if itens|length == 1 else 'itens' }} no carrinho</span>{% endif %}
     </div>
-    <div class="cart-item-actions"><strong>R$ {{ '%.2f'|format(i.subtotal)|replace('.', ',') }}</strong>
-      <form method="post" action="{{ url_for('carrinho_remover', produto_id=i.produto['id']) }}">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn-danger" type="submit" aria-label="Remover {{ i.produto['nome'] }}">Remover</button>
-      </form>
+
+    {% if itens %}
+    <div class="cart-layout-v8">
+      <div class="commerce-panel-v8 cart-list-v8 fade-up">
+        {% for i in itens %}
+        <article class="cart-item-v8">
+          <a class="cart-thumb-v8" href="{{ url_for('produto_detalhe', produto_id=i.produto['id']) }}" aria-label="Ver {{ i.produto['nome'] }}">
+            {% if i.produto['tem_imagem'] %}
+              <img src="{{ url_for('produto_imagem', produto_id=i.produto['id']) }}" alt="{{ i.produto['nome'] }}">
+            {% else %}
+              <img class="mark" src="{{ url_for('static', filename='images/voxxel-mark.png') }}" alt="">
+            {% endif %}
+          </a>
+          <div>
+            <h2><a href="{{ url_for('produto_detalhe', produto_id=i.produto['id']) }}">{{ i.produto['nome'] }}</a></h2>
+            <div class="cart-meta-v8">
+              <span>{{ categorias[i.produto['categoria']] }}</span>
+              <span>R$ {{ '%.2f'|format(i.produto['preco'])|replace('.', ',') }} / un.</span>
+              <span>{{ 'Disponibilidade a confirmar' if i.produto['estoque'] is none else 'Disponível' }}</span>
+            </div>
+            <form class="cart-controls-v8" method="post" action="{{ url_for('carrinho_atualizar', produto_id=i.produto['id']) }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <label for="qtd-{{ i.produto['id'] }}">Qtd.</label>
+              <input id="qtd-{{ i.produto['id'] }}" name="quantidade" type="number" min="1" max="{{ [i.produto['estoque'], 999]|min if i.produto['estoque'] is not none else 999 }}" value="{{ i.qtd }}" required>
+              <button class="btn btn-ghost" type="submit">Atualizar</button>
+            </form>
+          </div>
+          <div class="cart-price-v8">
+            <small>Subtotal</small>
+            <strong>R$ {{ '%.2f'|format(i.subtotal)|replace('.', ',') }}</strong>
+            <form method="post" action="{{ url_for('carrinho_remover', produto_id=i.produto['id']) }}" style="margin-top:10px;">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button class="cart-remove-v8" type="submit" aria-label="Remover {{ i.produto['nome'] }}">Remover item</button>
+            </form>
+          </div>
+        </article>
+        {% endfor %}
+      </div>
+
+      <aside class="commerce-panel-v8 cart-summary-v8 fade-up">
+        <p class="commerce-kicker-v8">RESUMO</p>
+        <h2>Seu carrinho</h2>
+        <div class="cart-summary-line-v8"><span>Itens</span><strong>{{ itens|sum(attribute='qtd') }}</strong></div>
+        <div class="cart-summary-line-v8"><span>Frete</span><strong>A confirmar</strong></div>
+        <div class="cart-summary-total-v8"><span>Subtotal</span><strong>R$ {{ '%.2f'|format(total)|replace('.', ',') }}</strong></div>
+        <div class="commerce-note-v8"><i>i</i><span>Os itens ainda não estão reservados. Entrega ou retirada e prazo são definidos na próxima etapa quando necessário.</span></div>
+        <a class="btn btn-primary" href="{{ url_for('checkout') }}" style="margin-top:16px;">Continuar pedido</a>
+        <a class="continue-link-v8" href="{{ url_for('loja') }}">Continuar explorando o catálogo</a>
+        {% if not session.get('cliente_id') %}<p style="margin:15px 0 0;color:#746e7a;font-size:.62rem;line-height:1.55;text-align:center;">Você poderá entrar ou criar uma conta sem perder este carrinho.</p>{% endif %}
+      </aside>
     </div>
-  </article>
-  {% endfor %}
-  <div class="cart-summary"><span>Subtotal das peças</span><strong class="cart-total-value">R$ {{ '%.2f'|format(total)|replace('.', ',') }}</strong></div>
-  <div class="customer-note">Frete não incluído. Confirme entrega ou retirada e o prazo com a Voxxel. Os itens no carrinho ainda não estão reservados.</div>
-  <div class="customer-actions"><a class="btn btn-primary" href="{{ url_for('checkout') }}">Continuar pedido</a><a class="btn btn-outline" href="{{ url_for('loja') }}">Continuar comprando</a></div>
-  {% if not session.get('cliente_id') %}<p class="helper-text">Na próxima etapa, entre ou crie sua conta para acompanhar o pedido. Seu carrinho será mantido.</p>{% endif %}
-  {% else %}<div class="empty-state"><h2>Seu carrinho está vazio</h2><p>Escolha uma peça no catálogo para começar.</p><a class="btn btn-primary" href="{{ url_for('loja') }}">Explorar catálogo</a></div>{% endif %}
-</div></section>
+    {% else %}
+    <div class="commerce-panel-v8 cart-empty-v8 fade-up">
+      <img src="{{ url_for('static', filename='images/voxxel-mark.png') }}" alt="">
+      <h2>Seu carrinho está vazio</h2>
+      <p>Explore o catálogo ou envie um projeto personalizado para começar.</p>
+      <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
+        <a class="btn btn-primary" href="{{ url_for('loja') }}">Explorar catálogo</a>
+        <a class="btn btn-outline" href="{{ url_for('orcamento') }}">Enviar projeto</a>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</section>
 {% endblock %}
