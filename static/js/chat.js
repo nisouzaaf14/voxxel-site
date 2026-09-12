@@ -13,7 +13,7 @@ const WEBHOOK_URL = "COLE_AQUI_A_URL_DO_SEU_WEBHOOK_N8N";
     if (window.VOXXEL_WHATSAPP) {
       const link = document.createElement('a');
       link.className = 'btn btn-primary whatsapp-fallback';
-      link.textContent = 'Falar no WhatsApp';
+      link.innerHTML = '<img class="whatsapp-brand-mark" src="/static/images/voxxel-whatsapp.png" alt=""><span>Falar no WhatsApp</span>';
       link.target = '_blank'; link.rel = 'noopener';
       link.href = 'https://wa.me/' + window.VOXXEL_WHATSAPP + '?text=' + encodeURIComponent(window.VOXXEL_CHAT_AUTO_MESSAGE || 'Olá! Preciso de ajuda com uma peça da Voxxel.');
       document.body.appendChild(link);
@@ -33,7 +33,7 @@ const WEBHOOK_URL = "COLE_AQUI_A_URL_DO_SEU_WEBHOOK_N8N";
       transition: transform .2s var(--ease, ease);
     }
     #voxxel-chat-bubble:hover { transform: scale(1.06); }
-    #voxxel-chat-bubble svg { width: 26px; height: 26px; stroke: #fff; }
+    #voxxel-chat-bubble img { width: 38px; height: 38px; display:block; }
 
     #voxxel-chat-panel {
       position: fixed; bottom: 92px; right: 22px; z-index: 999;
@@ -98,15 +98,13 @@ const WEBHOOK_URL = "COLE_AQUI_A_URL_DO_SEU_WEBHOOK_N8N";
   // ---------- HTML do widget ----------
   const wrapper = document.createElement("div");
   wrapper.innerHTML = `
-    <button id="voxxel-chat-bubble" aria-label="Abrir chat">
-      <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
-      </svg>
+    <button id="voxxel-chat-bubble" aria-label="Abrir atendimento Voxxel">
+      <img src="/static/images/voxxel-whatsapp.png" alt="">
     </button>
 
     <div id="voxxel-chat-panel">
       <div id="voxxel-chat-header">
-        <span>Fale com a Voxxel</span>
+        <span style="display:flex;align-items:center;gap:9px"><img src="/static/images/voxxel-mark.png" alt="" style="width:25px;height:25px">Fale com a Voxxel</span>
         <button id="voxxel-chat-close" aria-label="Fechar chat">✕</button>
       </div>
       <div id="voxxel-chat-messages"></div>

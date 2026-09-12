@@ -106,6 +106,8 @@ header{
 .nav{ display:flex; align-items:center; justify-content:space-between; padding:16px var(--space-2); max-width:1180px; margin:0 auto; }
 .logo{ display:flex; align-items:center; gap:10px; font-family:'Orbitron',sans-serif; font-weight:800; font-size:1.2rem; letter-spacing:.02em; }
 .logo .mark{ width:26px; height:26px; background:conic-gradient(from 210deg, var(--violet), var(--gold), var(--violet)); clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%); }
+.logo .brand-mark{ width:30px; height:30px; display:block; flex:0 0 auto; }
+.logo .brand-lockup{ display:block; width:150px; height:auto; flex:0 0 auto; object-fit:contain; }
 .logo .wordmark{ letter-spacing:.02em; }
 .logo .gold{ background:linear-gradient(90deg, var(--gold-soft), var(--gold)); -webkit-background-clip:text; background-clip:text; color:transparent; }
 
@@ -407,6 +409,8 @@ select:focus, input:focus, textarea:focus{ border-color:var(--violet); }
   display:flex; flex-direction:column; gap:26px; padding:26px 18px;
 }
 .admin-sidebar .logo{ padding:0 6px; }
+.admin-sidebar .brand-lockup{width:148px;}
+.admin-login-card .brand-lockup{width:180px;max-width:78vw;}
 .admin-sidebar-label{
   font-family:'Space Mono',monospace; font-size:.66rem; letter-spacing:.18em; text-transform:uppercase;
   color:var(--muted-2); padding:0 6px;
@@ -657,3 +661,4 @@ footer .logo{ justify-content:center; margin-bottom:14px; }
 :focus-visible{outline:2px solid var(--gold-soft);outline-offset:4px}
 .whatsapp-fallback{position:fixed;bottom:20px;right:20px;z-index:999;box-shadow:0 4px 24px #0008}
 @media(max-width:540px){.customer-cart-row{align-items:flex-start;flex-direction:column}.cart-item-actions{width:100%;flex-direction:row;align-items:center;justify-content:space-between}.customer-actions .btn{width:100%}.purchase-steps{gap:12px;font-size:.875rem}.checkout-item{font-size:.875rem}.calc-result .result-price{font-size:2rem}.whatsapp-fallback{bottom:12px;right:12px}.cart-page{padding-bottom:50px}}
+.unread-dot{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:#8d52ff;color:#fff;font:700 .66rem/1 'Space Mono',monospace;margin-left:4px}
