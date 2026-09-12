@@ -7,8 +7,9 @@
 <title>{% block title %}Voxxel — Manufatura Aditiva de Precisão{% endblock %}</title>
 <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/visual.css') }}">
+{% block extra_styles %}{% endblock %}
 </head>
-<body>
+<body class="{% block body_class %}{% endblock %}">
 
 <header>
   <div class="nav">
