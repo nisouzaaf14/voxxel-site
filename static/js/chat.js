@@ -12,8 +12,10 @@ const WEBHOOK_URL = "COLE_AQUI_A_URL_DO_SEU_WEBHOOK_N8N";
   if (!WEBHOOK_URL || WEBHOOK_URL.includes("COLE_AQUI")) {
     if (window.VOXXEL_WHATSAPP) {
       const link = document.createElement('a');
-      link.className = 'btn btn-primary whatsapp-fallback';
-      link.innerHTML = '<img class="whatsapp-brand-mark" src="/static/images/voxxel-whatsapp.png" alt=""><span>Falar no WhatsApp</span>';
+      link.className = 'whatsapp-fallback';
+      link.setAttribute('aria-label', 'Atendimento Voxxel pelo WhatsApp');
+      link.title = 'Atendimento Voxxel';
+      link.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13v-2a8 8 0 0 1 16 0v2"/><path d="M5 12H3.8A1.8 1.8 0 0 0 2 13.8v2.4A1.8 1.8 0 0 0 3.8 18H6v-6H5Zm14 0h1.2a1.8 1.8 0 0 1 1.8 1.8v2.4a1.8 1.8 0 0 1-1.8 1.8H18v-6h1Z"/><path d="M18 18c-.7 2-2.4 3-5 3h-1"/></svg><span>Atendimento</span>';
       link.target = '_blank'; link.rel = 'noopener';
       link.href = 'https://wa.me/' + window.VOXXEL_WHATSAPP + '?text=' + encodeURIComponent(window.VOXXEL_CHAT_AUTO_MESSAGE || 'Olá! Preciso de ajuda com uma peça da Voxxel.');
       document.body.appendChild(link);
@@ -33,7 +35,7 @@ const WEBHOOK_URL = "COLE_AQUI_A_URL_DO_SEU_WEBHOOK_N8N";
       transition: transform .2s var(--ease, ease);
     }
     #voxxel-chat-bubble:hover { transform: scale(1.06); }
-    #voxxel-chat-bubble img { width: 38px; height: 38px; display:block; }
+    #voxxel-chat-bubble svg { width: 25px; height: 25px; stroke:#fff; fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
 
     #voxxel-chat-panel {
       position: fixed; bottom: 92px; right: 22px; z-index: 999;
@@ -99,13 +101,13 @@ const WEBHOOK_URL = "COLE_AQUI_A_URL_DO_SEU_WEBHOOK_N8N";
   const wrapper = document.createElement("div");
   wrapper.innerHTML = `
     <button id="voxxel-chat-bubble" aria-label="Abrir atendimento Voxxel">
-      <img src="/static/images/voxxel-whatsapp.png" alt="">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13v-2a8 8 0 0 1 16 0v2"/><path d="M5 12H3.8A1.8 1.8 0 0 0 2 13.8v2.4A1.8 1.8 0 0 0 3.8 18H6v-6H5Zm14 0h1.2a1.8 1.8 0 0 1 1.8 1.8v2.4a1.8 1.8 0 0 1-1.8 1.8H18v-6h1Z"/><path d="M18 18c-.7 2-2.4 3-5 3h-1"/></svg>
     </button>
 
     <div id="voxxel-chat-panel">
       <div id="voxxel-chat-header">
         <span style="display:flex;align-items:center;gap:9px"><img src="/static/images/voxxel-mark.png" alt="" style="width:25px;height:25px">Fale com a Voxxel</span>
-        <button id="voxxel-chat-close" aria-label="Fechar chat">✕</button>
+        <button id="voxxel-chat-close" aria-label="Fechar chat"><svg viewBox="0 0 24 24" aria-hidden="true" style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
       </div>
       <div id="voxxel-chat-messages"></div>
       <form id="voxxel-chat-form">
@@ -141,7 +143,7 @@ const WEBHOOK_URL = "COLE_AQUI_A_URL_DO_SEU_WEBHOOK_N8N";
     aberto = forceOpen !== undefined ? forceOpen : !aberto;
     panel.classList.toggle("open", aberto);
     if (aberto && messagesEl.children.length === 0) {
-      addMessage("Oi! Sou a assistente da Voxxel 🙂 Como posso ajudar?", "bot");
+      addMessage("Oi! Sou a assistente da Voxxel. Como posso ajudar?", "bot");
     }
     if (aberto) input.focus();
   }

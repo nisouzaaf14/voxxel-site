@@ -140,9 +140,6 @@ header{
 }
 
 /* --- acesso discreto ao painel (só desktop; no mobile já está no menu) --- */
-.admin-discreet{ opacity:.4; border-color:transparent; }
-.admin-discreet:hover{ opacity:1; border-color:var(--line); }
-@media(max-width:760px){ .admin-discreet{ display:none; } }
 
 /* --- menu mobile --- */
 .menu-toggle{
@@ -662,3 +659,11 @@ footer .logo{ justify-content:center; margin-bottom:14px; }
 .whatsapp-fallback{position:fixed;bottom:20px;right:20px;z-index:999;box-shadow:0 4px 24px #0008}
 @media(max-width:540px){.customer-cart-row{align-items:flex-start;flex-direction:column}.cart-item-actions{width:100%;flex-direction:row;align-items:center;justify-content:space-between}.customer-actions .btn{width:100%}.purchase-steps{gap:12px;font-size:.875rem}.checkout-item{font-size:.875rem}.calc-result .result-price{font-size:2rem}.whatsapp-fallback{bottom:12px;right:12px}.cart-page{padding-bottom:50px}}
 .unread-dot{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:#8d52ff;color:#fff;font:700 .66rem/1 'Space Mono',monospace;margin-left:4px}
+
+/* Auditoria V11 — acessibilidade e formulários operacionais */
+.skip-link{position:fixed;left:16px;top:12px;z-index:5000;transform:translateY(-160%);background:#fff;color:#111;padding:10px 14px;border-radius:10px;font-weight:700;transition:transform .18s ease}.skip-link:focus{transform:none}.project-approval-form{display:grid;gap:12px}.project-final-price{display:grid;gap:7px;color:var(--muted);font-size:.8rem}.project-final-price>span:first-child{color:var(--text);font-weight:700}.project-money-input{display:flex;align-items:center;border:1px solid var(--line);background:var(--panel-2);border-radius:12px;overflow:hidden}.project-money-input b{padding:0 12px;color:var(--muted);font-size:.8rem}.project-money-input input{border:0!important;border-left:1px solid var(--line)!important;border-radius:0!important;margin:0!important}.project-final-price small{line-height:1.45;color:var(--muted)}
+
+.nav-logout-form,.inline-logout-form,.admin-logout-form{margin:0}.nav-logout-form button,.inline-logout-form button,.admin-logout-form button{font:inherit}.nav-logout-form button{display:block;width:100%;text-align:left;background:none;border:0;color:inherit;padding:10px 0;cursor:pointer}.inline-logout-form{display:inline-flex}.inline-logout-form .dash-link{background:none;border:0;padding:0;cursor:pointer}.admin-logout-form button{width:100%;background:none;border:0;text-align:left;cursor:pointer}
+
+/* Página de erro — mantém falhas 403/404/500 dentro da identidade Voxxel. */
+.error-page{min-height:62vh;display:grid;place-items:center;padding:clamp(72px,10vw,130px) 0}.error-page-inner{max-width:760px;text-align:center}.error-page h1{font-family:var(--font-display,Sora,sans-serif);font-size:clamp(2.2rem,6vw,4.6rem);line-height:1.02;margin:.7rem 0 1rem}.error-page p{max-width:620px;margin:0 auto;color:var(--muted);font-size:1.05rem;line-height:1.7}.error-actions{display:flex;justify-content:center;gap:12px;flex-wrap:wrap;margin-top:28px}
