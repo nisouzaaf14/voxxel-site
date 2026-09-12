@@ -78,6 +78,18 @@ CONFIG_PADRAO = {
     # que a própria Voxxel produz (sem impressora parceira) não têm
     # comissão, é 100% dela mesma.
     "comissao_percentual": "15",
+    # Precificação do orçamento personalizado. Estes valores são bases
+    # editáveis pelo admin e alimentam tanto o cálculo do servidor quanto
+    # o preview no navegador.
+    "custo_kg_pla": "95",
+    "custo_kg_petg": "110",
+    "custo_kg_abs": "105",
+    "custo_kg_resina": "150",
+    "preco_hora_fdm": "4.50",
+    "preco_hora_resina": "7.00",
+    "reserva_falha_percentual": "10",
+    "margem_impressor_percentual": "30",
+    "pedido_minimo": "18.90",
 }
 
 PRODUTOS_SEED = [
@@ -242,6 +254,15 @@ def _criar_tabelas(conn, is_new_sqlite):
         conn.execute("ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS cliente_lat REAL")
         conn.execute("ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS cliente_lng REAL")
         conn.execute("ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS distribuicao_status TEXT DEFAULT 'nao_aplicavel'")
+        conn.execute("ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS material_requisito TEXT")
+        conn.execute("ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS fluxo_status TEXT DEFAULT 'recebido'")
+        conn.execute("ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS descricao_projeto TEXT DEFAULT ''")
+        conn.execute("ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS requisitos_projeto TEXT DEFAULT ''")
+        conn.execute("ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS uso_projeto TEXT DEFAULT ''")
+        conn.execute("ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS alteracoes_projeto TEXT DEFAULT ''")
+        conn.execute("ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS referencia_status TEXT DEFAULT 'nao_aplicavel'")
+        conn.execute("ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS aprovado_cliente INTEGER DEFAULT 0")
+        conn.execute("ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS producao_autorizada INTEGER DEFAULT 0")
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS configuracoes (
@@ -288,6 +309,8 @@ def _criar_tabelas(conn, is_new_sqlite):
             """
         )
         conn.commit()
+        conn.execute("ALTER TABLE impressoras ADD COLUMN IF NOT EXISTS materiais TEXT DEFAULT 'pla'")
+        conn.commit()
 
         # Histórico de ofertas de cada pedido pra cada impressora -- é
         # essa tabela que guarda quem já recusou o quê, pra fila de
@@ -301,6 +324,38 @@ def _criar_tabelas(conn, is_new_sqlite):
                 status TEXT DEFAULT 'pendente',
                 criado_em TEXT,
                 respondido_em TEXT
+            )
+            """
+        )
+        conn.commit()
+
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS pedido_referencias (
+                id SERIAL PRIMARY KEY,
+                pedido_id INTEGER NOT NULL REFERENCES pedidos(id) ON DELETE CASCADE,
+                tipo TEXT NOT NULL,
+                nome_original TEXT NOT NULL,
+                mimetype TEXT,
+                dados BYTEA NOT NULL,
+                criado_em TEXT DEFAULT to_char(CURRENT_TIMESTAMP, 'YYYY-MM-DD HH24:MI:SS')
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS pedido_mensagens (
+                id SERIAL PRIMARY KEY,
+                pedido_id INTEGER NOT NULL REFERENCES pedidos(id) ON DELETE CASCADE,
+                autor_tipo TEXT NOT NULL,
+                autor_id INTEGER,
+                texto TEXT DEFAULT '',
+                anexo_nome TEXT,
+                anexo_mimetype TEXT,
+                anexo_dados BYTEA,
+                criado_em TEXT DEFAULT to_char(CURRENT_TIMESTAMP, 'YYYY-MM-DD HH24:MI:SS'),
+                lida_cliente INTEGER DEFAULT 0,
+                lida_impressora INTEGER DEFAULT 0
             )
             """
         )
@@ -360,7 +415,16 @@ def _criar_tabelas(conn, is_new_sqlite):
             "ALTER TABLE pedidos ADD COLUMN cliente_lat REAL",
             "ALTER TABLE pedidos ADD COLUMN cliente_lng REAL",
             "ALTER TABLE pedidos ADD COLUMN distribuicao_status TEXT DEFAULT 'nao_aplicavel'",
+            "ALTER TABLE pedidos ADD COLUMN material_requisito TEXT",
             "ALTER TABLE pedidos ADD COLUMN comissao_voxxel REAL",
+            "ALTER TABLE pedidos ADD COLUMN fluxo_status TEXT DEFAULT 'recebido'",
+            "ALTER TABLE pedidos ADD COLUMN descricao_projeto TEXT DEFAULT ''",
+            "ALTER TABLE pedidos ADD COLUMN requisitos_projeto TEXT DEFAULT ''",
+            "ALTER TABLE pedidos ADD COLUMN uso_projeto TEXT DEFAULT ''",
+            "ALTER TABLE pedidos ADD COLUMN alteracoes_projeto TEXT DEFAULT ''",
+            "ALTER TABLE pedidos ADD COLUMN referencia_status TEXT DEFAULT 'nao_aplicavel'",
+            "ALTER TABLE pedidos ADD COLUMN aprovado_cliente INTEGER DEFAULT 0",
+            "ALTER TABLE pedidos ADD COLUMN producao_autorizada INTEGER DEFAULT 0",
         ):
             try:
                 conn.execute(coluna_sql)
@@ -414,6 +478,10 @@ def _criar_tabelas(conn, is_new_sqlite):
             )
             """
         )
+        try:
+            conn.execute("ALTER TABLE impressoras ADD COLUMN materiais TEXT DEFAULT 'pla'")
+        except sqlite3.OperationalError:
+            pass
 
         # Histórico de ofertas de cada pedido pra cada impressora -- é essa
         # tabela que guarda quem já recusou o quê, pra fila de despacho não
@@ -427,6 +495,37 @@ def _criar_tabelas(conn, is_new_sqlite):
                 status TEXT DEFAULT 'pendente',
                 criado_em TEXT,
                 respondido_em TEXT
+            )
+            """
+        )
+        conn.commit()
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS pedido_referencias (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                pedido_id INTEGER NOT NULL REFERENCES pedidos(id) ON DELETE CASCADE,
+                tipo TEXT NOT NULL,
+                nome_original TEXT NOT NULL,
+                mimetype TEXT,
+                dados BLOB NOT NULL,
+                criado_em TEXT DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS pedido_mensagens (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                pedido_id INTEGER NOT NULL REFERENCES pedidos(id) ON DELETE CASCADE,
+                autor_tipo TEXT NOT NULL,
+                autor_id INTEGER,
+                texto TEXT DEFAULT '',
+                anexo_nome TEXT,
+                anexo_mimetype TEXT,
+                anexo_dados BLOB,
+                criado_em TEXT DEFAULT CURRENT_TIMESTAMP,
+                lida_cliente INTEGER DEFAULT 0,
+                lida_impressora INTEGER DEFAULT 0
             )
             """
         )
@@ -452,6 +551,8 @@ def _criar_tabelas(conn, is_new_sqlite):
     conn.execute("CREATE INDEX IF NOT EXISTS idx_pedidos_cliente ON pedidos(cliente_id)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_ofertas_pedido ON ofertas_impressao(pedido_id)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_ofertas_impressora ON ofertas_impressao(impressora_id, status)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_referencias_pedido ON pedido_referencias(pedido_id)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_mensagens_pedido ON pedido_mensagens(pedido_id, id)")
     conn.commit()
 
     # Garante que toda chave de configuração padrão exista (não sobrescreve
@@ -464,7 +565,8 @@ def _criar_tabelas(conn, is_new_sqlite):
 
 
 def criar_pedido(conn, tipo, detalhes, valor_estimado, cliente_nome="", cliente_telefone="",
-                  forma_pagamento="combinar", cliente_id=None, cliente_lat=None, cliente_lng=None):
+                  forma_pagamento="combinar", cliente_id=None, cliente_lat=None, cliente_lng=None,
+                  material_requisito=None):
     """Insere um pedido (venda da loja ou orçamento) e devolve o id gerado,
     já lidando com a diferença de sintaxe entre SQLite e Postgres.
     `cliente_id` liga o pedido à conta logada -- fica None só para pedidos
@@ -474,21 +576,21 @@ def criar_pedido(conn, tipo, detalhes, valor_estimado, cliente_nome="", cliente_
     achar a impressora mais próxima."""
     params = (
         tipo, detalhes, valor_estimado, cliente_nome, cliente_telefone, forma_pagamento,
-        cliente_id, cliente_lat, cliente_lng,
+        cliente_id, cliente_lat, cliente_lng, material_requisito,
     )
     if USING_POSTGRES:
         cur = conn.execute(
             """INSERT INTO pedidos (tipo, detalhes, valor_estimado, cliente_nome, cliente_telefone,
-                                     forma_pagamento, cliente_id, cliente_lat, cliente_lng)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id""",
+                                     forma_pagamento, cliente_id, cliente_lat, cliente_lng, material_requisito)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id""",
             params,
         )
         novo_id = cur.fetchone()["id"]
     else:
         cur = conn.execute(
             """INSERT INTO pedidos (tipo, detalhes, valor_estimado, cliente_nome, cliente_telefone,
-                                     forma_pagamento, cliente_id, cliente_lat, cliente_lng)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                                     forma_pagamento, cliente_id, cliente_lat, cliente_lng, material_requisito)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             params,
         )
         novo_id = cur.lastrowid
@@ -510,22 +612,29 @@ def ler_coordenada_formulario(valor):
 
 # ---------- impressoras parceiras (marketplace) ----------
 
-def criar_impressora(conn, nome, telefone, senha_hash):
+def criar_impressora(conn, nome, telefone, senha_hash, materiais="pla"):
     telefone = normalizar_telefone(telefone)
+    materiais = materiais or "pla"
     if USING_POSTGRES:
         cur = conn.execute(
-            "INSERT INTO impressoras (nome, telefone, senha_hash) VALUES (?, ?, ?) RETURNING id",
-            (nome, telefone, senha_hash),
+            "INSERT INTO impressoras (nome, telefone, senha_hash, materiais) VALUES (?, ?, ?, ?) RETURNING id",
+            (nome, telefone, senha_hash, materiais),
         )
         novo_id = cur.fetchone()["id"]
     else:
         cur = conn.execute(
-            "INSERT INTO impressoras (nome, telefone, senha_hash) VALUES (?, ?, ?)",
-            (nome, telefone, senha_hash),
+            "INSERT INTO impressoras (nome, telefone, senha_hash, materiais) VALUES (?, ?, ?, ?)",
+            (nome, telefone, senha_hash, materiais),
         )
         novo_id = cur.lastrowid
     conn.commit()
     return novo_id
+
+
+def atualizar_materiais_impressora(conn, impressora_id, materiais):
+    """Atualiza a lista CSV de materiais que a parceira realmente consegue produzir."""
+    conn.execute("UPDATE impressoras SET materiais = ? WHERE id = ?", (materiais or "pla", impressora_id))
+    conn.commit()
 
 
 def buscar_impressora_por_telefone(conn, telefone):
@@ -577,7 +686,9 @@ def definir_impressora_ativa(conn, impressora_id, ativo):
 
 def listar_pedidos_da_impressora(conn, impressora_id):
     return conn.execute(
-        "SELECT * FROM pedidos WHERE impressora_id = ? ORDER BY id DESC", (impressora_id,)
+        """SELECT p.*,
+                  (SELECT COUNT(*) FROM pedido_mensagens m WHERE m.pedido_id=p.id AND m.lida_impressora=0 AND m.autor_tipo!='impressora') AS mensagens_nao_lidas
+           FROM pedidos p WHERE p.impressora_id = ? ORDER BY p.id DESC""", (impressora_id,)
     ).fetchall()
 
 
@@ -619,7 +730,13 @@ def buscar_cliente_por_id(conn, cliente_id):
 
 def listar_pedidos_cliente(conn, cliente_id):
     return conn.execute(
-        "SELECT * FROM pedidos WHERE cliente_id = ? ORDER BY id DESC", (cliente_id,)
+        """SELECT p.*, i.nome AS impressora_nome,
+                  (SELECT COUNT(*) FROM pedido_mensagens m WHERE m.pedido_id=p.id AND m.lida_cliente=0 AND m.autor_tipo!='cliente') AS mensagens_nao_lidas
+           FROM pedidos p
+           LEFT JOIN impressoras i ON i.id = p.impressora_id
+           WHERE p.cliente_id = ?
+           ORDER BY p.id DESC""",
+        (cliente_id,),
     ).fetchall()
 
 

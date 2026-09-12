@@ -80,9 +80,9 @@ def despachar_pedido(conn, pedido_id):
 
 
 def _candidatos_disponiveis(conn, pedido_id, cliente_lat, cliente_lng):
-    """Impressoras online, ativas, com localização conhecida, que ainda não
-    recusaram (nem tiveram oferta expirada) esse pedido -- ordenadas da
-    mais perto pra mais longe do cliente."""
+    """Impressoras online, ativas, com localização conhecida e compatíveis
+    com o material exigido pelo pedido. Dentro desse conjunto, remove quem
+    já recusou/expirou e ordena por proximidade do cliente."""
     ja_ofertadas = {
         row["impressora_id"]
         for row in conn.execute(
@@ -90,13 +90,21 @@ def _candidatos_disponiveis(conn, pedido_id, cliente_lat, cliente_lng):
             (pedido_id,),
         ).fetchall()
     }
+    pedido = conn.execute(
+        "SELECT material_requisito FROM pedidos WHERE id = ?", (pedido_id,)
+    ).fetchone()
+    material_requisito = pedido["material_requisito"] if pedido else None
+
     impressoras = conn.execute(
-        """SELECT id, nome, latitude, longitude FROM impressoras
+        """SELECT id, nome, latitude, longitude, materiais FROM impressoras
            WHERE online = 1 AND ativo = 1 AND latitude IS NOT NULL AND longitude IS NOT NULL"""
     ).fetchall()
     candidatos = []
     for imp in impressoras:
         if imp["id"] in ja_ofertadas:
+            continue
+        materiais_suportados = {m.strip().lower() for m in (imp["materiais"] or "pla").split(",") if m.strip()}
+        if material_requisito and material_requisito.lower() not in materiais_suportados:
             continue
         distancia = haversine_km(cliente_lat, cliente_lng, imp["latitude"], imp["longitude"])
         candidatos.append((distancia, imp))
@@ -205,7 +213,7 @@ def responder_oferta(conn, oferta_id, impressora_id, aceitar):
             (_agora(), oferta_id),
         )
         conn.execute(
-            "UPDATE pedidos SET impressora_id = ?, distribuicao_status = ? WHERE id = ?",
+            "UPDATE pedidos SET impressora_id = ?, distribuicao_status = ?, fluxo_status = 'em_analise' WHERE id = ?",
             (impressora_id, STATUS_ATRIBUIDO, oferta["pedido_id"]),
         )
         # Pedido passou a ser de uma impressora parceira -- é aqui que a
@@ -253,7 +261,7 @@ def atribuir_manualmente(conn, pedido_id, impressora_id):
         (pedido_id, impressora_id, _agora(), _agora()),
     )
     conn.execute(
-        "UPDATE pedidos SET impressora_id = ?, distribuicao_status = ? WHERE id = ?",
+        "UPDATE pedidos SET impressora_id = ?, distribuicao_status = ?, fluxo_status = 'em_analise' WHERE id = ?",
         (impressora_id, STATUS_ATRIBUIDO, pedido_id),
     )
     # Mesma regra de comissão da aceitação automática -- atribuição manual

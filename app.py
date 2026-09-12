@@ -3,13 +3,15 @@ import io
 import json
 import time
 import secrets
+import zipfile
 from datetime import timedelta
 from urllib.parse import urlparse
 from functools import wraps
 
-from flask import Flask, render_template, request, redirect, url_for, session, flash, g, Response, abort
+from flask import Flask, render_template, request, redirect, url_for, session, flash, g, Response, abort, send_file
 from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.utils import secure_filename
 from PIL import Image
 
 from database import (
@@ -17,12 +19,12 @@ from database import (
     normalizar_telefone, criar_cliente, buscar_cliente_por_telefone, buscar_cliente_por_id,
     listar_pedidos_cliente, ler_coordenada_formulario,
     criar_impressora, buscar_impressora_por_telefone, buscar_impressora_por_id, listar_impressoras,
-    definir_status_impressora, atualizar_localizacao_impressora, definir_impressora_ativa,
+    definir_status_impressora, atualizar_localizacao_impressora, atualizar_materiais_impressora, definir_impressora_ativa,
     listar_pedidos_da_impressora, resumo_comissoes, percentual_comissao,
 )
 from calculadora import (
     calcular_orcamento, formatar_horas, MATERIAIS, QUALIDADE, COMPLEXIDADE,
-    PRECO_HORA_IMPRESSAO, SHELL_FRACTION, CAT_ACABAMENTO,
+    SHELL_FRACTION, CAT_ACABAMENTO, CAT_PREPARACAO, regras_precificacao, materiais_com_preco,
 )
 import pix
 import mercadopago_pay
@@ -34,10 +36,39 @@ ADMIN_PASSWORD_PADRAO = "@NI04041"
 ADMIN_PASSWORD = os.environ.get("VOXXEL_ADMIN_PASSWORD", ADMIN_PASSWORD_PADRAO)
 SECRET_KEY = os.environ.get("VOXXEL_SECRET_KEY", SECRET_KEY_PADRAO)
 
+# Usuário mestre de homologação. A senha NÃO fica em texto puro no código:
+# somente o hash é versionado. Antes de abrir o site ao público, desative
+# VOXXEL_TEST_MASTER_ENABLED ou troque as credenciais via ambiente.
+TEST_MASTER_ENABLED = os.environ.get("VOXXEL_TEST_MASTER_ENABLED", "true").lower() == "true"
+TEST_MASTER_EMAIL = os.environ.get("VOXXEL_TEST_MASTER_EMAIL", "nialbach12@gmail.com").strip().lower()
+TEST_MASTER_PASSWORD_HASH = os.environ.get(
+    "VOXXEL_TEST_MASTER_PASSWORD_HASH",
+    "pbkdf2:sha256:600000$voxxel-test-master-2026$729d04fa36112709ce8548506714b9bc15f5a9b290bf4db3db56335e60bc6de5",
+)
+TEST_MASTER_CLIENT_PHONE = os.environ.get("VOXXEL_TEST_MASTER_CLIENT_PHONE", "41900000001")
+TEST_MASTER_PRINTER_PHONE = os.environ.get("VOXXEL_TEST_MASTER_PRINTER_PHONE", "41900000002")
+
 TIPOS_IMAGEM_PERMITIDOS = {
     "image/jpeg": "jpg",
     "image/png": "png",
     "image/webp": "webp",
+}
+
+EXTENSOES_MODELO_PERMITIDAS = {"stl", "3mf", "obj"}
+MAX_MODELO_BYTES = 15 * 1024 * 1024
+MAX_IMAGEM_REFERENCIA_BYTES = 6 * 1024 * 1024
+MAX_ANEXO_CHAT_BYTES = 12 * 1024 * 1024
+
+FLUXO_LABELS = {
+    "recebido": "Pedido recebido",
+    "em_analise": "Em análise pela parceira",
+    "precisa_info": "Precisamos de informações",
+    "cliente_respondeu": "Cliente respondeu",
+    "aguardando_aprovacao": "Aguardando sua aprovação",
+    "producao_autorizada": "Produção autorizada",
+    "em_producao": "Em produção",
+    "pronto": "Pronto",
+    "concluido": "Concluído",
 }
 
 app = Flask(__name__)
@@ -50,7 +81,7 @@ app.secret_key = SECRET_KEY
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 
 app.config.update(
-    MAX_CONTENT_LENGTH=5 * 1024 * 1024,  # limite de 5MB por upload
+    MAX_CONTENT_LENGTH=35 * 1024 * 1024,  # referências do projeto: imagens + arquivo 3D
     SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SAMESITE="Lax",
     # Em produção (Render, com HTTPS) isso deve ficar "true" -- o Render já
@@ -105,6 +136,66 @@ def login_cliente_obrigatorio(rota):
             return redirect(url_for("conta_entrar", next=request.path))
         return rota(*args, **kwargs)
     return rota_protegida
+
+
+def _garantir_contas_teste():
+    """Cria/atualiza os perfis internos usados pelo modo mestre de teste.
+
+    Cliente e impressora continuam sendo registros reais e separados no banco,
+    então os testes passam pelas mesmas consultas e permissões do fluxo normal.
+    """
+    conn = get_db()
+    cliente = buscar_cliente_por_telefone(conn, TEST_MASTER_CLIENT_PHONE)
+    if cliente:
+        conn.execute(
+            "UPDATE clientes SET nome=?, senha_hash=? WHERE id=?",
+            ("Voxxel Teste — Cliente", TEST_MASTER_PASSWORD_HASH, cliente["id"]),
+        )
+        cliente_id = cliente["id"]
+    else:
+        cliente_id = criar_cliente(
+            conn, "Voxxel Teste — Cliente", TEST_MASTER_CLIENT_PHONE, TEST_MASTER_PASSWORD_HASH
+        )
+
+    impressora = buscar_impressora_por_telefone(conn, TEST_MASTER_PRINTER_PHONE)
+    if impressora:
+        conn.execute(
+            "UPDATE impressoras SET nome=?, senha_hash=?, materiais=?, ativo=1 WHERE id=?",
+            ("Voxxel Teste — Impressora", TEST_MASTER_PASSWORD_HASH, "pla,petg,abs,resina", impressora["id"]),
+        )
+        impressora_id = impressora["id"]
+    else:
+        impressora_id = criar_impressora(
+            conn, "Voxxel Teste — Impressora", TEST_MASTER_PRINTER_PHONE,
+            TEST_MASTER_PASSWORD_HASH, "pla,petg,abs,resina"
+        )
+    conn.commit()
+    conn.close()
+    return cliente_id, impressora_id
+
+
+def _ativar_papel_teste(papel):
+    """Troca a visão ativa sem misturar permissões entre cliente/impressor/admin."""
+    if not session.get("test_master"):
+        abort(403)
+    session.pop("admin_logado", None)
+    session.pop("cliente_id", None)
+    session.pop("cliente_nome", None)
+    session.pop("impressora_id", None)
+    session.pop("impressora_nome", None)
+
+    if papel == "cliente":
+        session["cliente_id"] = session["test_cliente_id"]
+        session["cliente_nome"] = "Voxxel Teste"
+    elif papel == "impressora":
+        session["impressora_id"] = session["test_impressora_id"]
+        session["impressora_nome"] = "Voxxel Teste — Impressora"
+    elif papel == "admin":
+        session["admin_logado"] = True
+    else:
+        abort(404)
+    session["test_role"] = papel
+    session.permanent = True
 
 
 def login_impressora_obrigatorio(rota):
@@ -201,7 +292,7 @@ def adicionar_headers_seguranca(resposta):
 
 @app.errorhandler(413)
 def imagem_grande_demais(e):
-    flash("A imagem enviada é grande demais. O limite é 5MB.")
+    flash("Os arquivos enviados ultrapassaram o limite do pedido. Envie referências menores ou em menos arquivos.")
     return redirect(redirecionamento_seguro(url_for("admin_produtos")))
 
 
@@ -283,7 +374,55 @@ def inject_globals():
     return dict(
         categorias=CATEGORIAS, qtd_carrinho=qtd_carrinho, chat_auto_message=chat_auto_message,
         vendedor_nome=vendedor_nome, whatsapp_numero=whatsapp_numero,
+        test_master_enabled=TEST_MASTER_ENABLED,
     )
+
+
+# ---------- modo mestre de teste ----------
+
+@app.route("/teste/entrar", methods=["GET", "POST"])
+def teste_entrar():
+    if not TEST_MASTER_ENABLED:
+        abort(404)
+    erro = None
+    if request.method == "POST":
+        email = (request.form.get("email") or "").strip().lower()
+        senha = request.form.get("senha", "")
+        if email == TEST_MASTER_EMAIL and check_password_hash(TEST_MASTER_PASSWORD_HASH, senha):
+            cliente_id, impressora_id = _garantir_contas_teste()
+            carrinho_salvo = dict(carrinho_sessao())
+            session.clear()
+            session["carrinho"] = carrinho_salvo
+            session["test_master"] = True
+            session["test_email"] = TEST_MASTER_EMAIL
+            session["test_cliente_id"] = cliente_id
+            session["test_impressora_id"] = impressora_id
+            _ativar_papel_teste("cliente")
+            flash("Modo mestre de teste ativado. Você pode alternar entre Cliente, Impressor e Admin.")
+            return redirect(url_for("conta_dashboard"))
+        erro = "E-mail ou senha de teste incorretos."
+    return render_template("teste_entrar.html", erro=erro, email_padrao=TEST_MASTER_EMAIL)
+
+
+@app.route("/teste/trocar/<papel>", methods=["POST"])
+def teste_trocar_papel(papel):
+    if not TEST_MASTER_ENABLED or not session.get("test_master"):
+        abort(404)
+    _ativar_papel_teste(papel)
+    destinos = {
+        "cliente": "conta_dashboard",
+        "impressora": "impressora_painel",
+        "admin": "admin_dashboard",
+    }
+    return redirect(url_for(destinos[papel]))
+
+
+@app.route("/teste/sair")
+def teste_sair():
+    carrinho_salvo = dict(carrinho_sessao())
+    session.clear()
+    session["carrinho"] = carrinho_salvo
+    return redirect(url_for("home"))
 
 
 # ---------- páginas públicas ----------
@@ -667,6 +806,92 @@ def pedido_confirmar_pagamento(pedido_id):
     return redirect(url_for("pedido_pagamento", pedido_id=pedido_id))
 
 
+def _extensao(nome):
+    nome = secure_filename(nome or "")
+    return nome.rsplit(".", 1)[-1].lower() if "." in nome else ""
+
+
+def validar_modelo_3d(arquivo, limite=MAX_MODELO_BYTES):
+    """Valida referências 3D sem executar/processar geometria no servidor."""
+    if not arquivo or not arquivo.filename:
+        return None
+    nome = secure_filename(arquivo.filename)[:180]
+    ext = _extensao(nome)
+    if ext not in EXTENSOES_MODELO_PERMITIDAS:
+        raise ValueError("Arquivo 3D inválido. Envie STL, 3MF ou OBJ.")
+    dados = arquivo.read(limite + 1)
+    if not dados:
+        raise ValueError("O arquivo 3D enviado está vazio.")
+    if len(dados) > limite:
+        raise ValueError("O arquivo 3D é grande demais. O limite é 15 MB por arquivo.")
+    if ext == "3mf":
+        try:
+            with zipfile.ZipFile(io.BytesIO(dados)) as zf:
+                nomes = {n.lower() for n in zf.namelist()}
+                if "[content_types].xml" not in nomes or not any(n.startswith("3d/") for n in nomes):
+                    raise ValueError
+        except Exception:
+            raise ValueError("O arquivo 3MF parece corrompido ou inválido.")
+    elif ext == "obj":
+        amostra = dados[:200000].decode("utf-8", errors="ignore")
+        if "\nv " not in "\n" + amostra and "\no " not in "\n" + amostra:
+            raise ValueError("O arquivo OBJ não parece conter uma malha 3D válida.")
+    elif ext == "stl" and len(dados) < 84 and not dados.lstrip().lower().startswith(b"solid"):
+        raise ValueError("O arquivo STL parece incompleto.")
+    mimetype = {"stl": "model/stl", "3mf": "model/3mf", "obj": "text/plain"}[ext]
+    return {"nome": nome, "mimetype": mimetype, "dados": dados}
+
+
+def validar_imagem_referencia(arquivo, limite=MAX_IMAGEM_REFERENCIA_BYTES):
+    if not arquivo or not arquivo.filename:
+        return None
+    dados = arquivo.read(limite + 1)
+    if not dados:
+        return None
+    if len(dados) > limite:
+        raise ValueError("Cada imagem de referência pode ter no máximo 6 MB.")
+    try:
+        imagem = Image.open(io.BytesIO(dados))
+        imagem.verify()
+        formato = (imagem.format or "").upper()
+    except Exception:
+        raise ValueError("Uma das referências não é uma imagem válida.")
+    formatos = {"JPEG": "image/jpeg", "PNG": "image/png", "WEBP": "image/webp"}
+    if formato not in formatos:
+        raise ValueError("Use JPG, PNG ou WEBP nas imagens de referência.")
+    return {"nome": secure_filename(arquivo.filename)[:180] or f"referencia.{formato.lower()}", "mimetype": formatos[formato], "dados": dados}
+
+
+def inserir_referencia(conn, pedido_id, tipo, arquivo_info):
+    conn.execute(
+        """INSERT INTO pedido_referencias (pedido_id, tipo, nome_original, mimetype, dados)
+           VALUES (?, ?, ?, ?, ?)""",
+        (pedido_id, tipo, arquivo_info["nome"], arquivo_info["mimetype"], to_blob(arquivo_info["dados"])),
+    )
+
+
+def _acesso_projeto(conn, pedido_id):
+    pedido = conn.execute("SELECT * FROM pedidos WHERE id = ?", (pedido_id,)).fetchone()
+    if not pedido:
+        return None, None
+    if session.get("admin_logado"):
+        return pedido, "admin"
+    if session.get("cliente_id") and pedido["cliente_id"] == session.get("cliente_id"):
+        return pedido, "cliente"
+    if session.get("impressora_id") and pedido["impressora_id"] == session.get("impressora_id"):
+        return pedido, "impressora"
+    return pedido, None
+
+
+def _mensagem_sistema(conn, pedido_id, texto):
+    conn.execute(
+        """INSERT INTO pedido_mensagens
+           (pedido_id, autor_tipo, autor_id, texto, lida_cliente, lida_impressora)
+           VALUES (?, 'sistema', NULL, ?, 0, 0)""",
+        (pedido_id, texto),
+    )
+
+
 @app.route("/orcamento", methods=["GET", "POST"])
 def orcamento():
     resultado = None
@@ -674,6 +899,33 @@ def orcamento():
         "categoria": "tecnica", "altura": 10, "largura": 10, "profundidade": 10,
         "quantidade": 1, "material": "pla", "qualidade": "padrao", "complexidade": "media",
     }
+
+    # A mesma regra de preço é usada no servidor e no preview do navegador.
+    conn_cfg = get_db()
+    config_precos = get_configs(conn_cfg)
+    conn_cfg.close()
+    regras = regras_precificacao(config_precos)
+    materiais_front = materiais_com_preco(regras)
+    regra_front = {
+        "shell_fraction": SHELL_FRACTION,
+        "cat_acabamento": CAT_ACABAMENTO,
+        "cat_preparacao": CAT_PREPARACAO,
+        "hora_fdm": regras["hora_fdm"],
+        "hora_resina": regras["hora_resina"],
+        "reserva_falha_pct": regras["reserva_falha_pct"],
+        "margem_impressor_pct": regras["margem_impressor_pct"],
+        "comissao_voxxel_pct": regras["comissao_voxxel_pct"],
+        "pedido_minimo": regras["pedido_minimo"],
+    }
+
+    def contexto_orcamento(resultado_local=None):
+        return dict(
+            form=form, resultado=resultado_local,
+            materiais=materiais_front, qualidades=QUALIDADE, complexidades=COMPLEXIDADE,
+            materiais_js=json.dumps(materiais_front), qualidade_js=json.dumps(QUALIDADE),
+            complexidade_js=json.dumps(COMPLEXIDADE), cliente_logado=cliente_logado,
+            regra_js=json.dumps(regra_front),
+        )
 
     cliente_logado = None
     if session.get("cliente_id"):
@@ -695,46 +947,58 @@ def orcamento():
             })
         except (ValueError, TypeError):
             flash("Verifique os valores preenchidos na calculadora.")
-            return render_template(
-                "orcamento.html", form=form, resultado=None,
-                materiais=MATERIAIS, qualidades=QUALIDADE, complexidades=COMPLEXIDADE,
-                materiais_js=json.dumps(MATERIAIS), qualidade_js=json.dumps(QUALIDADE),
-                complexidade_js=json.dumps(COMPLEXIDADE), cliente_logado=cliente_logado,
-                regra_js=json.dumps({"hora_maquina": PRECO_HORA_IMPRESSAO, "shell_fraction": SHELL_FRACTION, "cat_acabamento": CAT_ACABAMENTO}),
-            )
+            return render_template("orcamento.html", **contexto_orcamento(None))
+
         resultado = calcular_orcamento(
             form["altura"], form["largura"], form["profundidade"], form["quantidade"],
             form["categoria"], form["complexidade"], form["material"], form["qualidade"],
+            regras=regras,
         )
         resultado["tempo_formatado"] = formatar_horas(resultado["horas_total"])
 
         if request.form.get("acao") == "enviar":
             if not session.get("cliente_id"):
-                flash(
-                    "Faça login para enviar este orçamento e acompanhá-lo em \u201cMinha "
-                    "conta\u201d. Sua estimativa não foi perdida -- é só recalcular depois de entrar."
-                )
+                flash("Faça login para enviar este orçamento e acompanhá-lo em ‘Minha conta’. Sua estimativa não foi perdida -- é só recalcular depois de entrar.")
                 return redirect(url_for("conta_entrar", next=url_for("orcamento")))
 
             nome = texto_seguro(request.form.get("nome"), 120)
             telefone = texto_seguro(request.form.get("telefone"), 40)
-
             if not nome or not telefone:
                 flash("Preencha nome e telefone para enviar o orçamento.")
-                return render_template(
-                    "orcamento.html", form=form, resultado=resultado,
-                    materiais=MATERIAIS, qualidades=QUALIDADE, complexidades=COMPLEXIDADE,
-                    materiais_js=json.dumps(MATERIAIS), qualidade_js=json.dumps(QUALIDADE),
-                    complexidade_js=json.dumps(COMPLEXIDADE), cliente_logado=cliente_logado,
-                    regra_js=json.dumps({"hora_maquina": PRECO_HORA_IMPRESSAO, "shell_fraction": SHELL_FRACTION, "cat_acabamento": CAT_ACABAMENTO}),
-                )
+                return render_template("orcamento.html", **contexto_orcamento(resultado))
 
+            descricao_projeto = texto_seguro(request.form.get("descricao_projeto"), 1400)
+            requisitos_projeto = texto_seguro(request.form.get("requisitos_projeto"), 1400)
+            uso_projeto = texto_seguro(request.form.get("uso_projeto"), 1000)
+            alteracoes_projeto = texto_seguro(request.form.get("alteracoes_projeto"), 1000)
+            if len(descricao_projeto) < 12 or len(requisitos_projeto) < 8 or len(uso_projeto) < 8:
+                flash("Descreva o que você precisa, o que deve ser respeitado e como a peça será usada.")
+                return render_template("orcamento.html", **contexto_orcamento(resultado))
+
+            try:
+                modelo = validar_modelo_3d(request.files.get("modelo_3d"))
+                imagens = []
+                for arq in request.files.getlist("imagens_referencia")[:6]:
+                    info = validar_imagem_referencia(arq)
+                    if info:
+                        imagens.append(info)
+            except ValueError as erro:
+                flash(str(erro))
+                return render_template("orcamento.html", **contexto_orcamento(resultado))
+
+            if not modelo and not imagens:
+                flash("Envie um arquivo 3D ou pelo menos uma imagem de referência para conseguirmos entender o projeto.")
+                return render_template("orcamento.html", **contexto_orcamento(resultado))
+
+            referencia_status = "arquivo_3d" if modelo else "imagem_descricao"
             detalhes = (
                 f"Categoria: {resultado['categoria_nome']}\n"
                 f"Dimensões: {form['altura']}x{form['largura']}x{form['profundidade']} cm\n"
                 f"Material: {resultado['material_nome']}\n"
                 f"Qualidade: {form['qualidade']}\n"
-                f"Quantidade: {form['quantidade']}"
+                f"Complexidade: {form['complexidade']}\n"
+                f"Quantidade: {form['quantidade']}\n"
+                f"Projeto: {descricao_projeto}"
             )
             cliente_lat = ler_coordenada_formulario(request.form.get("cliente_lat"))
             cliente_lng = ler_coordenada_formulario(request.form.get("cliente_lng"))
@@ -742,20 +1006,211 @@ def orcamento():
             pedido_id = criar_pedido(
                 conn, "orcamento", detalhes, resultado["preco_total"], nome, telefone, "pix",
                 cliente_id=session["cliente_id"], cliente_lat=cliente_lat, cliente_lng=cliente_lng,
+                material_requisito=form["material"],
             )
+            conn.execute(
+                """UPDATE pedidos SET descricao_projeto=?, requisitos_projeto=?, uso_projeto=?,
+                   alteracoes_projeto=?, referencia_status=?, fluxo_status='recebido' WHERE id=?""",
+                (descricao_projeto, requisitos_projeto, uso_projeto, alteracoes_projeto, referencia_status, pedido_id),
+            )
+            if modelo:
+                inserir_referencia(conn, pedido_id, "modelo_3d", modelo)
+            for imagem in imagens:
+                inserir_referencia(conn, pedido_id, "imagem", imagem)
+            _mensagem_sistema(conn, pedido_id, "Projeto enviado para a Rede Voxxel. A parceira poderá solicitar detalhes antes da produção.")
+            conn.commit()
             distribuicao.despachar_pedido(conn, pedido_id)
             conn.close()
+            flash("Projeto recebido! Agora ele pode ser analisado por uma parceira da Rede Voxxel.")
+            return redirect(url_for("pedido_projeto", pedido_id=pedido_id))
 
-            flash("Orçamento recebido! Você pode adiantar o pagamento por Pix ou combinar direto com a gente.")
-            return redirect(url_for("pedido_pagamento", pedido_id=pedido_id))
+    return render_template("orcamento.html", **contexto_orcamento(resultado))
 
-    return render_template(
-        "orcamento.html", form=form, resultado=resultado,
-        materiais=MATERIAIS, qualidades=QUALIDADE, complexidades=COMPLEXIDADE,
-        materiais_js=json.dumps(MATERIAIS), qualidade_js=json.dumps(QUALIDADE),
-        complexidade_js=json.dumps(COMPLEXIDADE), cliente_logado=cliente_logado,
-        regra_js=json.dumps({"hora_maquina": PRECO_HORA_IMPRESSAO, "shell_fraction": SHELL_FRACTION, "cat_acabamento": CAT_ACABAMENTO}),
+
+@app.route("/api/projetos/mensagem-pendente")
+def api_projeto_mensagem_pendente():
+    conn = get_db()
+    row = None
+    papel = None
+    if session.get("cliente_id"):
+        papel = "cliente"
+        row = conn.execute(
+            """SELECT m.id, m.pedido_id, m.texto, m.anexo_nome, m.autor_tipo
+               FROM pedido_mensagens m JOIN pedidos p ON p.id=m.pedido_id
+               WHERE p.cliente_id=? AND m.lida_cliente=0 AND m.autor_tipo!='cliente'
+               ORDER BY m.id DESC LIMIT 1""", (session["cliente_id"],)
+        ).fetchone()
+    elif session.get("impressora_id"):
+        papel = "impressora"
+        row = conn.execute(
+            """SELECT m.id, m.pedido_id, m.texto, m.anexo_nome, m.autor_tipo
+               FROM pedido_mensagens m JOIN pedidos p ON p.id=m.pedido_id
+               WHERE p.impressora_id=? AND m.lida_impressora=0 AND m.autor_tipo!='impressora'
+               ORDER BY m.id DESC LIMIT 1""", (session["impressora_id"],)
+        ).fetchone()
+    if not row:
+        conn.close(); return {"ok": True, "mensagem": None}
+    texto = (row["texto"] or "").strip()
+    if not texto:
+        texto = "Novo arquivo anexado ao projeto." if row["anexo_nome"] else "Há uma atualização no projeto."
+    dados = {
+        "id": row["id"], "pedido_id": row["pedido_id"], "texto": texto[:180],
+        "autor": "Voxxel" if row["autor_tipo"] in ("sistema", "admin") else ("Cliente" if row["autor_tipo"] == "cliente" else "Impressora parceira"),
+        "url": url_for("pedido_projeto", pedido_id=row["pedido_id"]), "papel": papel,
+    }
+    conn.close(); return {"ok": True, "mensagem": dados}
+
+
+@app.route("/pedido/<int:pedido_id>/projeto")
+def pedido_projeto(pedido_id):
+    conn = get_db()
+    pedido, papel = _acesso_projeto(conn, pedido_id)
+    if not pedido:
+        conn.close()
+        abort(404)
+    if not papel:
+        conn.close()
+        if not (session.get("cliente_id") or session.get("impressora_id") or session.get("admin_logado")):
+            flash("Entre na sua conta para acessar a conversa deste projeto.")
+            return redirect(url_for("conta_entrar"))
+        abort(403)
+
+    if papel == "cliente":
+        conn.execute("UPDATE pedido_mensagens SET lida_cliente=1 WHERE pedido_id=?", (pedido_id,))
+    elif papel == "impressora":
+        conn.execute("UPDATE pedido_mensagens SET lida_impressora=1 WHERE pedido_id=?", (pedido_id,))
+    conn.commit()
+
+    referencias = conn.execute("SELECT id, tipo, nome_original, mimetype, criado_em FROM pedido_referencias WHERE pedido_id=? ORDER BY id", (pedido_id,)).fetchall()
+    mensagens = conn.execute("SELECT id, autor_tipo, autor_id, texto, anexo_nome, anexo_mimetype, criado_em FROM pedido_mensagens WHERE pedido_id=? ORDER BY id", (pedido_id,)).fetchall()
+    impressora = buscar_impressora_por_id(conn, pedido["impressora_id"]) if pedido["impressora_id"] else None
+    conn.close()
+    return render_template("pedido_projeto.html", pedido=pedido, papel=papel, referencias=referencias,
+                           mensagens=mensagens, impressora=impressora, fluxo_labels=FLUXO_LABELS)
+
+
+@app.route("/pedido/<int:pedido_id>/projeto/api/estado")
+def pedido_projeto_api_estado(pedido_id):
+    conn = get_db()
+    pedido, papel = _acesso_projeto(conn, pedido_id)
+    if not papel:
+        conn.close(); return {"ok": False}, 403
+    ultima = conn.execute("SELECT COALESCE(MAX(id),0) AS id FROM pedido_mensagens WHERE pedido_id=?", (pedido_id,)).fetchone()["id"]
+    status = pedido["fluxo_status"] or "recebido"
+    conn.close()
+    return {"ok": True, "ultima_mensagem_id": ultima, "status": status, "label": FLUXO_LABELS.get(status, status)}
+
+
+@app.route("/pedido/<int:pedido_id>/referencia/<int:referencia_id>")
+def pedido_referencia(pedido_id, referencia_id):
+    conn = get_db()
+    _pedido, papel = _acesso_projeto(conn, pedido_id)
+    if not papel:
+        conn.close(); abort(403)
+    ref = conn.execute("SELECT * FROM pedido_referencias WHERE id=? AND pedido_id=?", (referencia_id, pedido_id)).fetchone()
+    if not ref:
+        conn.close(); abort(404)
+    dados = bytes(ref["dados"])
+    nome = ref["nome_original"]
+    mimetype = ref["mimetype"] or "application/octet-stream"
+    conn.close()
+    return send_file(io.BytesIO(dados), mimetype=mimetype, download_name=nome, as_attachment=not mimetype.startswith("image/"))
+
+
+@app.route("/pedido/<int:pedido_id>/projeto/mensagem", methods=["POST"])
+def pedido_projeto_mensagem(pedido_id):
+    conn = get_db()
+    pedido, papel = _acesso_projeto(conn, pedido_id)
+    if papel not in ("cliente", "impressora", "admin"):
+        conn.close(); abort(403)
+    texto = texto_seguro(request.form.get("mensagem"), 2500)
+    anexo = request.files.get("anexo")
+    anexo_info = None
+    if anexo and anexo.filename:
+        try:
+            if _extensao(anexo.filename) in EXTENSOES_MODELO_PERMITIDAS:
+                anexo_info = validar_modelo_3d(anexo, MAX_ANEXO_CHAT_BYTES)
+            else:
+                anexo_info = validar_imagem_referencia(anexo, MAX_ANEXO_CHAT_BYTES)
+        except ValueError as erro:
+            conn.close(); flash(str(erro)); return redirect(url_for("pedido_projeto", pedido_id=pedido_id))
+    if not texto and not anexo_info:
+        conn.close(); flash("Escreva uma mensagem ou anexe uma referência."); return redirect(url_for("pedido_projeto", pedido_id=pedido_id))
+    autor_id = session.get("cliente_id") if papel == "cliente" else session.get("impressora_id") if papel == "impressora" else None
+    conn.execute(
+        """INSERT INTO pedido_mensagens
+           (pedido_id, autor_tipo, autor_id, texto, anexo_nome, anexo_mimetype, anexo_dados, lida_cliente, lida_impressora)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        (pedido_id, papel, autor_id, texto,
+         anexo_info["nome"] if anexo_info else None,
+         anexo_info["mimetype"] if anexo_info else None,
+         to_blob(anexo_info["dados"]) if anexo_info else None,
+         1 if papel == "cliente" else 0,
+         1 if papel == "impressora" else 0),
     )
+    if papel == "cliente" and pedido["fluxo_status"] in ("precisa_info", "aguardando_aprovacao"):
+        conn.execute("UPDATE pedidos SET fluxo_status='cliente_respondeu', aprovado_cliente=0, producao_autorizada=0 WHERE id=?", (pedido_id,))
+    elif papel == "impressora" and request.form.get("solicitar_info") == "1":
+        conn.execute("UPDATE pedidos SET fluxo_status='precisa_info', aprovado_cliente=0, producao_autorizada=0 WHERE id=?", (pedido_id,))
+    conn.commit(); conn.close()
+    return redirect(url_for("pedido_projeto", pedido_id=pedido_id))
+
+
+@app.route("/pedido/<int:pedido_id>/mensagem/<int:mensagem_id>/anexo")
+def pedido_mensagem_anexo(pedido_id, mensagem_id):
+    conn = get_db()
+    _pedido, papel = _acesso_projeto(conn, pedido_id)
+    if not papel:
+        conn.close(); abort(403)
+    msg = conn.execute("SELECT * FROM pedido_mensagens WHERE id=? AND pedido_id=?", (mensagem_id, pedido_id)).fetchone()
+    if not msg or not msg["anexo_dados"]:
+        conn.close(); abort(404)
+    dados = bytes(msg["anexo_dados"]); nome = msg["anexo_nome"] or "anexo"; mimetype = msg["anexo_mimetype"] or "application/octet-stream"
+    conn.close()
+    return send_file(io.BytesIO(dados), mimetype=mimetype, download_name=nome, as_attachment=not mimetype.startswith("image/"))
+
+
+@app.route("/pedido/<int:pedido_id>/projeto/status", methods=["POST"])
+def pedido_projeto_status(pedido_id):
+    conn = get_db()
+    pedido, papel = _acesso_projeto(conn, pedido_id)
+    if papel not in ("impressora", "admin"):
+        conn.close(); abort(403)
+    acao = request.form.get("acao")
+    if acao == "solicitar_info":
+        novo, texto = "precisa_info", "A parceira precisa de mais informações para compreender o projeto."
+    elif acao == "enviar_aprovacao":
+        novo, texto = "aguardando_aprovacao", "A parceira concluiu a análise. Revise as referências e confirme se o projeto está correto."
+    elif acao == "iniciar_producao" and pedido["producao_autorizada"] and pedido["status_pagamento"] == "informado":
+        novo, texto = "em_producao", "A produção foi iniciada pela impressora parceira."
+        conn.execute("UPDATE pedidos SET status='andamento' WHERE id=?", (pedido_id,))
+    elif acao == "marcar_pronto" and pedido["fluxo_status"] == "em_producao":
+        novo, texto = "pronto", "A parceira marcou o pedido como pronto."
+    elif acao == "concluir" and pedido["fluxo_status"] == "pronto":
+        novo, texto = "concluido", "Pedido concluído."
+        conn.execute("UPDATE pedidos SET status='concluido' WHERE id=?", (pedido_id,))
+    else:
+        conn.close(); flash("Essa mudança de etapa não está disponível agora."); return redirect(url_for("pedido_projeto", pedido_id=pedido_id))
+    conn.execute("UPDATE pedidos SET fluxo_status=? WHERE id=?", (novo, pedido_id))
+    _mensagem_sistema(conn, pedido_id, texto)
+    conn.commit(); conn.close()
+    return redirect(url_for("pedido_projeto", pedido_id=pedido_id))
+
+
+@app.route("/pedido/<int:pedido_id>/projeto/aprovar", methods=["POST"])
+@login_cliente_obrigatorio
+def pedido_projeto_aprovar(pedido_id):
+    conn = get_db()
+    pedido, papel = _acesso_projeto(conn, pedido_id)
+    if papel != "cliente":
+        conn.close(); abort(403)
+    if pedido["fluxo_status"] != "aguardando_aprovacao":
+        conn.close(); flash("Este projeto ainda não está aguardando aprovação."); return redirect(url_for("pedido_projeto", pedido_id=pedido_id))
+    conn.execute("UPDATE pedidos SET aprovado_cliente=1, producao_autorizada=1, fluxo_status='producao_autorizada' WHERE id=?", (pedido_id,))
+    _mensagem_sistema(conn, pedido_id, "O cliente aprovou o projeto e autorizou o avanço para produção.")
+    conn.commit(); conn.close()
+    flash("Projeto aprovado. A parceira já pode avançar para a produção.")
+    return redirect(url_for("pedido_projeto", pedido_id=pedido_id))
 
 
 # ---------- conta do cliente ----------
@@ -926,6 +1381,16 @@ def admin_configuracoes():
         except ValueError:
             comissao_pct = 15.0
         comissao_pct = max(0.0, min(comissao_pct, 100.0))  # nunca deixa negativo ou acima de 100%
+        def _numero_config(nome, padrao, minimo=0.0, maximo=None):
+            try:
+                valor = float(request.form.get(nome, str(padrao)).replace(",", "."))
+            except (ValueError, AttributeError):
+                valor = float(padrao)
+            valor = max(minimo, valor)
+            if maximo is not None:
+                valor = min(maximo, valor)
+            return str(valor)
+
         set_configs(conn, {
             "vendedor_nome": request.form.get("vendedor_nome", "").strip() or "Voxxel",
             "pix_chave": request.form.get("pix_chave", "").strip(),
@@ -934,6 +1399,15 @@ def admin_configuracoes():
             "whatsapp": request.form.get("whatsapp", "").strip(),
             "mp_access_token": request.form.get("mp_access_token", "").strip(),
             "comissao_percentual": str(comissao_pct),
+            "custo_kg_pla": _numero_config("custo_kg_pla", 95),
+            "custo_kg_petg": _numero_config("custo_kg_petg", 110),
+            "custo_kg_abs": _numero_config("custo_kg_abs", 105),
+            "custo_kg_resina": _numero_config("custo_kg_resina", 150),
+            "preco_hora_fdm": _numero_config("preco_hora_fdm", 4.50),
+            "preco_hora_resina": _numero_config("preco_hora_resina", 7.00),
+            "reserva_falha_percentual": _numero_config("reserva_falha_percentual", 10, 0, 60),
+            "margem_impressor_percentual": _numero_config("margem_impressor_percentual", 30, 0, 200),
+            "pedido_minimo": _numero_config("pedido_minimo", 18.90),
         })
         flash("Configurações salvas.")
         conn.close()
@@ -1240,6 +1714,7 @@ def impressora_cadastro():
         telefone = normalizar_telefone(request.form.get("telefone"))
         senha = request.form.get("senha", "")
         confirmar_senha = request.form.get("confirmar_senha", "")
+        materiais_selecionados = [m for m in request.form.getlist("materiais") if m in MATERIAIS]
 
         erro = None
         if not nome:
@@ -1250,6 +1725,8 @@ def impressora_cadastro():
             erro = "A senha precisa ter pelo menos 6 caracteres."
         elif senha != confirmar_senha:
             erro = "As senhas não coincidem."
+        elif not materiais_selecionados:
+            erro = "Selecione pelo menos um material que sua impressora consegue produzir."
 
         conn = get_db()
         if not erro and buscar_impressora_por_telefone(conn, telefone):
@@ -1258,9 +1735,11 @@ def impressora_cadastro():
         if erro:
             conn.close()
             flash(erro)
-            return render_template("impressora_cadastro.html")
+            return render_template("impressora_cadastro.html", materiais=MATERIAIS)
 
-        impressora_id = criar_impressora(conn, nome, telefone, generate_password_hash(senha))
+        impressora_id = criar_impressora(
+            conn, nome, telefone, generate_password_hash(senha), ",".join(materiais_selecionados)
+        )
         conn.close()
 
         session.clear()
@@ -1270,7 +1749,7 @@ def impressora_cadastro():
         flash("Cadastro feito! Agora é só ficar online no painel pra começar a receber pedidos.")
         return redirect(url_for("impressora_painel"))
 
-    return render_template("impressora_cadastro.html")
+    return render_template("impressora_cadastro.html", materiais=MATERIAIS)
 
 
 @app.route("/impressora/entrar", methods=["GET", "POST"])
@@ -1353,8 +1832,24 @@ def impressora_painel():
         "impressora_painel.html", impressora=impressora, oferta=oferta, oferta_pedido=oferta_pedido,
         oferta_distancia_km=oferta_distancia_km, oferta_segundos_restantes=oferta_segundos_restantes,
         oferta_ganho_estimado=oferta_ganho_estimado, pedidos=pedidos_atribuidos,
-        ganho_acumulado=round(ganho_acumulado, 2), pct_comissao=pct_comissao,
+        ganho_acumulado=round(ganho_acumulado, 2), pct_comissao=pct_comissao, materiais=MATERIAIS,
     )
+
+
+@app.route("/impressora/materiais", methods=["POST"])
+@login_impressora_obrigatorio
+def impressora_materiais():
+    selecionados = [m for m in request.form.getlist("materiais") if m in MATERIAIS]
+    if not selecionados:
+        flash("Selecione pelo menos um material para continuar recebendo pedidos compatíveis.")
+        return redirect(url_for("impressora_painel"))
+    conn = get_db()
+    atualizar_materiais_impressora(conn, session["impressora_id"], ",".join(selecionados))
+    if buscar_impressora_por_id(conn, session["impressora_id"])["online"]:
+        distribuicao.reconsiderar_pedidos_sem_impressora(conn)
+    conn.close()
+    flash("Materiais atualizados. A fila vai considerar apenas pedidos compatíveis com sua máquina.")
+    return redirect(url_for("impressora_painel"))
 
 
 @app.route("/impressora/status", methods=["POST"])
@@ -1400,6 +1895,86 @@ def impressora_localizacao():
     return {"ok": True}
 
 
+@app.route("/voxxel-sw.js")
+def voxxel_service_worker():
+    """Service worker raiz para alertas da Rede Voxxel em abas em segundo plano."""
+    caminho = os.path.join(app.root_path, "static", "js", "voxxel-sw.js")
+    try:
+        with open(caminho, "r", encoding="utf-8") as arquivo:
+            conteudo = arquivo.read()
+    except OSError:
+        abort(404)
+    resposta = Response(conteudo, mimetype="application/javascript")
+    resposta.headers["Service-Worker-Allowed"] = "/"
+    resposta.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    return resposta
+
+
+@app.route("/impressora/api/oferta-atual")
+@login_impressora_obrigatorio
+def impressora_api_oferta_atual():
+    """Retorna a oferta pendente da impressora logada para o aviso global.
+    Assim a parceira pode receber uma solicitação em qualquer página do site,
+    sem precisar manter o painel aberto."""
+    conn = get_db()
+    impressora = buscar_impressora_por_id(conn, session["impressora_id"])
+    if not impressora or not impressora["ativo"] or not impressora["online"]:
+        conn.close()
+        return {"ok": True, "oferta": None}
+
+    oferta = distribuicao.oferta_pendente_da_impressora(conn, impressora["id"])
+    if not oferta:
+        conn.close()
+        return {"ok": True, "oferta": None}
+
+    pedido = conn.execute("SELECT * FROM pedidos WHERE id = ?", (oferta["pedido_id"],)).fetchone()
+    if not pedido:
+        conn.close()
+        return {"ok": True, "oferta": None}
+
+    distancia = None
+    if (impressora["latitude"] is not None and impressora["longitude"] is not None and
+            pedido["cliente_lat"] is not None and pedido["cliente_lng"] is not None):
+        distancia = round(distribuicao.haversine_km(
+            impressora["latitude"], impressora["longitude"],
+            pedido["cliente_lat"], pedido["cliente_lng"]
+        ), 1)
+
+    pct = percentual_comissao(conn)
+    ganho = round(float(pedido["valor_estimado"] or 0) * (1 - pct / 100), 2)
+    material_chave = pedido["material_requisito"] if "material_requisito" in pedido.keys() else None
+    material_nome = MATERIAIS.get(material_chave, {}).get("nome") if material_chave else None
+    segundos = distribuicao.segundos_restantes_oferta(oferta)
+    dados = {
+        "id": oferta["id"],
+        "pedido_id": pedido["id"],
+        "tipo": "Pedido do catálogo" if pedido["tipo"] == "loja" else "Orçamento personalizado",
+        "detalhes": pedido["detalhes"],
+        "material": material_nome,
+        "distancia_km": distancia,
+        "ganho": ganho,
+        "valor_pedido": round(float(pedido["valor_estimado"] or 0), 2),
+        "segundos_restantes": segundos,
+        "referencia_status": pedido["referencia_status"] if "referencia_status" in pedido.keys() else "nao_aplicavel",
+    }
+    conn.close()
+    return {"ok": True, "oferta": dados}
+
+
+@app.route("/impressora/api/oferta/<int:oferta_id>/responder", methods=["POST"])
+@login_impressora_obrigatorio
+def impressora_api_oferta_responder(oferta_id):
+    acao = request.form.get("acao")
+    if acao not in ("aceitar", "recusar"):
+        return {"ok": False, "erro": "Ação inválida."}, 400
+    conn = get_db()
+    aplicado = distribuicao.responder_oferta(conn, oferta_id, session["impressora_id"], acao == "aceitar")
+    conn.close()
+    if not aplicado:
+        return {"ok": False, "erro": "Essa oferta não está mais disponível."}, 409
+    return {"ok": True, "acao": acao}
+
+
 @app.route("/impressora/oferta/<int:oferta_id>/responder", methods=["POST"])
 @login_impressora_obrigatorio
 def impressora_oferta_responder(oferta_id):
@@ -1412,7 +1987,7 @@ def impressora_oferta_responder(oferta_id):
     if not aplicado:
         flash("Essa oferta não está mais disponível (talvez já tenha expirado).")
     elif acao == "aceitar":
-        flash("Pedido aceito! Já apareceu na sua lista de impressões.")
+        flash("Solicitação aceita para análise. Revise as referências e fale com o cliente se precisar.")
     else:
         flash("Oferta recusada. Ela foi repassada pra próxima impressora mais próxima.")
     return redirect(url_for("impressora_painel"))
