@@ -231,3 +231,100 @@
     font-size:.72rem;
   }
 }
+
+
+/* Audit 2026-09 — mobile catalog controls v2 */
+.catalog-category-select-v17,
+.catalog-mobile-clear{
+  display:none;
+}
+
+@media(max-width:760px){
+  .catalog-page .catalog-tools-v12{
+    display:grid;
+    grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+    gap:9px;
+    margin-top:16px;
+  }
+
+  .catalog-page .catalog-search-v12{
+    grid-column:1/-1;
+  }
+
+  .catalog-page .catalog-category-select-v17,
+  .catalog-page .catalog-sort-v12{
+    display:grid;
+    grid-column:auto;
+    gap:6px;
+    min-width:0;
+    margin:0;
+  }
+
+  .catalog-page .catalog-category-select-v17>span,
+  .catalog-page .catalog-sort-v12>span{
+    color:#77717e;
+    font-size:.58rem;
+    font-weight:600;
+    letter-spacing:.1em;
+    text-transform:uppercase;
+  }
+
+  .catalog-page .catalog-category-select-v17 select,
+  .catalog-page .catalog-sort-v12 select{
+    width:100%;
+    min-width:0;
+    min-height:44px;
+    padding:0 34px 0 12px;
+    border:1px solid rgba(255,255,255,.11);
+    border-radius:12px;
+    background:#17171d;
+    color:#d8d2df;
+    font:500 .76rem/1 'Sora',sans-serif;
+    outline:none;
+  }
+
+  .catalog-page .catalog-category-select-v17 select:focus,
+  .catalog-page .catalog-sort-v12 select:focus{
+    border-color:rgba(178,116,255,.68);
+    box-shadow:0 0 0 3px rgba(162,89,255,.08);
+  }
+
+  .catalog-page .catalog-tools-v12>.btn{
+    grid-column:1/-1;
+    width:100%;
+    min-height:46px;
+    margin:2px 0 0;
+    padding:0 18px;
+    border-radius:12px;
+  }
+
+  .catalog-page .catalog-mobile-clear{
+    grid-column:1/-1;
+    justify-self:center;
+    margin-top:1px;
+    color:#8d8594;
+    font-size:.66rem;
+    text-decoration:none;
+  }
+
+  .catalog-page .catalog-mobile-clear:hover{
+    color:#cdb1f4;
+  }
+
+  /* No mobile the horizontal chip rail is intentionally removed. */
+  .catalog-page .catalog-filterbar{
+    display:none!important;
+  }
+}
+
+@media(max-width:390px){
+  .catalog-page .catalog-tools-v12{
+    gap:8px;
+  }
+  .catalog-page .catalog-category-select-v17 select,
+  .catalog-page .catalog-sort-v12 select{
+    min-height:42px;
+    padding-left:10px;
+    font-size:.72rem;
+  }
+}
