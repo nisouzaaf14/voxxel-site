@@ -2,6 +2,7 @@
 {% block title %}Catálogo — Voxxel{% endblock %}
 {% block meta_description %}Explore peças técnicas, acessórios para cosplay e utilitários produzidos sob demanda pela Rede Voxxel.{% endblock %}
 {% block body_class %}catalog-page{% endblock %}
+{% block extra_styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/catalog-v17.css') }}">{% endblock %}
 {% block content %}
 <section class="catalog-shell">
   <div class="wrap">
@@ -10,29 +11,52 @@
       <div class="catalog-meta" aria-label="Resumo do catálogo"><span>Resultados</span><strong>{{ total_produtos }}</strong><span>{{ 'produto encontrado' if total_produtos == 1 else 'produtos encontrados' }}</span></div>
     </header>
 
-    <form class="catalog-tools-v12" method="get" action="{{ url_for('loja') }}" role="search">
-      <label class="catalog-search-v12"><span class="sr-only">Buscar no catálogo</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><input type="search" name="q" value="{{ busca }}" placeholder="Buscar por nome ou descrição" maxlength="80" autocomplete="off"></label>
-      <label class="catalog-category-select-v17">
-        <span>Categoria</span>
-        <select name="categoria" onchange="this.form.submit()">
-          <option value="todos" {{ 'selected' if categoria_ativa == 'todos' }}>Todas</option>
-          {% for chave, nome in categorias.items() %}<option value="{{ chave }}" {{ 'selected' if categoria_ativa == chave }}>{{ nome }}</option>{% endfor %}
-        </select>
-      </label>
-      <label class="catalog-sort-v12"><span>Ordenar</span><select name="ordem" onchange="this.form.submit()"><option value="recentes" {{ 'selected' if ordem=='recentes' }}>Mais recentes</option><option value="nome" {{ 'selected' if ordem=='nome' }}>Nome A–Z</option><option value="preco_menor" {{ 'selected' if ordem=='preco_menor' }}>Menor preço</option><option value="preco_maior" {{ 'selected' if ordem=='preco_maior' }}>Maior preço</option></select></label>
-      <button class="btn btn-primary" type="submit">Buscar</button>
-      {% if busca or categoria_ativa != 'todos' %}<a class="catalog-mobile-clear" href="{{ url_for('loja') }}">Limpar filtros</a>{% endif %}
-    </form>
-
-    <div class="catalog-filterbar">
-      <div class="catalog-category-rail">
-        <div class="filtros" aria-label="Filtrar por categoria">
-          <a class="chip {{ 'active' if categoria_ativa == 'todos' }}" {% if categoria_ativa == 'todos' %}aria-current="true"{% endif %} href="{{ url_for('loja', q=busca, ordem=ordem) }}">Todos</a>
-          {% for chave, nome in categorias.items() %}<a class="chip {{ 'active' if categoria_ativa == chave }}" {% if categoria_ativa == chave %}aria-current="true"{% endif %} href="{{ url_for('loja', categoria=chave, q=busca, ordem=ordem) }}">{{ nome }}</a>{% endfor %}
-        </div>
+    <form class="catalog-command-v17" method="get" action="{{ url_for('loja') }}" role="search">
+      <div class="catalog-search-row-v17">
+        <label class="catalog-search-field-v17">
+          <span class="sr-only">Buscar no catálogo</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+          <input type="search" name="q" value="{{ busca }}" placeholder="Buscar no catálogo" maxlength="80" autocomplete="off">
+        </label>
+        <button class="catalog-search-action-v17" type="submit">
+          <span>Buscar</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6"/></svg>
+        </button>
       </div>
-      {% if busca or categoria_ativa != 'todos' %}<a class="catalog-clear-v12" href="{{ url_for('loja') }}">Limpar filtros</a>{% else %}<span class="catalog-filter-note">Deslize para ver todas as categorias</span>{% endif %}
-    </div>
+
+      <div class="catalog-filter-row-v17">
+        <label class="catalog-filter-control-v17">
+          <span>Categoria</span>
+          <span class="catalog-select-shell-v17">
+            <select name="categoria" onchange="this.form.submit()">
+              <option value="todos" {{ 'selected' if categoria_ativa == 'todos' }}>Todas as categorias</option>
+              {% for chave, nome in categorias.items() %}<option value="{{ chave }}" {{ 'selected' if categoria_ativa == chave }}>{{ nome }}</option>{% endfor %}
+            </select>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg>
+          </span>
+        </label>
+
+        <label class="catalog-filter-control-v17">
+          <span>Ordenar</span>
+          <span class="catalog-select-shell-v17">
+            <select name="ordem" onchange="this.form.submit()">
+              <option value="recentes" {{ 'selected' if ordem=='recentes' }}>Mais recentes</option>
+              <option value="nome" {{ 'selected' if ordem=='nome' }}>Nome A–Z</option>
+              <option value="preco_menor" {{ 'selected' if ordem=='preco_menor' }}>Menor preço</option>
+              <option value="preco_maior" {{ 'selected' if ordem=='preco_maior' }}>Maior preço</option>
+            </select>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg>
+          </span>
+        </label>
+      </div>
+
+      {% if busca or categoria_ativa != 'todos' %}
+      <div class="catalog-command-footer-v17">
+        <span>Filtros ativos</span>
+        <a href="{{ url_for('loja') }}">Limpar tudo</a>
+      </div>
+      {% endif %}
+    </form>
 
     {% if produtos %}
     <div class="catalog-grid fade-up">
