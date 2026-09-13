@@ -332,3 +332,39 @@
     grid-template-columns:38px minmax(0,1fr);
   }
 }
+
+
+/* V17 — simplify commercial flow */
+.commercial-hero-grid{
+  grid-template-columns:minmax(0,1fr);
+  max-width:980px;
+}
+.commercial-copy{
+  max-width:900px;
+}
+.commercial-copy h1{
+  max-width:900px;
+}
+.commercial-copy>p:not(.home-kicker){
+  max-width:760px;
+}
+.commercial-hero{
+  padding-bottom:clamp(52px,7vw,86px);
+}
+.commercial-process{
+  border-top:1px solid var(--line);
+}
+.lead-upload-control.has-file{
+  border-color:rgba(157,95,236,.62);
+}
+.lead-upload-control.has-file .lead-upload-copy small{
+  color:#caa3fb;
+}
+@media(max-width:560px){
+  .commercial-hero{
+    padding:34px 0 38px;
+  }
+  .commercial-copy h1{
+    max-width:100%;
+  }
+}
