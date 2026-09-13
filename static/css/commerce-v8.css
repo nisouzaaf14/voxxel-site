@@ -55,3 +55,29 @@
 
 @media(max-width:900px){.cart-layout-v8,.payment-layout-v8{grid-template-columns:1fr}.cart-summary-v8,.payment-side-v8{position:static}.payment-side-v8{order:-1}.product-spec-strip-v8{grid-template-columns:1fr}.checkout-security-v8{grid-template-columns:1fr 1fr 1fr}}
 @media(max-width:650px){.commerce-shell-v8{padding:24px 0 62px}.commerce-steps-v8>*{font-size:0}.commerce-steps-v8 .step-no{font-size:.58rem}.cart-v8-head,.payment-head-v8{grid-template-columns:1fr;display:grid;align-items:start}.cart-v8-count{display:none}.cart-item-v8{grid-template-columns:76px 1fr;gap:13px;padding:14px}.cart-thumb-v8{width:76px}.cart-price-v8{grid-column:2;text-align:left;margin-top:-5px}.cart-controls-v8{flex-wrap:wrap}.cart-layout-v8{gap:16px}.payment-main-v8,.payment-side-v8{padding:20px}.payment-copy-v8{grid-template-columns:1fr}.checkout-security-v8{grid-template-columns:1fr}.product-spec-strip-v8{margin-top:18px}}
+
+
+/* Audit 2026-09 — cart mobile density */
+@media(max-width:650px){
+  .cart-page-v8 .commerce-shell-v8{padding-top:20px;padding-bottom:62px}
+  .cart-page-v8 .commerce-steps-v8{margin-bottom:24px}
+  .cart-page-v8 .cart-v8-head{margin-bottom:18px}
+  .cart-page-v8 .commerce-title-v8{font-size:2.25rem;line-height:1.05}
+  .cart-page-v8 .commerce-lead-v8{margin-top:11px;font-size:.8rem;line-height:1.6}
+  .cart-page-v8 .cart-layout-v8{gap:12px}
+  .cart-page-v8 .cart-list-v8,.cart-page-v8 .cart-summary-v8{border-radius:18px}
+  .cart-page-v8 .cart-item-v8{grid-template-columns:64px minmax(0,1fr);gap:11px;padding:12px}
+  .cart-page-v8 .cart-thumb-v8{width:64px;border-radius:11px}
+  .cart-page-v8 .cart-item-v8 h2{font-size:.9rem;margin-bottom:6px}
+  .cart-page-v8 .cart-meta-v8{gap:5px}
+  .cart-page-v8 .cart-meta-v8 span{padding:4px 6px;font-size:.57rem}
+  .cart-page-v8 .cart-controls-v8{gap:7px;margin-top:10px}
+  .cart-page-v8 .cart-controls-v8 input{width:58px;height:36px}
+  .cart-page-v8 .cart-controls-v8 .btn{min-height:36px}
+  .cart-page-v8 .cart-price-v8{margin-top:0}
+  .cart-page-v8 .cart-summary-v8{padding:18px}
+  .cart-page-v8 .cart-summary-v8 h2{margin-bottom:14px;font-size:1.15rem}
+  .cart-page-v8 .cart-summary-line-v8{padding:10px 0}
+  .cart-page-v8 .cart-summary-total-v8{padding:15px 0 14px}
+  .cart-page-v8 .cart-summary-total-v8 strong{font-size:1.5rem}
+}
