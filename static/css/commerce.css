@@ -181,3 +181,46 @@
 .reference-rule{display:flex;align-items:center;gap:14px;margin-top:14px;padding:13px 15px;border-radius:14px;border:1px solid var(--line);background:rgba(255,255,255,.02);font-size:.8rem;color:var(--muted);flex-wrap:wrap}.reference-rule>span{text-transform:uppercase;letter-spacing:.08em;font-size:.68rem;color:#c8adff}.reference-rule strong{font-weight:500;color:var(--text)}.reference-rule b{color:#a970ff;font-weight:700}
 .project-brief-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:20px}.project-brief-wide{grid-column:1/-1}.project-brief-grid .field span b{color:#b184ff}.project-brief-grid textarea{resize:vertical;min-height:94px}
 @media(max-width:760px){.project-reference-grid,.project-brief-grid{grid-template-columns:1fr}.project-brief-wide{grid-column:auto}.project-upload-card{min-height:150px}}
+
+
+/* Audit 2026-09 — product and checkout mobile density */
+@media(max-width:600px){
+  .product-page-v8 .product-shell{padding-top:18px;padding-bottom:64px}
+  .product-page-v8 .breadcrumb{margin-bottom:14px}
+  .product-page-v8 .product-hero{gap:14px}
+  .product-page-v8 .product-media{aspect-ratio:1.12;border-radius:18px}
+  .product-page-v8 .pdp-media[data-tem-foto="1"] img{padding:12px}
+  .product-page-v8 .product-media-note{padding-top:9px;font-size:.58rem}
+  .product-page-v8 .product-buy-card{padding:19px;border-radius:18px}
+  .product-page-v8 .product-buy-card .pdp-title{margin-bottom:15px;font-size:2rem}
+  .product-page-v8 .product-price-row{margin-bottom:17px}
+  .product-page-v8 .product-buy-card .pdp-desc{margin-bottom:18px;font-size:.82rem;line-height:1.65}
+  .product-page-v8 .product-spec-strip-v8{grid-template-columns:1fr 1fr;margin-top:16px;border-radius:12px}
+  .product-page-v8 .product-spec-strip-v8>div{padding:11px}
+  .product-page-v8 .product-assurances{margin-bottom:20px}
+  .product-page-v8 .product-assurances>div{gap:10px;padding:12px 0}
+  .product-page-v8 .assurance-icon{flex-basis:30px;height:30px}
+  .product-page-v8 .product-assurances strong{font-size:.78rem}
+  .product-page-v8 .product-assurances small{margin-top:3px;font-size:.67rem}
+  .product-page-v8 .product-actions-secondary{gap:7px}
+  .product-page-v8 .product-fineprint{font-size:.65rem;line-height:1.5}
+
+  .checkout-page-v8 .checkout-shell{padding-top:20px;padding-bottom:64px}
+  .checkout-page-v8 .commerce-steps-v8{margin-bottom:24px}
+  .checkout-page-v8 .checkout-intro{margin-bottom:18px}
+  .checkout-page-v8 .checkout-intro h1{margin-bottom:12px;font-size:2.2rem}
+  .checkout-page-v8 .checkout-intro>p:last-child{font-size:.8rem;line-height:1.6}
+  .checkout-page-v8 .checkout-layout{gap:12px}
+  .checkout-page-v8 .checkout-summary-card{padding:18px;border-radius:18px}
+  .checkout-page-v8 .checkout-summary-top{padding-bottom:14px}
+  .checkout-page-v8 .checkout-summary-top h2{font-size:1.3rem}
+  .checkout-page-v8 .checkout-summary-card .checkout-itens{max-height:210px;margin-top:12px}
+  .checkout-page-v8 .checkout-form-card{border-radius:18px}
+  .checkout-page-v8 .checkout-form-section{padding:18px}
+  .checkout-page-v8 .checkout-section-title{gap:11px;margin-bottom:17px}
+  .checkout-page-v8 .checkout-section-title>span{flex-basis:30px;height:30px}
+  .checkout-page-v8 .checkout-section-title h2{font-size:.96rem}
+  .checkout-page-v8 .checkout-section-title p{font-size:.68rem}
+  .checkout-page-v8 .receiving-card{min-height:0;padding:13px;border-radius:12px}
+  .checkout-page-v8 .location-box{padding:13px}
+}
