@@ -78,9 +78,9 @@ class MarketplaceDatabaseTests(unittest.TestCase):
         total = conn.execute("SELECT COUNT(*) AS total FROM produtos").fetchone()["total"]
         conn.close()
 
-        self.assertEqual(before, {"cosplay": 6, "decoracao": 6, "tecnica": 6})
+        self.assertEqual(before, {"cosplay": 18, "decoracao": 18, "tecnica": 18})
         self.assertEqual(after, before)
-        self.assertEqual(total, 18)
+        self.assertEqual(total, 54)
 
     def test_cancelled_order_cannot_accept_offer(self):
         conn = database.get_db()
