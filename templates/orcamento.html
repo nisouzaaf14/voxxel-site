@@ -18,12 +18,49 @@
       <input type="hidden" name="cliente_lng" id="cliente_lng">
 
       <div class="quote-builder fade-up">
-        <section class="quote-step quote-reference-step">
+        <section class="quote-step">
           <div class="quote-step-head">
             <span class="quote-step-number">01</span>
             <div>
+              <h2>Que tipo de projeto você quer criar?</h2>
+              <p>Sua escolha adapta as perguntas do briefing para o tipo de peça.</p>
+            </div>
+          </div>
+
+          <div class="quote-choice-grid quote-category-grid" data-choice-group="categoria">
+            {% set categoria_copy = {
+              'tecnica': ('Peça técnica', 'Encaixes, suportes, reposições e peças funcionais.'),
+              'cosplay': ('Cosplay & acessório', 'Peças vestíveis, adereços e itens para caracterização.'),
+              'decoracao': ('Decoração & utilitário', 'Objetos para casa, organização e uso cotidiano.')
+            } %}
+            {% for chave, nome in categorias.items() %}
+            <button type="button" class="quote-choice-card {{ 'active' if form.categoria == chave }}" data-value="{{ chave }}" aria-pressed="{{ 'true' if form.categoria == chave else 'false' }}">
+              <span class="quote-choice-icon" aria-hidden="true">
+                {% if chave == 'tecnica' %}
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 7h16v10H4z"/><path d="M8 4v3M16 4v3M8 17v3M16 17v3"/><path d="M9 11h6v2H9z"/></svg>
+                {% elif chave == 'cosplay' %}
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 5.5 12 3l7 2.5v6.2c0 4.2-2.8 7.6-7 9.3-4.2-1.7-7-5.1-7-9.3z"/><path d="M8.5 10.5h2M13.5 10.5h2M9 15c1.8 1 4.2 1 6 0"/></svg>
+                {% else %}
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9z"/><path d="m4 7.5 8 4.5 8-4.5M12 12v9"/></svg>
+                {% endif %}
+              </span>
+              <span class="quote-choice-copy">
+                <strong>{{ categoria_copy[chave][0] }}</strong>
+                <small>{{ categoria_copy[chave][1] }}</small>
+              </span>
+              <span class="quote-choice-check" aria-hidden="true"></span>
+            </button>
+            {% endfor %}
+          </div>
+          <input type="hidden" name="categoria" id="categoria-input" value="{{ form.categoria }}">
+        </section>
+
+        <section class="quote-step quote-reference-step">
+          <div class="quote-step-head">
+            <span class="quote-step-number">02</span>
+            <div>
               <h2>Mostre o que você quer produzir</h2>
-              <p>Precisamos de uma referência concreta. Envie um arquivo 3D ou pelo menos uma imagem do objeto.</p>
+              <p id="briefing-intro">Precisamos de uma referência concreta. Envie um arquivo 3D ou pelo menos uma imagem do objeto.</p>
             </div>
           </div>
 
@@ -56,59 +93,22 @@
 
           <div class="project-brief-grid">
             <label class="field project-brief-wide">
-              <span>O que você precisa? <b>*</b></span>
-              <textarea name="descricao_projeto" rows="3" required minlength="12" placeholder="Ex.: Preciso de um suporte para prender um celular no guidão da bicicleta.">{{ request.form.get('descricao_projeto','') }}</textarea>
+              <span><span id="brief-description-label">O que você precisa?</span> <b>*</b></span>
+              <textarea id="brief-description" name="descricao_projeto" rows="3" required minlength="12" placeholder="Ex.: Preciso de um suporte para prender um celular no guidão da bicicleta.">{{ request.form.get('descricao_projeto','') }}</textarea>
             </label>
             <label class="field">
-              <span>O que precisa ser respeitado? <b>*</b></span>
-              <textarea name="requisitos_projeto" rows="3" required minlength="8" placeholder="Ex.: O encaixe deve servir em um tubo de 32 mm e não pode girar.">{{ request.form.get('requisitos_projeto','') }}</textarea>
+              <span><span id="brief-requirements-label">O que precisa ser respeitado?</span> <b>*</b></span>
+              <textarea id="brief-requirements" name="requisitos_projeto" rows="3" required minlength="8" placeholder="Ex.: O encaixe deve servir em um tubo de 32 mm e não pode girar.">{{ request.form.get('requisitos_projeto','') }}</textarea>
             </label>
             <label class="field">
-              <span>Como a peça será usada? <b>*</b></span>
-              <textarea name="uso_projeto" rows="3" required minlength="8" placeholder="Ex.: Uso externo, com vibração e contato eventual com chuva.">{{ request.form.get('uso_projeto','') }}</textarea>
+              <span><span id="brief-use-label">Como a peça será usada?</span> <b>*</b></span>
+              <textarea id="brief-use" name="uso_projeto" rows="3" required minlength="8" placeholder="Ex.: Uso externo, com vibração e contato eventual com chuva.">{{ request.form.get('uso_projeto','') }}</textarea>
             </label>
             <label class="field project-brief-wide">
-              <span>O que deve mudar em relação à referência? <em>Opcional</em></span>
-              <textarea name="alteracoes_projeto" rows="2" placeholder="Ex.: Quero a base 2 cm maior e sem o logotipo da foto.">{{ request.form.get('alteracoes_projeto','') }}</textarea>
+              <span><span id="brief-changes-label">O que deve mudar em relação à referência?</span> <em>Opcional</em></span>
+              <textarea id="brief-changes" name="alteracoes_projeto" rows="2" placeholder="Ex.: Quero a base 2 cm maior e sem o logotipo da foto.">{{ request.form.get('alteracoes_projeto','') }}</textarea>
             </label>
           </div>
-        </section>
-
-        <section class="quote-step">
-          <div class="quote-step-head">
-            <span class="quote-step-number">02</span>
-            <div>
-              <h2>Que tipo de peça é?</h2>
-              <p>Isso ajuda a estimar o nível de acabamento e trabalho manual.</p>
-            </div>
-          </div>
-
-          <div class="quote-choice-grid quote-category-grid" data-choice-group="categoria">
-            {% set categoria_copy = {
-              'tecnica': ('Peça técnica', 'Encaixes, suportes, reposições e peças funcionais.'),
-              'cosplay': ('Cosplay & acessório', 'Peças visuais, adereços e componentes maiores.'),
-              'decoracao': ('Decoração & utilitário', 'Objetos para casa, organização e uso cotidiano.')
-            } %}
-            {% for chave, nome in categorias.items() %}
-            <button type="button" class="quote-choice-card {{ 'active' if form.categoria == chave }}" data-value="{{ chave }}" aria-pressed="{{ 'true' if form.categoria == chave else 'false' }}">
-              <span class="quote-choice-icon" aria-hidden="true">
-                {% if chave == 'tecnica' %}
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 7h16v10H4z"/><path d="M8 4v3M16 4v3M8 17v3M16 17v3"/><path d="M9 11h6v2H9z"/></svg>
-                {% elif chave == 'cosplay' %}
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 5.5 12 3l7 2.5v6.2c0 4.2-2.8 7.6-7 9.3-4.2-1.7-7-5.1-7-9.3z"/><path d="M8.5 10.5h2M13.5 10.5h2M9 15c1.8 1 4.2 1 6 0"/></svg>
-                {% else %}
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9z"/><path d="m4 7.5 8 4.5 8-4.5M12 12v9"/></svg>
-                {% endif %}
-              </span>
-              <span class="quote-choice-copy">
-                <strong>{{ categoria_copy[chave][0] }}</strong>
-                <small>{{ categoria_copy[chave][1] }}</small>
-              </span>
-              <span class="quote-choice-check" aria-hidden="true"></span>
-            </button>
-            {% endfor %}
-          </div>
-          <input type="hidden" name="categoria" id="categoria-input" value="{{ form.categoria }}">
         </section>
 
         <section class="quote-step">
@@ -292,7 +292,55 @@
   const CATEGORIAS_LABEL = { tecnica: 'Peça técnica', cosplay: 'Cosplay & acessório', decoracao: 'Decoração & utilitário' };
   const QUALIDADE_LABEL = { rascunho: 'Rápido', padrao: 'Padrão', detalhado: 'Detalhado' };
   const COMPLEXIDADE_LABEL = { baixa: 'Simples', media: 'Moderada', alta: 'Complexa' };
+  const BRIEFING_COPY = {
+    tecnica: {
+      intro: 'Envie o modelo 3D ou imagens que mostrem a peça, os encaixes e as proporções importantes.',
+      descriptionLabel: 'Qual peça técnica você precisa produzir?',
+      descriptionPlaceholder: 'Ex.: Preciso de um suporte para prender um celular no guidão da bicicleta.',
+      requirementsLabel: 'Quais medidas, encaixes ou limites devem ser respeitados?',
+      requirementsPlaceholder: 'Ex.: O encaixe deve servir em um tubo de 32 mm e não pode girar.',
+      useLabel: 'Onde e como a peça será usada?',
+      usePlaceholder: 'Ex.: Uso externo, com vibração e contato eventual com chuva.',
+      changesLabel: 'O que deve mudar em relação à referência?',
+      changesPlaceholder: 'Ex.: Quero a base 2 cm maior e sem o logotipo da foto.'
+    },
+    cosplay: {
+      intro: 'Envie imagens do personagem e, se tiver, um modelo 3D. Fotos de vários ângulos ajudam a reproduzir os detalhes.',
+      descriptionLabel: 'Qual personagem, traje ou acessório você quer criar?',
+      descriptionPlaceholder: 'Ex.: Quero um capacete inspirado no Doutor Destino, dividido em partes para vestir.',
+      requirementsLabel: 'Quais medidas e detalhes visuais precisam ser respeitados?',
+      requirementsPlaceholder: 'Ex.: Circunferência da cabeça de 58 cm, abertura nos olhos e acabamento metálico.',
+      useLabel: 'Como o item será usado?',
+      usePlaceholder: 'Ex.: Será vestido em eventos; precisa ser leve, confortável e permitir ventilação.',
+      changesLabel: 'Você quer adaptar algo da referência?',
+      changesPlaceholder: 'Ex.: Quero retirar os espinhos e aumentar a abertura para enxergar melhor.'
+    },
+    decoracao: {
+      intro: 'Envie fotos, desenhos ou um modelo 3D que mostrem o estilo, o formato e a função do objeto.',
+      descriptionLabel: 'Qual objeto decorativo ou utilitário você quer criar?',
+      descriptionPlaceholder: 'Ex.: Quero um vaso geométrico para uma prateleira da sala.',
+      requirementsLabel: 'Quais medidas, estilo ou funções devem ser respeitados?',
+      requirementsPlaceholder: 'Ex.: Até 20 cm de altura, base estável e espaço interno para um vaso pequeno.',
+      useLabel: 'Onde e como o objeto será usado?',
+      usePlaceholder: 'Ex.: Ficará dentro de casa, próximo a uma janela e terá contato eventual com água.',
+      changesLabel: 'Você quer personalizar algo da referência?',
+      changesPlaceholder: 'Ex.: Quero colocar um nome na frente e usar um formato mais arredondado.'
+    }
+  };
   const $ = id => document.getElementById(id);
+
+  function aplicarBriefing(categoria){
+    const copy = BRIEFING_COPY[categoria] || BRIEFING_COPY.tecnica;
+    $('briefing-intro').textContent = copy.intro;
+    $('brief-description-label').textContent = copy.descriptionLabel;
+    $('brief-description').placeholder = copy.descriptionPlaceholder;
+    $('brief-requirements-label').textContent = copy.requirementsLabel;
+    $('brief-requirements').placeholder = copy.requirementsPlaceholder;
+    $('brief-use-label').textContent = copy.useLabel;
+    $('brief-use').placeholder = copy.usePlaceholder;
+    $('brief-changes-label').textContent = copy.changesLabel;
+    $('brief-changes').placeholder = copy.changesPlaceholder;
+  }
 
   function getChoice(name){
     const input = $(name + '-input');
@@ -310,6 +358,7 @@
       });
       const input = $(name + '-input');
       if(input) input.value = btn.dataset.value;
+      if(name === 'categoria') aplicarBriefing(btn.dataset.value);
       calcular();
     });
   });
@@ -420,6 +469,7 @@
     }
   });
 
+  aplicarBriefing(getChoice('categoria') || 'tecnica');
   calcular();
 
   if (navigator.geolocation) {

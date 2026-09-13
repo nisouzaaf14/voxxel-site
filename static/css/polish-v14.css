@@ -170,6 +170,19 @@
 }
 
 @media(max-width:680px){
+  .mobile-menu.open{
+    max-height:min(72vh,460px);
+    overflow-y:auto;
+  }
+  .mobile-menu a{border-top:0}
+  .mobile-menu a + a{border-top:1px solid rgba(255,255,255,.07)}
+  .mobile-menu-divider{
+    height:0;
+    margin:6px var(--space-2);
+    border-top:1px solid rgba(255,255,255,.13);
+    background:none;
+  }
+
   /* Evita que as descendentes de uma linha encostem na linha seguinte. */
   .home-hero-copy h1{
     font-size:clamp(2.65rem,13.2vw,3.45rem);
@@ -207,6 +220,19 @@
   .quote-heading h1{line-height:1.1;letter-spacing:-.05em}
   .quote-step-head h2{line-height:1.25;letter-spacing:-.02em}
   .quote-step-head p{line-height:1.6}
+  .quote-choice-card{
+    min-width:0;
+    padding-right:58px;
+  }
+  .quote-choice-card .quote-choice-copy{min-width:0}
+  .quote-choice-card .quote-choice-copy strong,
+  .quote-choice-card .quote-choice-copy small{
+    overflow-wrap:anywhere;
+  }
+  .quote-choice-card>.quote-choice-check{
+    right:19px;
+    top:50%;
+  }
   .quote-page .project-reference-grid,
   .quote-page .project-brief-grid{grid-template-columns:1fr}
   .quote-page .project-brief-wide{grid-column:auto}
