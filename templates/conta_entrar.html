@@ -7,12 +7,12 @@
   <div class="auth-panel">
     <div class="auth-panel-head"><h2>Entrar</h2><p>Use o telefone e a senha do seu cadastro.</p></div>
     {% if erro %}<div class="auth-error" role="alert">{{ erro }}</div>{% endif %}
-    <form method="post" class="auth-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="next" value="{{ request.args.get('next', '') }}">
+    <form method="post" class="auth-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="next" value="{{ request.args.get('next', '') }}"><input type="hidden" name="claim" value="{{ request.values.get('claim', '') }}">
       <div class="field"><label for="telefone">Telefone com DDD</label><input id="telefone" type="tel" name="telefone" autocomplete="tel" inputmode="tel" value="{{ request.form.get('telefone', '') }}" required placeholder="(41) 9XXXX-XXXX" autofocus></div>
       <div class="field"><label for="senha">Senha</label><input id="senha" type="password" name="senha" autocomplete="current-password" required maxlength="128"></div>
       <button type="submit" class="btn btn-primary btn-block">Entrar na minha conta</button>
     </form>
-    <div class="auth-foot">Primeira vez na Voxxel? <a href="{{ url_for('conta_cadastro', next=request.args.get('next','')) }}">Criar conta</a></div>
+    <div class="auth-foot">Primeira vez na Voxxel? <a href="{{ url_for('conta_cadastro', next=request.args.get('next',''), claim=request.values.get('claim','')) }}">Criar conta</a></div>
     <div class="auth-role-switch">Produz com impressão 3D? <a href="{{ url_for('impressora_entrar') }}">Acessar área do parceiro</a></div>
   </div>
 </div></section>

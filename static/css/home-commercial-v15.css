@@ -1,0 +1,7 @@
+.home-path-grid-commercial{grid-template-columns:repeat(3,minmax(0,1fr))}
+.home-path-grid-commercial .home-path{min-width:0;align-items:start}
+.home-path-grid-commercial .path-icon{width:48px;height:48px;border:1px solid rgba(177,112,255,.36);border-radius:14px;display:grid;place-items:center;color:#b576ff;background:rgba(137,72,224,.09)}
+.home-path-grid-commercial .path-icon svg{width:26px;stroke-width:1.5}
+.home-path-grid-commercial .home-path>div>strong{display:block;margin-top:18px;color:#d5b6ff;font-size:.75rem}
+@media(max-width:980px){.home-path-grid-commercial{grid-template-columns:1fr}}
+@media(max-width:430px){.home-path-grid-commercial .home-path{grid-template-columns:42px minmax(0,1fr);gap:13px}.home-path-grid-commercial .home-path>svg{display:none}.home-path-grid-commercial .path-icon{width:42px;height:42px}.home-path-grid-commercial .home-path h2{font-size:1rem}}

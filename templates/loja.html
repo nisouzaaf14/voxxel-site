@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Catálogo — Voxxel{% endblock %}
+{% block meta_description %}Explore peças técnicas, acessórios para cosplay e utilitários produzidos sob demanda pela Rede Voxxel.{% endblock %}
 {% block body_class %}catalog-page{% endblock %}
 {% block content %}
 <section class="catalog-shell">
@@ -29,8 +30,9 @@
       {% for p in produtos %}
       <article class="catalog-card">
         <a href="{{ url_for('produto_detalhe', produto_id=p['id']) }}" class="catalog-media" aria-label="Ver {{ p['nome'] }}">
-          {% if p['tem_imagem'] %}<img src="{{ url_for('produto_imagem', produto_id=p['id']) }}" alt="{{ p['nome'] }}" loading="lazy" decoding="async">
-          {% else %}<div class="catalog-image-placeholder"><div class="catalog-image-placeholder-inner"><img src="{{ url_for('static', filename='images/voxxel-mark.png') }}" alt="" width="68" height="68"><span>Imagem em preparação</span></div></div>{% endif %}
+          {% if p['tem_imagem'] %}<img src="{{ url_for('produto_imagem', produto_id=p['id']) }}" alt="{{ p['nome'] }}{{ ' — imagem ilustrativa' if p['imagem_tipo'] == 'ilustrativa' }}" loading="lazy" decoding="async">
+          {% else %}<div class="catalog-image-placeholder" aria-hidden="true"><div class="catalog-image-placeholder-inner"><img src="{{ url_for('static', filename='images/voxxel-mark.png') }}" alt="" width="68" height="68"></div></div>{% endif %}
+          {% if p['imagem_tipo'] == 'ilustrativa' %}<span class="catalog-image-kind">Imagem ilustrativa</span>{% endif %}
           {% if p['estoque'] is not none and p['estoque'] <= 0 %}<span class="catalog-badge out">Indisponível</span>{% elif p['estoque'] is none %}<span class="catalog-badge">Sob demanda</span>{% elif p['estoque'] <= 3 %}<span class="catalog-badge">{{ p['estoque'] }} disponíveis</span>{% endif %}
         </a>
         <div class="catalog-card-body">

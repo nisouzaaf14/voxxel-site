@@ -1,6 +1,8 @@
 // Atendimento Voxxel: webhook opcional configurado no servidor.
 // Sem VOXXEL_CHAT_WEBHOOK_URL, o widget usa o WhatsApp como fallback.
 const WEBHOOK_URL = (window.VOXXEL_CHAT_WEBHOOK_URL || '').trim();
+const CONTEXT_CTA = document.body.dataset.whatsappCta || 'Atendimento';
+const CONTEXT_MESSAGE = document.body.dataset.whatsappMessage || 'Olá! Preciso de ajuda com um projeto de impressão 3D.';
 
 (function () {
   // Atendimento direto enquanto o chat não estiver conectado.
@@ -8,11 +10,12 @@ const WEBHOOK_URL = (window.VOXXEL_CHAT_WEBHOOK_URL || '').trim();
     if (window.VOXXEL_WHATSAPP) {
       const link = document.createElement('a');
       link.className = 'whatsapp-fallback';
-      link.setAttribute('aria-label', 'Atendimento Voxxel pelo WhatsApp');
-      link.title = 'Atendimento Voxxel';
-      link.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13v-2a8 8 0 0 1 16 0v2"/><path d="M5 12H3.8A1.8 1.8 0 0 0 2 13.8v2.4A1.8 1.8 0 0 0 3.8 18H6v-6H5Zm14 0h1.2a1.8 1.8 0 0 1 1.8 1.8v2.4a1.8 1.8 0 0 1-1.8 1.8H18v-6h1Z"/><path d="M18 18c-.7 2-2.4 3-5 3h-1"/></svg><span>Atendimento</span>';
+      link.setAttribute('aria-label', CONTEXT_CTA + ' pelo WhatsApp');
+      link.title = CONTEXT_CTA;
+      link.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13v-2a8 8 0 0 1 16 0v2"/><path d="M5 12H3.8A1.8 1.8 0 0 0 2 13.8v2.4A1.8 1.8 0 0 0 3.8 18H6v-6H5Zm14 0h1.2a1.8 1.8 0 0 1 1.8 1.8v2.4a1.8 1.8 0 0 1-1.8 1.8H18v-6h1Z"/><path d="M18 18c-.7 2-2.4 3-5 3h-1"/></svg><span></span>';
+      link.querySelector('span').textContent = CONTEXT_CTA;
       link.target = '_blank'; link.rel = 'noopener';
-      link.href = 'https://wa.me/' + window.VOXXEL_WHATSAPP + '?text=' + encodeURIComponent(window.VOXXEL_CHAT_AUTO_MESSAGE || 'Olá! Preciso de ajuda com uma peça da Voxxel.');
+      link.href = 'https://wa.me/' + window.VOXXEL_WHATSAPP + '?text=' + encodeURIComponent(window.VOXXEL_CHAT_AUTO_MESSAGE || CONTEXT_MESSAGE);
       document.body.appendChild(link);
     }
     return;

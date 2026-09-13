@@ -117,6 +117,27 @@ PRODUTOS_SEED = [
     ("Manopla de Reposição Personalizada", "tecnica", 29.90, "Manopla funcional com encaixe ajustável às medidas informadas no pedido.", "285deg", None, "petg"),
 ]
 
+PRODUTOS_ILUSTRACOES = {
+    "Suporte Geométrico para Plantas": "suporte-geometrico-plantas.webp",
+    "Porta Talheres Poligonal": "porta-talheres-poligonal.webp",
+    "Escultura Facetada de Mesa": "escultura-facetada-mesa.webp",
+    "Porta-Caneta Poligonal": "porta-caneta-poligonal.webp",
+    "Estrutura para Luminária Geométrica": "estrutura-luminaria-geometrica.webp",
+    "Organizador Modular de Gaveta": "organizador-modular-gaveta.webp",
+    "Máscara Cosplay Cavaleiro": "mascara-cosplay-cavaleiro.webp",
+    "Punho de Manopla Infinity": "punho-manopla-cenografica.webp",
+    "Capacete Modular para Cosplay": "capacete-modular-cosplay.webp",
+    "Ombreira Cenográfica Modular": "ombreira-cenografica-modular.webp",
+    "Emblema Personalizado para Traje": "emblema-personalizado-traje.webp",
+    "Suporte Expositor para Máscaras": "suporte-expositor-mascaras.webp",
+    "Suporte de Celular Articulado": "suporte-celular-articulado.webp",
+    "Organizador de Ferramentas": "organizador-ferramentas.webp",
+    "Suporte para Fones": "suporte-fones.webp",
+    "Adaptador para Mangueira e Aspirador": "adaptador-mangueira-aspirador.webp",
+    "Kit de Presilhas e Guias para Cabos": "kit-presilhas-guias-cabos.webp",
+    "Manopla de Reposição Personalizada": "manopla-reposicao-personalizada.webp",
+}
+
 
 class _Connection:
     """Encapsula sqlite3 ou psycopg2 atrás da mesma interface usada no app.py
@@ -250,6 +271,8 @@ def _criar_tabelas(conn, is_new_sqlite):
         conn.execute("ALTER TABLE produtos ADD COLUMN IF NOT EXISTS imagem_mimetype TEXT")
         conn.execute("ALTER TABLE produtos ADD COLUMN IF NOT EXISTS estoque INTEGER")
         conn.execute("ALTER TABLE produtos ADD COLUMN IF NOT EXISTS material TEXT DEFAULT 'pla'")
+        conn.execute("ALTER TABLE produtos ADD COLUMN IF NOT EXISTS imagem_arquivo TEXT")
+        conn.execute("ALTER TABLE produtos ADD COLUMN IF NOT EXISTS imagem_tipo TEXT DEFAULT 'foto_real'")
         conn.execute("UPDATE produtos SET material='pla' WHERE material IS NULL OR material='' ")
         conn.execute(
             """
@@ -296,6 +319,10 @@ def _criar_tabelas(conn, is_new_sqlite):
         conn.execute("ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS repasse_status TEXT DEFAULT 'pendente'")
         conn.execute("ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS repasse_pago_em TEXT")
         conn.execute("ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS repasse_referencia TEXT DEFAULT ''")
+        conn.execute("ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS cliente_email TEXT DEFAULT ''")
+        conn.execute("ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS empresa_nome TEXT DEFAULT ''")
+        conn.execute("ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS lead_origem TEXT DEFAULT 'orcamento'")
+        conn.execute("ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS acesso_token_hash TEXT")
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS configuracoes (
@@ -432,6 +459,8 @@ def _criar_tabelas(conn, is_new_sqlite):
             "ALTER TABLE produtos ADD COLUMN imagem_mimetype TEXT",
             "ALTER TABLE produtos ADD COLUMN estoque INTEGER",
             "ALTER TABLE produtos ADD COLUMN material TEXT DEFAULT 'pla'",
+            "ALTER TABLE produtos ADD COLUMN imagem_arquivo TEXT",
+            "ALTER TABLE produtos ADD COLUMN imagem_tipo TEXT DEFAULT 'foto_real'",
         ):
             try:
                 conn.execute(coluna_sql)
@@ -476,6 +505,10 @@ def _criar_tabelas(conn, is_new_sqlite):
             "ALTER TABLE pedidos ADD COLUMN repasse_status TEXT DEFAULT 'pendente'",
             "ALTER TABLE pedidos ADD COLUMN repasse_pago_em TEXT",
             "ALTER TABLE pedidos ADD COLUMN repasse_referencia TEXT DEFAULT ''",
+            "ALTER TABLE pedidos ADD COLUMN cliente_email TEXT DEFAULT ''",
+            "ALTER TABLE pedidos ADD COLUMN empresa_nome TEXT DEFAULT ''",
+            "ALTER TABLE pedidos ADD COLUMN lead_origem TEXT DEFAULT 'orcamento'",
+            "ALTER TABLE pedidos ADD COLUMN acesso_token_hash TEXT",
         ):
             try:
                 conn.execute(coluna_sql)
@@ -628,6 +661,15 @@ def _criar_tabelas(conn, is_new_sqlite):
                )""",
             (*produto, produto[0]),
         )
+    # Ilustrações próprias dos itens de demonstração. Fotos reais enviadas
+    # pelo admin (BLOB) continuam tendo prioridade e nunca são sobrescritas.
+    for nome, arquivo in PRODUTOS_ILUSTRACOES.items():
+        conn.execute(
+            """UPDATE produtos SET imagem_arquivo=?, imagem_tipo='ilustrativa'
+               WHERE LOWER(nome)=LOWER(?) AND imagem_mimetype IS NULL
+                 AND (imagem_arquivo IS NULL OR imagem_arquivo='')""",
+            (arquivo, nome),
+        )
     conn.commit()
 
     # Snapshot dos itens de pedidos do catálogo. Além de preservar o preço e
@@ -702,7 +744,8 @@ def _criar_tabelas(conn, is_new_sqlite):
 
 def criar_pedido(conn, tipo, detalhes, valor_estimado, cliente_nome="", cliente_telefone="",
                   forma_pagamento="combinar", cliente_id=None, cliente_lat=None, cliente_lng=None,
-                  material_requisito=None, commit=True):
+                  material_requisito=None, cliente_email="", empresa_nome="", lead_origem="orcamento",
+                  acesso_token_hash=None, commit=True):
     """Insere um pedido (venda da loja ou orçamento) e devolve o id gerado,
     já lidando com a diferença de sintaxe entre SQLite e Postgres.
     `cliente_id` liga o pedido à conta logada -- fica None só para pedidos
@@ -712,21 +755,24 @@ def criar_pedido(conn, tipo, detalhes, valor_estimado, cliente_nome="", cliente_
     achar a impressora mais próxima."""
     params = (
         tipo, detalhes, valor_estimado, cliente_nome, cliente_telefone, forma_pagamento,
-        cliente_id, cliente_lat, cliente_lng, material_requisito,
+        cliente_id, cliente_lat, cliente_lng, material_requisito, cliente_email,
+        empresa_nome, lead_origem, acesso_token_hash,
     )
     if USING_POSTGRES:
         cur = conn.execute(
             """INSERT INTO pedidos (tipo, detalhes, valor_estimado, cliente_nome, cliente_telefone,
-                                     forma_pagamento, cliente_id, cliente_lat, cliente_lng, material_requisito)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id""",
+                                     forma_pagamento, cliente_id, cliente_lat, cliente_lng, material_requisito,
+                                     cliente_email, empresa_nome, lead_origem, acesso_token_hash)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id""",
             params,
         )
         novo_id = cur.fetchone()["id"]
     else:
         cur = conn.execute(
             """INSERT INTO pedidos (tipo, detalhes, valor_estimado, cliente_nome, cliente_telefone,
-                                     forma_pagamento, cliente_id, cliente_lat, cliente_lng, material_requisito)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                                     forma_pagamento, cliente_id, cliente_lat, cliente_lng, material_requisito,
+                                     cliente_email, empresa_nome, lead_origem, acesso_token_hash)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             params,
         )
         novo_id = cur.lastrowid

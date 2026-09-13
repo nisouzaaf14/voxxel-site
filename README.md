@@ -15,7 +15,20 @@
 3. Acesse http://127.0.0.1:5000
 
 O banco de dados SQLite (`voxxel.db`) é criado automaticamente na primeira
-execução, já com os 9 produtos de exemplo.
+execução, já com 18 produtos distribuídos entre as três categorias do catálogo.
+
+## Páginas comerciais e captação
+
+- `/peca-sob-medida` — análise de reposições e peças a partir de foto ou arquivo.
+- `/imprimir-stl` — envio de STL, OBJ ou 3MF para análise de produção.
+- `/empresas` — contato B2B para protótipos, gabaritos e pequenos lotes.
+- `/orcamento` — formulário simplificado, sem login obrigatório no primeiro envio.
+
+Leads anônimos recebem um token opaco de acompanhamento. Se o visitante criar
+ou acessar uma conta posteriormente, o pedido é vinculado à conta e o token é
+invalidado. As imagens iniciais dos 18 produtos são representações ilustrativas
+originais e ficam identificadas como tal; uma foto real enviada no admin sempre
+substitui a ilustração.
 
 ## Painel administrativo
 
@@ -71,6 +84,7 @@ voxxel.db         -> banco de dados (criado automaticamente)
 - A produção só pode ser iniciada depois de projeto autorizado e pagamento confirmado.
 - Notificações do parceiro funcionam enquanto o site estiver aberto em alguma aba. Push com o navegador totalmente fechado exige Web Push com assinatura do dispositivo.
 - Para produção, use PostgreSQL e configure `DATABASE_URL`; SQLite é adequado apenas para desenvolvimento local.
+- As migrations desta versão são incrementais e executadas por `init_db()`; não há comando manual separado.
 
 
 ## Auditoria técnica atual

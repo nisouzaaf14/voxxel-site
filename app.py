@@ -4,6 +4,9 @@ import json
 import time
 import math
 import secrets
+import hashlib
+import re
+from pathlib import Path
 import zipfile
 from datetime import timedelta
 from urllib.parse import urlparse
@@ -133,7 +136,7 @@ def login_obrigatorio(rota):
 
 def login_cliente_obrigatorio(rota):
     """Mesma ideia do `login_obrigatorio`, mas para a conta do cliente --
-    protege checkout e envio de orçamento, que agora exigem login."""
+    protege checkout e áreas que exigem uma conta persistente."""
     @wraps(rota)
     def rota_protegida(*args, **kwargs):
         if not session.get("cliente_id"):
@@ -174,7 +177,32 @@ def pedido_pertence_ao_usuario(pedido):
     if session.get("admin_logado"):
         return True
     dono = pedido["cliente_id"]
-    return dono is not None and dono == session.get("cliente_id")
+    if dono is not None and dono == session.get("cliente_id"):
+        return True
+    return pedido["id"] in session.get("pedidos_avulsos", [])
+
+
+def email_valido(valor):
+    return bool(re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", (valor or "").strip()))
+
+
+def hash_token_acesso(token):
+    return hashlib.sha256((token or "").encode("utf-8")).hexdigest()
+
+
+def vincular_pedido_por_token(conn, token, cliente_id):
+    """Vincula a uma conta um lead anônimo identificado por token opaco."""
+    if not token or len(token) > 160:
+        return None
+    pedido = conn.execute(
+        "SELECT id, cliente_id FROM pedidos WHERE acesso_token_hash=?",
+        (hash_token_acesso(token),),
+    ).fetchone()
+    if not pedido or (pedido["cliente_id"] is not None and pedido["cliente_id"] != cliente_id):
+        return None
+    conn.execute("UPDATE pedidos SET cliente_id=?, acesso_token_hash=NULL WHERE id=?", (cliente_id, pedido["id"]))
+    conn.commit()
+    return pedido["id"]
 
 
 # ---------- proteção CSRF ----------
@@ -388,7 +416,48 @@ def inject_globals():
 
 @app.route("/")
 def home():
-    return render_template("index.html")
+    # A seção de projetos só aparece quando houver conteúdo real aprovado.
+    return render_template("index.html", projetos_realizados=[])
+
+
+PAGINAS_COMERCIAIS = {
+    "peca_sob_medida": {
+        "origem": "peca_sob_medida", "categoria": "tecnica",
+        "kicker": "PEÇA SOB MEDIDA", "titulo": "Quebrou uma peça e não encontra reposição?",
+        "subtitulo": "Envie uma foto ou arquivo. A Voxxel analisa a possibilidade de produzir uma nova peça sob medida.",
+        "cta": "Enviar foto da peça", "whatsapp_cta": "Enviar foto da peça",
+        "whatsapp_msg": "Olá! Quero enviar a foto de uma peça para análise.",
+    },
+    "imprimir_stl": {
+        "origem": "imprimir_stl", "categoria": "tecnica",
+        "kicker": "ARQUIVO 3D PRONTO", "titulo": "Seu arquivo 3D está pronto. Agora transforme-o em uma peça física.",
+        "subtitulo": "Envie STL, OBJ ou 3MF, informe a quantidade e a Voxxel cuida da análise para produção.",
+        "cta": "Enviar arquivo para análise", "whatsapp_cta": "Dúvida sobre meu arquivo",
+        "whatsapp_msg": "Olá! Tenho uma dúvida sobre meu arquivo 3D.",
+    },
+    "empresas": {
+        "origem": "empresas", "categoria": "tecnica",
+        "kicker": "VOXXEL EMPRESAS", "titulo": "Produção 3D sob demanda para empresas.",
+        "subtitulo": "Protótipos, peças técnicas, gabaritos e pequenos lotes sem a necessidade de investir em moldes tradicionais.",
+        "cta": "Solicitar orçamento empresarial", "whatsapp_cta": "Falar sobre meu projeto",
+        "whatsapp_msg": "Olá! Quero falar sobre um projeto empresarial de impressão 3D.",
+    },
+}
+
+
+@app.route("/peca-sob-medida")
+def peca_sob_medida():
+    return render_template("landing_comercial.html", pagina=PAGINAS_COMERCIAIS["peca_sob_medida"])
+
+
+@app.route("/imprimir-stl")
+def imprimir_stl():
+    return render_template("landing_comercial.html", pagina=PAGINAS_COMERCIAIS["imprimir_stl"])
+
+
+@app.route("/empresas")
+def empresas():
+    return render_template("landing_comercial.html", pagina=PAGINAS_COMERCIAIS["empresas"])
 
 
 @app.route("/termos")
@@ -418,7 +487,8 @@ def health():
 # booleano (tem_imagem) que a rota /produto/<id>/imagem resolve de verdade.
 COLUNAS_PRODUTO_LISTA = """
     id, nome, categoria, preco, descricao, imagem_ang, ativo, estoque, material,
-    (imagem_mimetype IS NOT NULL) AS tem_imagem
+    imagem_arquivo, imagem_tipo,
+    (imagem_mimetype IS NOT NULL OR imagem_arquivo IS NOT NULL) AS tem_imagem
 """
 
 
@@ -965,9 +1035,30 @@ def _acesso_projeto(conn, pedido_id):
         return pedido, "admin"
     if session.get("cliente_id") and pedido["cliente_id"] == session.get("cliente_id"):
         return pedido, "cliente"
+    if pedido["id"] in session.get("pedidos_avulsos", []):
+        return pedido, "cliente"
     if session.get("impressora_id") and pedido["impressora_id"] == session.get("impressora_id"):
         return pedido, "impressora"
     return pedido, None
+
+
+@app.route("/acompanhar/<token>")
+def acompanhar_projeto(token):
+    if len(token) > 160:
+        abort(404)
+    conn = get_db()
+    pedido = conn.execute(
+        "SELECT id FROM pedidos WHERE acesso_token_hash=?", (hash_token_acesso(token),)
+    ).fetchone()
+    conn.close()
+    if not pedido:
+        flash("Este link de acompanhamento não é válido ou o projeto já foi vinculado a uma conta.")
+        return redirect(url_for("conta_entrar"))
+    ids = list(session.get("pedidos_avulsos", []))
+    if pedido["id"] not in ids:
+        ids.append(pedido["id"])
+    session["pedidos_avulsos"] = ids[-10:]
+    return redirect(url_for("pedido_projeto", pedido_id=pedido["id"]))
 
 
 def _mensagem_sistema(conn, pedido_id, texto):
@@ -1024,9 +1115,9 @@ def orcamento():
         try:
             form.update({
                 "categoria": request.form.get("categoria", "tecnica"),
-                "altura": max(0.0, float(request.form.get("altura") or 0)),
-                "largura": max(0.0, float(request.form.get("largura") or 0)),
-                "profundidade": max(0.0, float(request.form.get("profundidade") or 0)),
+                "altura": max(0.1, float(request.form.get("altura") or 10)),
+                "largura": max(0.1, float(request.form.get("largura") or 10)),
+                "profundidade": max(0.1, float(request.form.get("profundidade") or 10)),
                 "quantidade": max(1, int(request.form.get("quantidade") or 1)),
                 "material": request.form.get("material", "pla"),
                 "qualidade": request.form.get("qualidade", "padrao"),
@@ -1058,22 +1149,26 @@ def orcamento():
         resultado["tempo_formatado"] = formatar_horas(resultado["horas_total"])
 
         if request.form.get("acao") == "enviar":
-            if not session.get("cliente_id"):
-                flash("Faça login para enviar o projeto e acompanhá-lo em ‘Minha conta’. Depois de entrar, volte a esta página e reanexe os arquivos de referência.")
-                return redirect(url_for("conta_entrar", next=url_for("orcamento")))
-
             nome = texto_seguro(request.form.get("nome"), 120)
             telefone = normalizar_telefone(request.form.get("telefone"))
-            if not nome or not 10 <= len(telefone) <= 13:
-                flash("Preencha seu nome e um telefone válido com DDD para enviar o projeto.")
+            email = texto_seguro(request.form.get("email"), 180).lower()
+            empresa_nome = texto_seguro(request.form.get("empresa_nome"), 160)
+            origem = texto_seguro(request.form.get("origem"), 40) or "orcamento"
+            if origem not in {"orcamento", "peca_sob_medida", "imprimir_stl", "empresas"}:
+                origem = "orcamento"
+            if not nome or not 10 <= len(telefone) <= 13 or not email_valido(email):
+                flash("Preencha nome, WhatsApp com DDD e um e-mail válido.")
+                return render_template("orcamento.html", **contexto_orcamento(resultado))
+            if origem == "empresas" and not empresa_nome:
+                flash("Informe o nome da empresa para solicitar o orçamento empresarial.")
                 return render_template("orcamento.html", **contexto_orcamento(resultado))
 
             descricao_projeto = texto_seguro(request.form.get("descricao_projeto"), 1400)
             requisitos_projeto = texto_seguro(request.form.get("requisitos_projeto"), 1400)
             uso_projeto = texto_seguro(request.form.get("uso_projeto"), 1000)
             alteracoes_projeto = texto_seguro(request.form.get("alteracoes_projeto"), 1000)
-            if len(descricao_projeto) < 12 or len(requisitos_projeto) < 8 or len(uso_projeto) < 8:
-                flash("Descreva o que você precisa, o que deve ser respeitado e como a peça será usada.")
+            if len(descricao_projeto) < 12:
+                flash("Conte em poucas palavras o que você precisa produzir.")
                 return render_template("orcamento.html", **contexto_orcamento(resultado))
 
             try:
@@ -1087,11 +1182,11 @@ def orcamento():
                 flash(str(erro))
                 return render_template("orcamento.html", **contexto_orcamento(resultado))
 
-            if not modelo and not imagens:
+            if not modelo and not imagens and origem != "empresas":
                 flash("Envie um arquivo 3D ou pelo menos uma imagem de referência para conseguirmos entender o projeto.")
                 return render_template("orcamento.html", **contexto_orcamento(resultado))
 
-            referencia_status = "arquivo_3d" if modelo else "imagem_descricao"
+            referencia_status = "arquivo_3d" if modelo else "imagem_descricao" if imagens else "contato_inicial"
             detalhes = (
                 f"Categoria: {resultado['categoria_nome']}\n"
                 f"Dimensões: {form['altura']}x{form['largura']}x{form['profundidade']} cm\n"
@@ -1103,13 +1198,16 @@ def orcamento():
             )
             cliente_lat = ler_coordenada_formulario(request.form.get("cliente_lat"), -90, 90)
             cliente_lng = ler_coordenada_formulario(request.form.get("cliente_lng"), -180, 180)
+            token_acesso = None if session.get("cliente_id") else secrets.token_urlsafe(32)
             conn = get_db()
             pedido_id = criar_pedido(
                 conn, "orcamento", detalhes, resultado["preco_total"], nome, telefone,
                 ("pix" if pix.chave_valida(config_precos.get("pix_chave", "")) else
                  "cartao" if config_precos.get("mp_access_token", "").strip() else "combinar"),
-                cliente_id=session["cliente_id"], cliente_lat=cliente_lat, cliente_lng=cliente_lng,
+                cliente_id=session.get("cliente_id"), cliente_lat=cliente_lat, cliente_lng=cliente_lng,
                 material_requisito=form["material"],
+                cliente_email=email, empresa_nome=empresa_nome, lead_origem=origem,
+                acesso_token_hash=hash_token_acesso(token_acesso) if token_acesso else None,
             )
             conn.execute(
                 """UPDATE pedidos SET descricao_projeto=?, requisitos_projeto=?, uso_projeto=?,
@@ -1124,8 +1222,16 @@ def orcamento():
             conn.commit()
             distribuicao.despachar_pedido(conn, pedido_id)
             conn.close()
-            flash("Projeto recebido! Agora ele pode ser analisado por um parceiro da Rede Voxxel.")
-            return redirect(url_for("pedido_projeto", pedido_id=pedido_id))
+            if session.get("cliente_id"):
+                flash("Projeto recebido! Agora ele pode ser analisado pela Voxxel.")
+                return redirect(url_for("pedido_projeto", pedido_id=pedido_id))
+            ids = list(session.get("pedidos_avulsos", []))
+            ids.append(pedido_id)
+            session["pedidos_avulsos"] = ids[-10:]
+            return render_template(
+                "orcamento_enviado.html", pedido_id=pedido_id, token=token_acesso,
+                nome=nome, email=email,
+            )
 
     return render_template("orcamento.html", **contexto_orcamento(resultado))
 
@@ -1339,6 +1445,7 @@ def conta_cadastro():
         return redirect(url_for("conta_dashboard"))
 
     if request.method == "POST":
+        claim_token = request.form.get("claim", "")
         nome = texto_seguro(request.form.get("nome"), 120)
         telefone = normalizar_telefone(request.form.get("telefone"))
         senha = request.form.get("senha", "")
@@ -1370,6 +1477,7 @@ def conta_cadastro():
             cliente_id = criar_cliente(conn, nome, telefone, generate_password_hash(senha))
             conn.execute("UPDATE clientes SET termos_aceitos_em=CURRENT_TIMESTAMP WHERE id=?", (cliente_id,))
             conn.commit()
+            pedido_vinculado = vincular_pedido_por_token(conn, claim_token, cliente_id)
         except Exception:
             conn.rollback()
             conn.close()
@@ -1384,6 +1492,8 @@ def conta_cadastro():
         session["cliente_nome"] = nome
         session.permanent = True
         flash("Conta criada! Bem-vindo(a).")
+        if pedido_vinculado:
+            return redirect(url_for("pedido_projeto", pedido_id=pedido_vinculado))
         return redirect(next_seguro(url_for("conta_dashboard")))
 
     return render_template("conta_cadastro.html")
@@ -1399,6 +1509,7 @@ def conta_entrar():
     chave_rate_limit = f"cliente:{ip}"
 
     if request.method == "POST":
+        claim_token = request.form.get("claim", "")
         if login_bloqueado(chave_rate_limit):
             erro = "Muitas tentativas de login. Aguarde alguns minutos e tente novamente."
         else:
@@ -1406,16 +1517,20 @@ def conta_entrar():
             senha = request.form.get("senha", "")
             conn = get_db()
             cliente = buscar_cliente_por_telefone(conn, telefone)
-            conn.close()
             if cliente and check_password_hash(cliente["senha_hash"], senha):
                 limpar_falhas_login(chave_rate_limit)
+                pedido_vinculado = vincular_pedido_por_token(conn, claim_token, cliente["id"])
+                conn.close()
                 carrinho_salvo = dict(carrinho_sessao())
                 session.clear()
                 session["carrinho"] = carrinho_salvo
                 session["cliente_id"] = cliente["id"]
                 session["cliente_nome"] = cliente["nome"]
                 session.permanent = True
+                if pedido_vinculado:
+                    return redirect(url_for("pedido_projeto", pedido_id=pedido_vinculado))
                 return redirect(next_seguro(url_for("conta_dashboard")))
+            conn.close()
             registrar_falha_login(chave_rate_limit)
             erro = "Não foi possível entrar. Confira o telefone com DDD e a senha deste cadastro."
 
@@ -1695,8 +1810,9 @@ def admin_produto_novo():
         imagem_dados, imagem_mimetype = resultado_imagem if resultado_imagem else (None, None)
         conn.execute(
             """INSERT INTO produtos
-               (nome, categoria, preco, descricao, imagem_ang, ativo, imagem_dados, imagem_mimetype, estoque, material)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+               (nome, categoria, preco, descricao, imagem_ang, ativo, imagem_dados, imagem_mimetype,
+                imagem_arquivo, imagem_tipo, estoque, material)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, 'foto_real', ?, ?)""",
             (
                 texto_seguro(request.form["nome"], 120), categoria, preco,
                 texto_seguro(request.form.get("descricao"), 2000), normalizar_angulo_imagem(request.form.get("imagem_ang")),
@@ -1734,7 +1850,8 @@ def admin_produto_editar(produto_id):
             imagem_dados, imagem_mimetype = resultado_imagem
             conn.execute(
                 """UPDATE produtos SET nome=?, categoria=?, preco=?, descricao=?, imagem_ang=?, ativo=?,
-                   imagem_dados=?, imagem_mimetype=?, estoque=?, material=? WHERE id=?""",
+                   imagem_dados=?, imagem_mimetype=?, imagem_arquivo=NULL, imagem_tipo='foto_real',
+                   estoque=?, material=? WHERE id=?""",
                 (
                     nome, categoria, preco,
                     descricao, normalizar_angulo_imagem(request.form.get("imagem_ang")),
@@ -1746,7 +1863,8 @@ def admin_produto_editar(produto_id):
             # Usuário marcou pra remover a imagem atual, sem enviar outra
             conn.execute(
                 """UPDATE produtos SET nome=?, categoria=?, preco=?, descricao=?, imagem_ang=?, ativo=?,
-                   imagem_dados=NULL, imagem_mimetype=NULL, estoque=?, material=? WHERE id=?""",
+                   imagem_dados=NULL, imagem_mimetype=NULL, imagem_arquivo=NULL, imagem_tipo='foto_real',
+                   estoque=?, material=? WHERE id=?""",
                 (
                     nome, categoria, preco,
                     descricao, normalizar_angulo_imagem(request.form.get("imagem_ang")),
@@ -1790,12 +1908,21 @@ def admin_produto_toggle(produto_id):
 def produto_imagem(produto_id):
     conn = get_db()
     row = conn.execute(
-        "SELECT imagem_dados, imagem_mimetype FROM produtos WHERE id = ?", (produto_id,)
+        "SELECT imagem_dados, imagem_mimetype, imagem_arquivo FROM produtos WHERE id = ?", (produto_id,)
     ).fetchone()
     conn.close()
-    if not row or not row["imagem_mimetype"] or not row["imagem_dados"]:
+    if not row:
         return "", 404
-    resposta = Response(bytes(row["imagem_dados"]), mimetype=row["imagem_mimetype"])
+    if row["imagem_mimetype"] and row["imagem_dados"]:
+        resposta = Response(bytes(row["imagem_dados"]), mimetype=row["imagem_mimetype"])
+    elif row["imagem_arquivo"]:
+        nome = os.path.basename(row["imagem_arquivo"])
+        caminho = Path(app.static_folder) / "images" / "products" / nome
+        if nome != row["imagem_arquivo"] or not caminho.is_file():
+            return "", 404
+        resposta = send_file(caminho, mimetype="image/webp")
+    else:
+        return "", 404
     resposta.headers["Cache-Control"] = "public, max-age=86400"
     return resposta
 

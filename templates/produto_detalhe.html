@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block title %}{{ p['nome'] }} — Voxxel{% endblock %}
+{% block meta_description %}{{ p['descricao']|striptags|truncate(155) }}{% endblock %}
 {% block body_class %}commerce-v8 commerce-page product-page product-page-v8{% endblock %}
 {% block extra_styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/commerce.css') }}">{% endblock %}
 {% block content %}
@@ -22,14 +23,14 @@
           {% else %}
             <div class="product-no-photo product-placeholder">
               <img src="{{ url_for('static', filename='images/voxxel-mark.png') }}" alt="" width="68" height="68">
-              <strong>Referência visual sob consulta</strong>
-              <span>Este item ainda não tem foto cadastrada. Fale com a Voxxel se precisar confirmar o visual antes do pedido.</span>
+              <strong>Consulte o visual</strong>
+              <span>A Voxxel confirma as características antes da produção.</span>
             </div>
           {% endif %}
         </div>
         <div class="product-media-note">
           <span>Visual do produto</span>
-          <span>{% if p['tem_imagem'] %}Imagem cadastrada no catálogo{% else %}Sem imagem cadastrada{% endif %}</span>
+          <span>{% if p['imagem_tipo'] == 'ilustrativa' %}Representação ilustrativa · o resultado final pode variar{% elif p['tem_imagem'] %}Foto do produto{% else %}Visual confirmado antes da produção{% endif %}</span>
         </div>
       </div>
 
@@ -111,7 +112,7 @@
       {% for r in relacionados %}
       <div class="produto-card">
         <a href="{{ url_for('produto_detalhe', produto_id=r['id']) }}" class="produto-thumb" style="--ang:{{ r['imagem_ang'] }}" {% if r['tem_imagem'] %}data-tem-foto="1"{% endif %}>
-          {% if r['tem_imagem'] %}<img src="{{ url_for('produto_imagem', produto_id=r['id']) }}" alt="{{ r['nome'] }}" loading="lazy">{% else %}<div class="product-no-photo"><img src="{{ url_for('static', filename='images/voxxel-mark.png') }}" alt="" width="44" height="44"><span>Foto ainda não disponível</span></div>{% endif %}
+          {% if r['tem_imagem'] %}<img src="{{ url_for('produto_imagem', produto_id=r['id']) }}" alt="{{ r['nome'] }}{{ ' — imagem ilustrativa' if r['imagem_tipo'] == 'ilustrativa' }}" loading="lazy">{% else %}<div class="product-no-photo"><img src="{{ url_for('static', filename='images/voxxel-mark.png') }}" alt="" width="44" height="44"></div>{% endif %}
         </a>
         <div class="produto-info">
           <div class="produto-cat">{{ categorias[r['categoria']] }}</div>

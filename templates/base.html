@@ -3,8 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="description" content="Impressão 3D sob demanda: envie seu projeto, acompanhe a análise e conecte-se a um parceiro de produção compatível pela Rede Voxxel.">
+<meta name="description" content="{% block meta_description %}Impressão 3D sob demanda: envie uma foto, ideia ou arquivo 3D e receba uma análise da Voxxel.{% endblock %}">
 <title>{% block title %}Voxxel — Impressão 3D sob demanda{% endblock %}</title>
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Voxxel">
+<meta property="og:title" content="{% block og_title %}Voxxel — Impressão 3D sob demanda{% endblock %}">
+<meta property="og:description" content="{% block og_description %}Transforme uma foto, ideia ou arquivo 3D em uma peça física com análise técnica antes da produção.{% endblock %}">
+<meta property="og:url" content="{{ request.base_url }}">
+<meta property="og:image" content="{{ url_for('static', filename='images/hero-voxxel.webp', _external=True) }}">
 <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='images/favicon-32.png') }}">
 <link rel="icon" type="image/png" sizes="64x64" href="{{ url_for('static', filename='images/favicon-64.png') }}">
 <link rel="apple-touch-icon" href="{{ url_for('static', filename='images/apple-touch-icon.png') }}">
@@ -18,9 +24,11 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='css/commerce-v8.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/ux-v12.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/polish-v14.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/commercial-v15.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/visual-fixes-v15.css') }}">
 {% block extra_styles %}{% endblock %}
 </head>
-<body class="{% block body_class %}{% endblock %}">
+<body class="{% block body_class %}{% endblock %}" data-whatsapp-cta="{% block whatsapp_cta %}Atendimento{% endblock %}" data-whatsapp-message="{% block whatsapp_message %}Olá! Preciso de ajuda com um projeto de impressão 3D.{% endblock %}">
 <a class="skip-link" href="#conteudo-principal">Ir para o conteúdo</a>
 
 <header>
@@ -52,14 +60,15 @@
     </div>
   </div>
 
-  <div class="mobile-menu" id="mobile-menu" aria-label="Navegação móvel">
+  <div class="mobile-menu" id="mobile-menu" aria-label="Navegação móvel" aria-hidden="true">
     <a href="{{ url_for('home') }}#como-funciona">Como funciona</a>
     <a href="{{ url_for('loja') }}">Catálogo</a>
     <a href="{{ url_for('orcamento') }}">Projeto personalizado</a>
+    <a href="{{ url_for('empresas') }}">Empresas</a>
     <a href="{{ url_for('home') }}#parceiros">Parceiros</a>
     <div class="mobile-menu-divider"></div>
     {% if session.get('cliente_id') %}
-    <a href="{{ url_for('conta_dashboard') }}">Minha conta ({{ session.get('cliente_nome') }})</a>
+    <a class="mobile-account-link" href="{{ url_for('conta_dashboard') }}"><span>Minha conta</span><small>{{ session.get('cliente_nome') }}</small></a>
     <form class="nav-logout-form" method="post" action="{{ url_for('conta_sair') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit">Sair da conta</button></form>
     {% else %}
     <a href="{{ url_for('conta_entrar') }}">Entrar / Cadastrar</a>
@@ -100,6 +109,9 @@
       <span class="footer-label">Explorar</span>
       <a href="{{ url_for('loja') }}">Catálogo</a>
       <a href="{{ url_for('orcamento') }}">Projeto personalizado</a>
+      <a href="{{ url_for('peca_sob_medida') }}">Peça sob medida</a>
+      <a href="{{ url_for('imprimir_stl') }}">Imprimir STL</a>
+      <a href="{{ url_for('empresas') }}">Voxxel Empresas</a>
       <a href="{{ url_for('home') }}#como-funciona">Como funciona</a>
     </nav>
 
@@ -244,17 +256,21 @@ window.VOXXEL_PARTNER_OFFERS = {
   const menuToggle = document.getElementById('menu-toggle');
   const mobileMenu = document.getElementById('mobile-menu');
   if(menuToggle && mobileMenu){
-    menuToggle.addEventListener('click', ()=>{
-      const aberto = mobileMenu.classList.toggle('open');
+    const setMobileMenuState = (aberto)=>{
+      mobileMenu.classList.toggle('open', aberto);
       menuToggle.classList.toggle('open', aberto);
       menuToggle.setAttribute('aria-expanded', aberto ? 'true' : 'false');
+      mobileMenu.setAttribute('aria-hidden', aberto ? 'false' : 'true');
+      document.body.classList.toggle('menu-open', aberto);
+    };
+    menuToggle.addEventListener('click', ()=>{
+      setMobileMenuState(!mobileMenu.classList.contains('open'));
     });
     mobileMenu.querySelectorAll('a').forEach(link=>{
-      link.addEventListener('click', ()=>{
-        mobileMenu.classList.remove('open');
-        menuToggle.classList.remove('open');
-        menuToggle.setAttribute('aria-expanded', 'false');
-      });
+      link.addEventListener('click', ()=>setMobileMenuState(false));
+    });
+    window.addEventListener('resize', ()=>{
+      if(window.innerWidth > 760 && mobileMenu.classList.contains('open')) setMobileMenuState(false);
     });
   }
 </script>

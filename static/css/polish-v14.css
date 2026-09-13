@@ -170,15 +170,64 @@
 }
 
 @media(max-width:680px){
-  .mobile-menu.open{
-    max-height:min(72vh,460px);
+  body.menu-open{overflow:hidden}
+  header{isolation:isolate}
+  .mobile-menu{
+    position:absolute;
+    top:100%;
+    right:0;
+    left:0;
+    z-index:60;
+    visibility:hidden;
+    max-height:0;
+    padding:0 var(--space-2);
     overflow-y:auto;
+    overscroll-behavior:contain;
+    background:rgba(20,19,25,.985);
+    box-shadow:0 24px 52px rgba(0,0,0,.42);
+    pointer-events:none;
   }
-  .mobile-menu a{border-top:0}
+  .mobile-menu.open{
+    visibility:visible;
+    max-height:calc(100dvh - 82px);
+    padding-bottom:12px;
+    pointer-events:auto;
+  }
+  .mobile-menu a{
+    min-width:0;
+    padding:15px 0;
+    border-top:0;
+    font-size:.94rem;
+    line-height:1.35;
+  }
   .mobile-menu a + a{border-top:1px solid rgba(255,255,255,.07)}
+  .mobile-menu .mobile-account-link{display:grid;gap:3px}
+  .mobile-menu .mobile-account-link small{
+    max-width:100%;
+    overflow:hidden;
+    color:#88818f;
+    font-size:.64rem;
+    font-weight:400;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+  .mobile-menu .nav-logout-form{
+    border-top:1px solid rgba(255,255,255,.07);
+  }
+  .mobile-menu .nav-logout-form button{
+    display:block;
+    width:100%;
+    padding:15px 0;
+    border:0;
+    background:none;
+    color:#a9a2af;
+    font-size:.88rem;
+    line-height:1.35;
+    text-align:left;
+  }
   .mobile-menu-divider{
     height:0;
-    margin:6px var(--space-2);
+    margin:6px 0;
     border-top:1px solid rgba(255,255,255,.13);
     background:none;
   }
@@ -216,6 +265,36 @@
     text-align:left;
   }
   .catalog-meta strong{font-size:1.2rem}
+  .catalog-tools-v12{
+    grid-template-columns:minmax(0,1fr) auto;
+    gap:10px;
+    margin-top:20px;
+  }
+  .catalog-search-v12{grid-column:1 / -1}
+  .catalog-sort-v12{grid-column:1;min-width:0}
+  .catalog-sort-v12 select{width:100%;min-width:0}
+  .catalog-tools-v12>.btn{
+    grid-column:2;
+    min-width:108px;
+    padding-right:22px;
+    padding-left:22px;
+  }
+  .catalog-filterbar{
+    display:block;
+    margin:20px 0 24px;
+  }
+  .catalog-filterbar .filtros{
+    width:100%;
+    max-width:100%;
+    justify-content:flex-start;
+    flex-wrap:nowrap;
+    margin-bottom:0;
+    padding:0 0 7px;
+    scroll-padding-inline:1px;
+    -webkit-overflow-scrolling:touch;
+  }
+  .catalog-filterbar .chip{min-height:38px;padding:9px 13px}
+  .catalog-clear-v12{display:inline-block;margin-top:10px}
 
   .quote-heading h1{line-height:1.1;letter-spacing:-.05em}
   .quote-step-head h2{line-height:1.25;letter-spacing:-.02em}

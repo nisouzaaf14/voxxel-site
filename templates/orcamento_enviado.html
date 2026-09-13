@@ -1,0 +1,5 @@
+{% extends "base.html" %}
+{% block title %}Projeto recebido — Voxxel{% endblock %}
+{% block meta_description %}Confirmação de recebimento do projeto Voxxel.{% endblock %}
+{% block body_class %}lead-success-page{% endblock %}
+{% block content %}<section class="lead-success"><div class="wrap"><div class="lead-success-card"><span class="success-mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m5 12 4 4L19 6"/></svg></span><p class="home-kicker">PROJETO #{{ pedido_id }}</p><h1>Recebemos sua solicitação, {{ nome }}.</h1><p>Agora a Voxxel fará a análise técnica. Guarde o acesso abaixo para acompanhar o projeto com segurança.</p><div class="success-actions"><a class="btn btn-primary" href="{{ url_for('acompanhar_projeto', token=token) }}">Acompanhar meu projeto</a><a class="btn btn-outline" href="{{ url_for('conta_cadastro', claim=token) }}">Criar conta e vincular projeto</a></div><p class="success-note">Você também pode <a href="{{ url_for('conta_entrar', claim=token) }}">entrar em uma conta existente</a>. O contato informado foi {{ email }}.</p></div></div></section>{% endblock %}

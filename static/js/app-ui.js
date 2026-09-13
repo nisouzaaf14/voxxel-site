@@ -23,6 +23,8 @@
     menu.classList.remove('open');
     toggle?.classList.remove('open');
     toggle?.setAttribute('aria-expanded', 'false');
+    menu.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('menu-open');
     toggle?.focus();
   });
 })();

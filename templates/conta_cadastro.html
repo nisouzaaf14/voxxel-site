@@ -6,7 +6,7 @@
   <div class="auth-copy"><p class="auth-kicker">SUA CONTA VOXXEL</p><h1>Pedidos mais simples de acompanhar.</h1><p>Crie sua conta para manter projetos, arquivos, mensagens e histórico vinculados a você.</p><div class="auth-points"><span>Seu carrinho é preservado</span><span>Projetos ficam no seu histórico</span><span>Acompanhamento centralizado</span></div></div>
   <div class="auth-panel">
     <div class="auth-panel-head"><h2>Criar conta</h2><p>Leva menos de um minuto.</p></div>
-    <form method="post" class="auth-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="next" value="{{ request.args.get('next', '') }}">
+    <form method="post" class="auth-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="next" value="{{ request.args.get('next', '') }}"><input type="hidden" name="claim" value="{{ request.values.get('claim', '') }}">
       <div class="field"><label for="nome">Nome</label><input id="nome" type="text" name="nome" autocomplete="name" maxlength="120" required placeholder="Seu nome" value="{{ request.form.get('nome','') }}"></div>
       <div class="field"><label for="telefone">WhatsApp com DDD</label><input id="telefone" type="tel" name="telefone" autocomplete="tel" inputmode="tel" maxlength="40" required placeholder="(41) 9XXXX-XXXX" value="{{ request.form.get('telefone','') }}"></div>
       <div class="field"><label for="senha">Senha</label><input id="senha" type="password" name="senha" autocomplete="new-password" required minlength="8" maxlength="128"><small>Use pelo menos 8 caracteres.</small></div>
@@ -14,7 +14,7 @@
       <label class="legal-consent"><input type="checkbox" name="aceite_termos" value="1" required {{ 'checked' if request.form.get('aceite_termos') }}><span>Li e aceito os <a href="{{ url_for('termos') }}" target="_blank">Termos de Uso</a> e a <a href="{{ url_for('privacidade') }}" target="_blank">Política de Privacidade</a>.</span></label>
       <button type="submit" class="btn btn-primary btn-block">Criar minha conta</button>
     </form>
-    <div class="auth-foot">Já tem conta? <a href="{{ url_for('conta_entrar', next=request.args.get('next','')) }}">Entrar</a></div>
+    <div class="auth-foot">Já tem conta? <a href="{{ url_for('conta_entrar', next=request.args.get('next',''), claim=request.values.get('claim','')) }}">Entrar</a></div>
   </div>
 </div></section>
 {% endblock %}
