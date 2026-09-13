@@ -794,3 +794,236 @@
     transition:none;
   }
 }
+
+
+/* V20 — clean horizontal carousel and mobile footer restore */
+.project-selector .project-selector-heading{
+  max-width:720px;
+  margin:0 0 26px;
+  text-align:left;
+}
+.project-carousel-horizontal{
+  position:relative;
+  max-width:none;
+  margin:0;
+  padding:0;
+  perspective:none;
+}
+.project-carousel-horizontal .project-carousel-stage.project-selector-grid{
+  display:flex!important;
+  gap:16px;
+  height:auto!important;
+  min-height:0;
+  overflow-x:auto!important;
+  overflow-y:hidden;
+  padding:10px 4px 24px;
+  position:relative;
+  scroll-snap-type:x mandatory;
+  scroll-behavior:smooth;
+  overscroll-behavior-x:contain;
+  scrollbar-width:none;
+  perspective:none;
+  transform:none;
+  touch-action:pan-x pan-y;
+}
+.project-carousel-horizontal .project-carousel-stage::-webkit-scrollbar{display:none}
+.project-carousel-horizontal .project-option{
+  flex:0 0 calc((100% - 32px)/3);
+  width:auto!important;
+  height:auto!important;
+  min-height:350px!important;
+  position:relative!important;
+  inset:auto!important;
+  margin:0!important;
+  padding:26px!important;
+  opacity:1!important;
+  pointer-events:auto!important;
+  transform:none!important;
+  filter:none!important;
+  scroll-snap-align:start;
+  scroll-snap-stop:always;
+  border-color:rgba(190,132,255,.18);
+  box-shadow:0 16px 38px rgba(0,0,0,.22);
+}
+.project-carousel-horizontal .project-option.is-active{
+  border-color:rgba(191,119,255,.55);
+  box-shadow:
+    0 20px 44px rgba(0,0,0,.28),
+    0 0 0 1px rgba(170,91,255,.08),
+    0 0 24px rgba(151,73,235,.12);
+}
+.project-carousel-horizontal .project-option:hover,
+.project-carousel-horizontal .project-option:focus-visible,
+.project-carousel-horizontal .project-option.is-active:hover{
+  transform:translateY(-3px)!important;
+}
+.project-carousel-horizontal .project-option-visual{
+  position:relative!important;
+  inset:auto!important;
+  width:68px;
+  height:68px;
+  margin:0 0 26px;
+  border-radius:17px;
+}
+.project-carousel-horizontal .project-option-visual svg{
+  width:46px;
+  height:46px;
+}
+.project-carousel-horizontal .project-option-copy>strong,
+.project-carousel-horizontal .project-option-copy small{
+  padding-right:0!important;
+}
+.project-carousel-horizontal .project-option-copy>strong{
+  font-size:1.45rem;
+  margin:9px 0 12px;
+}
+.project-carousel-horizontal .project-option-copy>span{
+  margin-bottom:22px;
+  font-size:.86rem;
+  line-height:1.65;
+}
+.project-carousel-horizontal .project-option-copy b{
+  min-height:0;
+  margin-top:auto;
+  padding-top:17px;
+}
+.project-carousel-horizontal .project-carousel-controls{
+  min-height:0;
+  display:flex;
+  flex-direction:row;
+  align-items:center;
+  justify-content:center;
+  gap:14px;
+  margin-top:4px;
+}
+.project-carousel-horizontal .project-carousel-arrow{
+  width:40px;
+  height:40px;
+  display:grid;
+  place-items:center;
+  position:static!important;
+  inset:auto!important;
+  border:1px solid rgba(191,131,255,.24);
+  border-radius:50%;
+  background:#15131b;
+  color:#cda3ff;
+  box-shadow:none;
+}
+.project-carousel-horizontal .project-carousel-arrow:disabled{
+  opacity:.28;
+  cursor:default;
+}
+.project-carousel-horizontal .project-carousel-arrow:not(:disabled):hover{
+  transform:translateY(-1px);
+  border-color:rgba(202,148,255,.55);
+  box-shadow:0 0 18px rgba(155,75,241,.12);
+}
+.project-carousel-horizontal .project-carousel-dots button{
+  width:7px;
+  height:7px;
+}
+.project-carousel-horizontal .project-carousel-dots button.is-active{
+  width:24px;
+}
+.project-carousel-horizontal .project-carousel-live{
+  position:absolute!important;
+  width:1px!important;
+  height:1px!important;
+  overflow:hidden!important;
+  clip:rect(0,0,0,0)!important;
+}
+
+@media(max-width:900px){
+  .project-carousel-horizontal .project-option{
+    flex-basis:calc(50% - 8px);
+  }
+}
+@media(max-width:620px){
+  .project-selector{padding-top:25px}
+  .project-selector .project-selector-heading{
+    margin-bottom:18px;
+    text-align:left;
+  }
+  .project-selector-heading h1{
+    font-size:2.35rem;
+    line-height:1.12;
+  }
+  .project-carousel-horizontal{
+    width:calc(100% + 32px);
+    margin-left:-16px;
+    overflow:hidden;
+  }
+  .project-carousel-horizontal .project-carousel-stage.project-selector-grid{
+    gap:12px;
+    padding:8px 18px 22px;
+    scroll-padding-inline:18px;
+  }
+  .project-carousel-horizontal .project-option{
+    flex:0 0 calc(100% - 56px);
+    min-height:330px!important;
+    padding:23px 20px!important;
+    scroll-snap-align:center;
+    border-radius:20px;
+  }
+  .project-carousel-horizontal .project-option-visual{
+    width:60px;
+    height:60px;
+    margin-bottom:21px;
+  }
+  .project-carousel-horizontal .project-option-visual svg{
+    width:40px;
+    height:40px;
+  }
+  .project-carousel-horizontal .project-option-copy>strong{
+    font-size:1.4rem;
+  }
+  .project-carousel-horizontal .project-carousel-controls{
+    margin-top:0;
+  }
+}
+
+/* Restore the organized mobile footer: brand, two navigation columns, then support. */
+@media(max-width:760px){
+  .site-footer{text-align:center}
+  .site-footer .footer-grid{
+    grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;
+    justify-items:stretch!important;
+    gap:30px 18px!important;
+  }
+  .site-footer .footer-brand{
+    grid-column:1/-1!important;
+    width:100%!important;
+    max-width:430px!important;
+    justify-self:center;
+    align-items:center!important;
+  }
+  .site-footer .footer-brand-lockup-v12{margin:0 auto 16px!important}
+  .site-footer .footer-brand p{margin:16px auto 10px!important}
+  .site-footer .footer-column{
+    width:100%!important;
+    min-width:0;
+    align-items:center!important;
+    text-align:center;
+  }
+  .site-footer .footer-column a{
+    font-size:.79rem;
+    overflow-wrap:anywhere;
+  }
+  .site-footer .footer-service{
+    grid-column:1/-1!important;
+    width:100%!important;
+    padding-top:24px;
+    border-top:1px solid rgba(255,255,255,.07);
+  }
+  .site-footer .footer-whatsapp{justify-content:center}
+  .site-footer .footer-bottom{
+    align-items:center!important;
+    text-align:center;
+    gap:8px;
+  }
+  .site-footer .footer-legal-v12{justify-content:center}
+}
+@media(max-width:360px){
+  .site-footer .footer-grid{column-gap:12px!important}
+  .site-footer .footer-column a{font-size:.74rem}
+}
