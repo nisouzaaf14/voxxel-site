@@ -2,4 +2,41 @@
 {% block title %}Projeto recebido — Voxxel{% endblock %}
 {% block meta_description %}Confirmação de recebimento do projeto Voxxel.{% endblock %}
 {% block body_class %}lead-success-page{% endblock %}
-{% block content %}<section class="lead-success"><div class="wrap"><div class="lead-success-card"><span class="success-mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m5 12 4 4L19 6"/></svg></span><p class="home-kicker">PROJETO #{{ pedido_id }}</p><h1>Recebemos sua solicitação, {{ nome }}.</h1><p>Agora a Voxxel fará a análise técnica. Guarde o acesso abaixo para acompanhar o projeto com segurança.</p><div class="success-actions"><a class="btn btn-primary" href="{{ url_for('acompanhar_projeto', token=token) }}">Acompanhar meu projeto</a><a class="btn btn-outline" href="{{ url_for('conta_cadastro', claim=token) }}">Criar conta e vincular projeto</a></div><p class="success-note">Você também pode <a href="{{ url_for('conta_entrar', claim=token) }}">entrar em uma conta existente</a>. O contato informado foi {{ email }}.</p></div></div></section>{% endblock %}
+{% block content %}
+<section class="lead-success">
+  <div class="wrap">
+    <div class="lead-success-card">
+      <span class="success-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m5 12 4 4L19 6"/></svg>
+      </span>
+      <p class="home-kicker">PROJETO #{{ pedido_id }} RECEBIDO</p>
+      <h1>Seu projeto já está na Voxxel.</h1>
+      <p class="lead-success-intro">Recebemos sua solicitação, {{ nome }}. A partir daqui você acompanha a análise, conversa e aprovação em um único lugar.</p>
+
+      <div class="success-now">
+        <span class="success-now-dot"></span>
+        <div><small>AGORA</small><strong>Análise técnica</strong><p>A Voxxel e o parceiro responsável verificam referência, viabilidade e detalhes antes de qualquer produção.</p></div>
+      </div>
+
+      <ol class="success-flow" aria-label="Próximas etapas do projeto">
+        <li class="done"><span>01</span><div><strong>Projeto recebido</strong><small>Seu envio foi registrado.</small></div></li>
+        <li class="current"><span>02</span><div><strong>Análise</strong><small>Podemos pedir algum detalhe se necessário.</small></div></li>
+        <li><span>03</span><div><strong>Sua aprovação</strong><small>Você revisa valor e projeto antes de avançar.</small></div></li>
+        <li><span>04</span><div><strong>Produção</strong><small>Só começa depois das confirmações necessárias.</small></div></li>
+      </ol>
+
+      <div class="success-trust">
+        <div><span aria-hidden="true">✓</span><strong>Nada é produzido sem sua aprovação.</strong></div>
+        <div><span aria-hidden="true">✓</span><strong>Valor e detalhes são confirmados antes da produção.</strong></div>
+        <div><span aria-hidden="true">✓</span><strong>Status, mensagens e arquivos ficam no acompanhamento do projeto.</strong></div>
+      </div>
+
+      <div class="success-actions">
+        <a class="btn btn-primary" href="{{ url_for('acompanhar_projeto', token=token) }}">Acompanhar projeto <span aria-hidden="true">→</span></a>
+        <a class="btn btn-outline" href="{{ url_for('conta_cadastro', claim=token) }}">Criar conta</a>
+      </div>
+      <p class="success-note">Guarde este acesso. Você também pode <a href="{{ url_for('conta_entrar', claim=token) }}">entrar em uma conta existente</a> e vincular o projeto. Contato informado: {{ email }}.</p>
+    </div>
+  </div>
+</section>
+{% endblock %}
