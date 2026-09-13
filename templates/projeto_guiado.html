@@ -8,8 +8,7 @@
 {% block content %}
 <section class="quote-page guided-project {{ 'project-business' if b2b }}" {% if b2b %}id="solicitar-empresa"{% endif %}>
  <div class="wrap">
-  {% include "components/project_modes.html" %}
-  <header class="quote-heading">
+    <header class="quote-heading">
    <div><div class="eyebrow">Voxxel {{ 'Empresas' if b2b else 'Ideias' }}</div>
     <h1>{{ 'Produção 3D sob demanda para empresas.' if b2b else 'Você mostra o que precisa.' }}</h1></div>
    <p>{{ 'Protótipos, peças técnicas e pequenos lotes. Avaliamos quando a impressão 3D é adequada à sua aplicação.' if b2b else 'A gente ajuda com a parte técnica. Comece com uma ideia, uma foto ou um arquivo.' }}</p>
