@@ -12,9 +12,16 @@
 
     <form class="catalog-tools-v12" method="get" action="{{ url_for('loja') }}" role="search">
       <label class="catalog-search-v12"><span class="sr-only">Buscar no catálogo</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><input type="search" name="q" value="{{ busca }}" placeholder="Buscar por nome ou descrição" maxlength="80" autocomplete="off"></label>
-      <input type="hidden" name="categoria" value="{{ categoria_ativa }}">
+      <label class="catalog-category-select-v17">
+        <span>Categoria</span>
+        <select name="categoria" onchange="this.form.submit()">
+          <option value="todos" {{ 'selected' if categoria_ativa == 'todos' }}>Todas</option>
+          {% for chave, nome in categorias.items() %}<option value="{{ chave }}" {{ 'selected' if categoria_ativa == chave }}>{{ nome }}</option>{% endfor %}
+        </select>
+      </label>
       <label class="catalog-sort-v12"><span>Ordenar</span><select name="ordem" onchange="this.form.submit()"><option value="recentes" {{ 'selected' if ordem=='recentes' }}>Mais recentes</option><option value="nome" {{ 'selected' if ordem=='nome' }}>Nome A–Z</option><option value="preco_menor" {{ 'selected' if ordem=='preco_menor' }}>Menor preço</option><option value="preco_maior" {{ 'selected' if ordem=='preco_maior' }}>Maior preço</option></select></label>
       <button class="btn btn-primary" type="submit">Buscar</button>
+      {% if busca or categoria_ativa != 'todos' %}<a class="catalog-mobile-clear" href="{{ url_for('loja') }}">Limpar filtros</a>{% endif %}
     </form>
 
     <div class="catalog-filterbar">
