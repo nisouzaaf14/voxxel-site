@@ -17,6 +17,12 @@
       <p>Monte a simulação e ajuste o que importa. A confirmação final acontece antes da produção.</p>
     </div>
 
+    <div class="project-trust-band fade-up" aria-label="Como a Voxxel protege sua decisão">
+      <div><span>01</span><strong>Análise antes da produção</strong></div>
+      <div><span>02</span><strong>Você aprova antes de produzir</strong></div>
+      <div><span>03</span><strong>Status e mensagens no projeto</strong></div>
+    </div>
+
     <form method="post" action="{{ url_for('orcamento') }}" id="form-orcamento" class="quote-layout" enctype="multipart/form-data">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <input type="hidden" name="origem" value="orcamento">
