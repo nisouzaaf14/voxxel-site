@@ -1,15 +1,10 @@
-// ============================================================
-// Chat da Voxxel — conecta com o workflow do N8N
-// ============================================================
-// 1. Cole a "Production URL" do seu nó Webhook do N8N aqui embaixo,
-//    entre as aspas:
-const WEBHOOK_URL = "COLE_AQUI_A_URL_DO_SEU_WEBHOOK_N8N";
-// Exemplo: "https://seu-n8n.com/webhook/chat-voxxel"
-// ============================================================
+// Atendimento Voxxel: webhook opcional configurado no servidor.
+// Sem VOXXEL_CHAT_WEBHOOK_URL, o widget usa o WhatsApp como fallback.
+const WEBHOOK_URL = (window.VOXXEL_CHAT_WEBHOOK_URL || '').trim();
 
 (function () {
   // Atendimento direto enquanto o chat não estiver conectado.
-  if (!WEBHOOK_URL || WEBHOOK_URL.includes("COLE_AQUI")) {
+  if (!WEBHOOK_URL) {
     if (window.VOXXEL_WHATSAPP) {
       const link = document.createElement('a');
       link.className = 'whatsapp-fallback';
@@ -154,7 +149,7 @@ const WEBHOOK_URL = "COLE_AQUI_A_URL_DO_SEU_WEBHOOK_N8N";
   async function enviarMensagem(texto) {
     if (!texto) return;
 
-    if (!WEBHOOK_URL || WEBHOOK_URL.includes("COLE_AQUI")) {
+    if (!WEBHOOK_URL) {
       addMessage("O atendimento por chat está indisponível no momento. Entre em contato pelo WhatsApp.", "bot");
       return;
     }
