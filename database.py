@@ -95,32 +95,32 @@ CONFIG_PADRAO = {
 
 PRODUTOS_SEED = [
     # nome, categoria, preço, descrição, ângulo do placeholder, estoque, material
-    ("Suporte Geométrico para Plantas", "decoracao", 59.90, "Cachepô facetado para vasos pequenos, produzido sob demanda com acabamento fosco.", "15deg", None, "pla"),
-    ("Porta Talheres Poligonal", "decoracao", 44.90, "Organizador de bancada com divisórias e desenho geométrico contemporâneo.", "80deg", None, "pla"),
-    ("Escultura Facetada de Mesa", "decoracao", 54.90, "Peça decorativa de linhas facetadas para estantes, nichos e mesas.", "270deg", None, "pla"),
+    ("Suporte Geométrico para Plantas", "decoracao", 34.90, "Cachepô facetado para vasos pequenos, produzido sob demanda com acabamento fosco.", "15deg", None, "pla"),
+    ("Porta Talheres Poligonal", "decoracao", 34.90, "Organizador de bancada com divisórias e desenho geométrico contemporâneo.", "80deg", None, "pla"),
+    ("Escultura Facetada de Mesa", "decoracao", 39.90, "Peça decorativa de linhas facetadas para estantes, nichos e mesas.", "270deg", None, "pla"),
     ("Porta-Caneta Poligonal", "decoracao", 29.90, "Organizador compacto para canetas e pequenos acessórios de escritório.", "190deg", None, "pla"),
-    ("Estrutura para Luminária Geométrica", "decoracao", 79.90, "Cúpula decorativa de mesa com desenho vazado; componentes elétricos não inclusos.", "235deg", None, "pla"),
-    ("Organizador Modular de Gaveta", "decoracao", 49.90, "Módulos combináveis para organizar utensílios, acessórios e objetos pequenos.", "305deg", None, "pla"),
+    ("Estrutura para Luminária Geométrica", "decoracao", 59.90, "Cúpula decorativa de mesa com desenho vazado; componentes elétricos não inclusos.", "235deg", None, "pla"),
+    ("Organizador Modular de Gaveta", "decoracao", 34.90, "Módulos combináveis para organizar utensílios, acessórios e objetos pequenos.", "305deg", None, "pla"),
 
-    ("Máscara Cosplay Cavaleiro", "cosplay", 149.90, "Máscara cenográfica leve, entregue pronta para acabamento e pintura.", "150deg", None, "pla"),
-    ("Punho de Manopla Infinity", "cosplay", 159.90, "Acessório cenográfico modular produzido em partes para facilitar a montagem.", "45deg", None, "pla"),
-    ("Capacete Modular para Cosplay", "cosplay", 289.90, "Capacete cenográfico dividido em módulos, pronto para acabamento personalizado.", "110deg", None, "pla"),
-    ("Ombreira Cenográfica Modular", "cosplay", 109.90, "Par de ombreiras leves com pontos de fixação para compor trajes e armaduras.", "170deg", None, "pla"),
-    ("Emblema Personalizado para Traje", "cosplay", 24.90, "Emblema em relevo para roupa, acessório ou exposição, feito sob demanda.", "255deg", None, "pla"),
-    ("Suporte Expositor para Máscaras", "cosplay", 59.90, "Base de exposição estável para organizar e destacar máscaras e capacetes.", "335deg", None, "pla"),
+    ("Máscara Cosplay Cavaleiro", "cosplay", 89.90, "Máscara cenográfica leve, entregue pronta para acabamento e pintura.", "150deg", None, "pla"),
+    ("Punho de Manopla Infinity", "cosplay", 99.90, "Acessório cenográfico modular produzido em partes para facilitar a montagem.", "45deg", None, "pla"),
+    ("Capacete Modular para Cosplay", "cosplay", 249.90, "Capacete cenográfico dividido em módulos, pronto para acabamento personalizado.", "110deg", None, "pla"),
+    ("Ombreira Cenográfica Modular", "cosplay", 79.90, "Par de ombreiras leves com pontos de fixação para compor trajes e armaduras.", "170deg", None, "pla"),
+    ("Emblema Personalizado para Traje", "cosplay", 19.90, "Emblema em relevo para roupa, acessório ou exposição, feito sob demanda.", "255deg", None, "pla"),
+    ("Suporte Expositor para Máscaras", "cosplay", 39.90, "Base de exposição estável para organizar e destacar máscaras e capacetes.", "335deg", None, "pla"),
 
-    ("Suporte de Celular Articulado", "tecnica", 49.90, "Suporte ajustável de mesa para posicionar o celular em diferentes ângulos.", "220deg", None, "petg"),
-    ("Organizador de Ferramentas", "tecnica", 64.90, "Suporte modular para manter ferramentas e acessórios acessíveis na bancada.", "320deg", None, "pla"),
-    ("Suporte para Fones", "tecnica", 49.90, "Suporte de bancada para headset com base estável e formato compacto.", "300deg", None, "pla"),
-    ("Adaptador para Mangueira e Aspirador", "tecnica", 34.90, "Adaptador funcional sob medida para conectar bocais e mangueiras compatíveis.", "65deg", None, "petg"),
-    ("Kit de Presilhas e Guias para Cabos", "tecnica", 24.90, "Conjunto de guias para organizar cabos em mesas, paredes e equipamentos.", "125deg", None, "petg"),
-    ("Manopla de Reposição Personalizada", "tecnica", 39.90, "Manopla funcional com encaixe ajustável às medidas informadas no pedido.", "285deg", None, "petg"),
+    ("Suporte de Celular Articulado", "tecnica", 34.90, "Suporte ajustável de mesa para posicionar o celular em diferentes ângulos.", "220deg", None, "petg"),
+    ("Organizador de Ferramentas", "tecnica", 39.90, "Suporte modular para manter ferramentas e acessórios acessíveis na bancada.", "320deg", None, "pla"),
+    ("Suporte para Fones", "tecnica", 34.90, "Suporte de bancada para headset com base estável e formato compacto.", "300deg", None, "pla"),
+    ("Adaptador para Mangueira e Aspirador", "tecnica", 24.90, "Adaptador funcional sob medida para conectar bocais e mangueiras compatíveis.", "65deg", None, "petg"),
+    ("Kit de Presilhas e Guias para Cabos", "tecnica", 19.90, "Conjunto de guias para organizar cabos em mesas, paredes e equipamentos.", "125deg", None, "petg"),
+    ("Manopla de Reposição Personalizada", "tecnica", 29.90, "Manopla funcional com encaixe ajustável às medidas informadas no pedido.", "285deg", None, "petg"),
 ]
 
-# Preços comerciais revisados em 2026-09. Este mapa também alimenta uma
-# migração única dos bancos já existentes no Render; depois da migração,
-# alterações manuais do admin voltam a ser preservadas normalmente.
-PRECOS_CATALOGO_V18 = {produto[0]: produto[2] for produto in PRODUTOS_SEED}
+# Preços de catálogo revisados em 2026-09 com referência de varejo para
+# itens já modelados/repetíveis. Projetos personalizados continuam usando a
+# calculadora técnica, pois têm setup, análise e risco diferentes.
+PRECOS_CATALOGO_V19 = {produto[0]: produto[2] for produto in PRODUTOS_SEED}
 
 PRODUTOS_ILUSTRACOES = {
     "Suporte Geométrico para Plantas": "suporte-geometrico-plantas.webp",
@@ -671,17 +671,17 @@ def _criar_tabelas(conn, is_new_sqlite):
     # revisada sem ficar sobrescrevendo futuras alterações feitas pelo admin.
     marcador_preco = conn.execute(
         "SELECT valor FROM configuracoes WHERE chave = ?",
-        ("catalogo_precos_v18",),
+        ("catalogo_precos_v19",),
     ).fetchone()
     if not marcador_preco:
-        for nome, preco in PRECOS_CATALOGO_V18.items():
+        for nome, preco in PRECOS_CATALOGO_V19.items():
             conn.execute(
                 "UPDATE produtos SET preco = ? WHERE LOWER(nome) = LOWER(?)",
                 (preco, nome),
             )
         conn.execute(
             "INSERT INTO configuracoes (chave, valor) VALUES (?, ?)",
-            ("catalogo_precos_v18", "1"),
+            ("catalogo_precos_v19", "1"),
         )
         conn.commit()
     # Ilustrações próprias dos itens de demonstração. Fotos reais enviadas
