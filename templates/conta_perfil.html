@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Meus dados — Voxxel{% endblock %}
+{% block body_class %}auth-page account-settings-page{% endblock %}
+{% block content %}
+<section class="settings-shell"><div class="wrap settings-wrap">
+  <header class="settings-head"><div><p class="auth-kicker">MINHA VOXXEL</p><h1>Seus dados e segurança.</h1><p>Atualize seus dados de contato ou troque a senha da conta.</p></div><a class="btn btn-outline" href="{{ url_for('conta_dashboard') }}">Voltar aos pedidos</a></header>
+  <div class="settings-grid">
+    <section class="settings-card"><div class="auth-panel-head"><h2>Dados pessoais</h2><p>O telefone também é usado para entrar na conta.</p></div>
+      <form method="post" class="auth-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="acao" value="perfil">
+        <div class="field"><label for="profile-name">Nome</label><input id="profile-name" name="nome" required maxlength="120" autocomplete="name" value="{{ cliente['nome'] }}"></div>
+        <div class="field"><label for="profile-phone">WhatsApp com DDD</label><input id="profile-phone" name="telefone" required maxlength="40" inputmode="tel" autocomplete="tel" value="{{ cliente['telefone'] }}"></div>
+        <button class="btn btn-primary" type="submit">Salvar meus dados</button>
+      </form>
+    </section>
+    <section class="settings-card"><div class="auth-panel-head"><h2>Alterar senha</h2><p>Confirme a senha atual antes de definir uma nova.</p></div>
+      <form method="post" class="auth-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="acao" value="senha">
+        <div class="field"><label for="current-password">Senha atual</label><input id="current-password" type="password" name="senha_atual" required maxlength="128" autocomplete="current-password"></div>
+        <div class="field"><label for="new-password">Nova senha</label><input id="new-password" type="password" name="nova_senha" required minlength="8" maxlength="128" autocomplete="new-password"></div>
+        <div class="field"><label for="confirm-password">Confirmar nova senha</label><input id="confirm-password" type="password" name="confirmar_nova_senha" required minlength="8" maxlength="128" autocomplete="new-password"></div>
+        <button class="btn btn-primary" type="submit">Alterar senha</button>
+      </form>
+    </section>
+  </div>
+</div></section>
+{% endblock %}

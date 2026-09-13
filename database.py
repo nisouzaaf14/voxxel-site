@@ -281,6 +281,9 @@ def _criar_tabelas(conn, is_new_sqlite):
         conn.execute("ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS producao_autorizada INTEGER DEFAULT 0")
         conn.execute("ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS cancelado_em TEXT")
         conn.execute("ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS estoque_devolvido INTEGER DEFAULT 0")
+        conn.execute("ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS repasse_status TEXT DEFAULT 'pendente'")
+        conn.execute("ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS repasse_pago_em TEXT")
+        conn.execute("ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS repasse_referencia TEXT DEFAULT ''")
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS configuracoes (
@@ -305,6 +308,8 @@ def _criar_tabelas(conn, is_new_sqlite):
             )
             """
         )
+        conn.execute("ALTER TABLE clientes ADD COLUMN IF NOT EXISTS termos_aceitos_em TEXT")
+        conn.execute("ALTER TABLE clientes ADD COLUMN IF NOT EXISTS atualizado_em TEXT")
         conn.commit()
 
         # Impressoras parceiras (o lado "entregador" do marketplace): cada
@@ -329,6 +334,17 @@ def _criar_tabelas(conn, is_new_sqlite):
         conn.commit()
         conn.execute("ALTER TABLE impressoras ADD COLUMN IF NOT EXISTS materiais TEXT DEFAULT 'pla'")
         conn.execute("ALTER TABLE impressoras ADD COLUMN IF NOT EXISTS status_cadastro TEXT DEFAULT 'aprovado'")
+        conn.execute("ALTER TABLE impressoras ADD COLUMN IF NOT EXISTS termos_aceitos_em TEXT")
+        conn.execute("ALTER TABLE impressoras ADD COLUMN IF NOT EXISTS modelo_impressora TEXT DEFAULT ''")
+        conn.execute("ALTER TABLE impressoras ADD COLUMN IF NOT EXISTS tecnologia TEXT DEFAULT 'fdm'")
+        conn.execute("ALTER TABLE impressoras ADD COLUMN IF NOT EXISTS volume_x REAL")
+        conn.execute("ALTER TABLE impressoras ADD COLUMN IF NOT EXISTS volume_y REAL")
+        conn.execute("ALTER TABLE impressoras ADD COLUMN IF NOT EXISTS volume_z REAL")
+        conn.execute("ALTER TABLE impressoras ADD COLUMN IF NOT EXISTS capacidade_diaria_horas REAL")
+        conn.execute("ALTER TABLE impressoras ADD COLUMN IF NOT EXISTS endereco_base TEXT DEFAULT ''")
+        conn.execute("ALTER TABLE impressoras ADD COLUMN IF NOT EXISTS pix_recebimento TEXT DEFAULT ''")
+        conn.execute("ALTER TABLE impressoras ADD COLUMN IF NOT EXISTS observacoes_equipamento TEXT DEFAULT ''")
+        conn.execute("ALTER TABLE impressoras ADD COLUMN IF NOT EXISTS atualizado_em TEXT")
         conn.commit()
 
         # Histórico de ofertas de cada pedido pra cada impressora -- é
@@ -448,6 +464,9 @@ def _criar_tabelas(conn, is_new_sqlite):
             "ALTER TABLE pedidos ADD COLUMN producao_autorizada INTEGER DEFAULT 0",
             "ALTER TABLE pedidos ADD COLUMN cancelado_em TEXT",
             "ALTER TABLE pedidos ADD COLUMN estoque_devolvido INTEGER DEFAULT 0",
+            "ALTER TABLE pedidos ADD COLUMN repasse_status TEXT DEFAULT 'pendente'",
+            "ALTER TABLE pedidos ADD COLUMN repasse_pago_em TEXT",
+            "ALTER TABLE pedidos ADD COLUMN repasse_referencia TEXT DEFAULT ''",
         ):
             try:
                 conn.execute(coluna_sql)
@@ -480,6 +499,14 @@ def _criar_tabelas(conn, is_new_sqlite):
             conn.execute("ALTER TABLE pedidos ADD COLUMN cliente_id INTEGER REFERENCES clientes(id)")
         except sqlite3.OperationalError:
             pass
+        for coluna_sql in (
+            "ALTER TABLE clientes ADD COLUMN termos_aceitos_em TEXT",
+            "ALTER TABLE clientes ADD COLUMN atualizado_em TEXT",
+        ):
+            try:
+                conn.execute(coluna_sql)
+            except sqlite3.OperationalError:
+                pass
         conn.commit()
 
         # Impressoras parceiras (o lado "entregador" do marketplace): cada
@@ -509,6 +536,23 @@ def _criar_tabelas(conn, is_new_sqlite):
             conn.execute("ALTER TABLE impressoras ADD COLUMN status_cadastro TEXT DEFAULT 'aprovado'")
         except sqlite3.OperationalError:
             pass
+        for coluna_sql in (
+            "ALTER TABLE impressoras ADD COLUMN termos_aceitos_em TEXT",
+            "ALTER TABLE impressoras ADD COLUMN modelo_impressora TEXT DEFAULT ''",
+            "ALTER TABLE impressoras ADD COLUMN tecnologia TEXT DEFAULT 'fdm'",
+            "ALTER TABLE impressoras ADD COLUMN volume_x REAL",
+            "ALTER TABLE impressoras ADD COLUMN volume_y REAL",
+            "ALTER TABLE impressoras ADD COLUMN volume_z REAL",
+            "ALTER TABLE impressoras ADD COLUMN capacidade_diaria_horas REAL",
+            "ALTER TABLE impressoras ADD COLUMN endereco_base TEXT DEFAULT ''",
+            "ALTER TABLE impressoras ADD COLUMN pix_recebimento TEXT DEFAULT ''",
+            "ALTER TABLE impressoras ADD COLUMN observacoes_equipamento TEXT DEFAULT ''",
+            "ALTER TABLE impressoras ADD COLUMN atualizado_em TEXT",
+        ):
+            try:
+                conn.execute(coluna_sql)
+            except sqlite3.OperationalError:
+                pass
 
         # Histórico de ofertas de cada pedido pra cada impressora -- é essa
         # tabela que guarda quem já recusou o quê, pra fila de despacho não

@@ -11,6 +11,7 @@
       <div class="field"><label for="telefone">WhatsApp com DDD</label><input id="telefone" type="tel" name="telefone" autocomplete="tel" inputmode="tel" maxlength="40" required placeholder="(41) 9XXXX-XXXX" value="{{ request.form.get('telefone','') }}"></div>
       <div class="field"><label for="senha">Senha</label><input id="senha" type="password" name="senha" autocomplete="new-password" required minlength="8" maxlength="128"><small>Use pelo menos 8 caracteres.</small></div>
       <div class="field"><label for="confirmar_senha">Confirmar senha</label><input id="confirmar_senha" type="password" name="confirmar_senha" autocomplete="new-password" required minlength="8" maxlength="128"></div>
+      <label class="legal-consent"><input type="checkbox" name="aceite_termos" value="1" required {{ 'checked' if request.form.get('aceite_termos') }}><span>Li e aceito os <a href="{{ url_for('termos') }}" target="_blank">Termos de Uso</a> e a <a href="{{ url_for('privacidade') }}" target="_blank">Política de Privacidade</a>.</span></label>
       <button type="submit" class="btn btn-primary btn-block">Criar minha conta</button>
     </form>
     <div class="auth-foot">Já tem conta? <a href="{{ url_for('conta_entrar', next=request.args.get('next','')) }}">Entrar</a></div>

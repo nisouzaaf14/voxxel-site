@@ -86,6 +86,15 @@
         <button type="submit" class="btn-ghost" style="margin-top:8px;">Reabrir conferência</button>
       </form>
       {% endif %}
+      {% if p['impressora_id'] %}
+      {% set rs=p['repasse_status'] or 'pendente' %}
+      <div class="admin-payout-box">
+        <span class="badge {{ 'badge-concluido' if rs=='pago' else ('badge-andamento' if rs=='liberado' else 'badge-novo') }}">Repasse {{ 'pago' if rs=='pago' else ('liberado' if rs=='liberado' else 'pendente') }}</span>
+        {% if rs=='pendente' and p['status_pagamento']=='confirmado' and (p['status']=='concluido' or p['fluxo_status']=='concluido') %}<form method="post" action="{{ url_for('admin_pedido_repasse', pedido_id=p['id']) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="acao" value="liberar"><button class="btn-ghost" type="submit">Liberar repasse</button></form>
+        {% elif rs=='liberado' %}<form method="post" action="{{ url_for('admin_pedido_repasse', pedido_id=p['id']) }}" class="admin-payout-pay"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="acao" value="pagar"><input name="referencia" required maxlength="180" placeholder="ID do comprovante"><button class="btn-ghost" type="submit">Marcar pago</button></form><form method="post" action="{{ url_for('admin_pedido_repasse', pedido_id=p['id']) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="acao" value="reabrir"><button class="btn-ghost" type="submit">Reabrir</button></form>
+        {% elif rs=='pago' %}<small>Referência: {{ p['repasse_referencia'] or 'registrada' }} · {{ p['repasse_pago_em'] }}</small>{% endif %}
+      </div>
+      {% endif %}
       <form method="post" action="{{ url_for('admin_pedido_status', pedido_id=p['id']) }}" class="admin-status-form-v12">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <label class="sr-only" for="status-pedido-{{ p['id'] }}">Status do pedido #{{ p['id'] }}</label>

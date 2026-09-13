@@ -5,12 +5,13 @@
 {% block admin_content %}
 {% if impressoras %}
 <div class="admin-table-wrap"><table class="seller-table">
-  <thead><tr><th>Parceiro</th><th>Telefone</th><th>Cadastro</th><th>Disponibilidade</th><th>Materiais</th><th>Cadastrado em</th><th>Ação</th></tr></thead>
+  <thead><tr><th>Parceiro</th><th>Telefone</th><th>Equipamento</th><th>Cadastro</th><th>Disponibilidade</th><th>Materiais</th><th>Operação</th><th>Ação</th></tr></thead>
   <tbody>{% for i in impressoras %}<tr>
-    <td><strong>{{ i['nome'] }}</strong></td><td>{{ i['telefone'] }}</td>
+    <td><strong>{{ i['nome'] }}</strong><small class="admin-cell-sub">{{ i['endereco_base'] or 'Endereço não informado' }}</small></td><td>{{ i['telefone'] }}</td>
+    <td><strong>{{ i['modelo_impressora'] or 'Não informado' }}</strong><small class="admin-cell-sub">{{ (i['tecnologia'] or 'fdm')|upper }} · {{ (i['volume_x']|int|string ~ '×' ~ i['volume_y']|int|string ~ '×' ~ i['volume_z']|int|string ~ ' mm') if i['volume_x'] and i['volume_y'] and i['volume_z'] else 'volume pendente' }}</small></td>
     <td>{% set sc=i['status_cadastro'] or ('aprovado' if i['ativo'] else 'bloqueado') %}<span class="stage-pill {{ 'success' if sc=='aprovado' else ('warning' if sc=='pendente' else '') }}">{{ 'Aprovado' if sc=='aprovado' else ('Em análise' if sc=='pendente' else 'Pausado') }}</span></td>
     <td><span class="printer-status-dot {{ 'online' if i['online'] and i['ativo'] }}" style="display:inline-block;margin-right:8px;"></span>{{ 'Online' if i['online'] and i['ativo'] else 'Offline' }}</td>
-    <td>{{ (i['materiais'] or 'pla')|upper|replace(',', ' · ') }}</td><td>{{ i['criado_em'] }}</td>
+    <td>{{ (i['materiais'] or 'pla')|upper|replace(',', ' · ') }}</td><td><strong>{{ (i['capacidade_diaria_horas'] or 0)|round(1) }} h/dia</strong><small class="admin-cell-sub">Pix final {{ (i['pix_recebimento'] or '----')[-4:] }}</small></td>
     <td><form method="post" action="{{ url_for('admin_impressora_toggle', impressora_id=i['id']) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn {{ 'btn-outline' if i['ativo'] else 'btn-primary' }}" type="submit">{{ 'Pausar parceiro' if i['ativo'] else ('Aprovar parceiro' if sc=='pendente' else 'Reativar parceiro') }}</button></form></td>
   </tr>{% endfor %}</tbody>
 </table></div>

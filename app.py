@@ -1343,6 +1343,7 @@ def conta_cadastro():
         telefone = normalizar_telefone(request.form.get("telefone"))
         senha = request.form.get("senha", "")
         confirmar_senha = request.form.get("confirmar_senha", "")
+        aceitou_termos = request.form.get("aceite_termos") == "1"
 
         erro = None
         if not nome:
@@ -1353,6 +1354,8 @@ def conta_cadastro():
             erro = "A senha precisa ter entre 8 e 128 caracteres."
         elif senha != confirmar_senha:
             erro = "As senhas não coincidem."
+        elif not aceitou_termos:
+            erro = "Confirme que você leu os Termos de Uso e a Política de Privacidade."
 
         conn = get_db()
         if not erro and buscar_cliente_por_telefone(conn, telefone):
@@ -1365,6 +1368,8 @@ def conta_cadastro():
 
         try:
             cliente_id = criar_cliente(conn, nome, telefone, generate_password_hash(senha))
+            conn.execute("UPDATE clientes SET termos_aceitos_em=CURRENT_TIMESTAMP WHERE id=?", (cliente_id,))
+            conn.commit()
         except Exception:
             conn.rollback()
             conn.close()
@@ -1431,6 +1436,44 @@ def conta_dashboard():
     pedidos = listar_pedidos_cliente(conn, session["cliente_id"])
     conn.close()
     return render_template("conta_dashboard.html", pedidos=pedidos, fluxo_labels=FLUXO_LABELS)
+
+
+@app.route("/conta/perfil", methods=["GET", "POST"])
+@login_cliente_obrigatorio
+def conta_perfil():
+    conn = get_db()
+    cliente = buscar_cliente_por_id(conn, session["cliente_id"])
+    if not cliente:
+        conn.close(); session.clear(); return redirect(url_for("conta_entrar"))
+    if request.method == "POST":
+        acao = request.form.get("acao", "perfil")
+        if acao == "perfil":
+            nome = texto_seguro(request.form.get("nome"), 120)
+            telefone = normalizar_telefone(request.form.get("telefone"))
+            existente = buscar_cliente_por_telefone(conn, telefone) if telefone else None
+            if not nome or not TELEFONE_MIN_DIGITOS <= len(telefone) <= 13:
+                flash("Informe seu nome e um telefone válido com DDD.")
+            elif existente and existente["id"] != cliente["id"]:
+                flash("Este telefone já está vinculado a outra conta.")
+            else:
+                conn.execute("UPDATE clientes SET nome=?,telefone=?,atualizado_em=CURRENT_TIMESTAMP WHERE id=?", (nome, telefone, cliente["id"]))
+                conn.commit(); session["cliente_nome"] = nome; flash("Dados da conta atualizados.")
+        elif acao == "senha":
+            atual = request.form.get("senha_atual", "")
+            nova = request.form.get("nova_senha", "")
+            confirmar = request.form.get("confirmar_nova_senha", "")
+            if not check_password_hash(cliente["senha_hash"], atual):
+                flash("A senha atual não confere.")
+            elif not 8 <= len(nova) <= 128:
+                flash("A nova senha precisa ter entre 8 e 128 caracteres.")
+            elif nova != confirmar:
+                flash("A confirmação da nova senha não coincide.")
+            else:
+                conn.execute("UPDATE clientes SET senha_hash=?,atualizado_em=CURRENT_TIMESTAMP WHERE id=?", (generate_password_hash(nova), cliente["id"]))
+                conn.commit(); flash("Senha alterada com segurança.")
+        cliente = buscar_cliente_por_id(conn, session["cliente_id"])
+    conn.close()
+    return render_template("conta_perfil.html", cliente=cliente)
 
 
 # ---------- admin ----------
@@ -1969,6 +2012,43 @@ def admin_pedido_pagamento(pedido_id):
     return redirect(redirecionamento_seguro(url_for("admin_pedidos")))
 
 
+@app.route("/admin/pedidos/<int:pedido_id>/repasse", methods=["POST"])
+@login_obrigatorio
+def admin_pedido_repasse(pedido_id):
+    acao = request.form.get("acao", "")
+    if acao not in ("liberar", "pagar", "reabrir"):
+        abort(400)
+    conn = get_db()
+    pedido = conn.execute("SELECT * FROM pedidos WHERE id=?", (pedido_id,)).fetchone()
+    if not pedido:
+        conn.close(); abort(404)
+    atual = pedido["repasse_status"] or "pendente"
+    if not pedido["impressora_id"] or pedido["status_pagamento"] != "confirmado":
+        conn.close(); flash("O repasse exige parceiro atribuído e pagamento confirmado."); return redirect(url_for("admin_pedidos"))
+    if acao == "liberar":
+        if pedido["status"] != "concluido" and pedido["fluxo_status"] != "concluido":
+            conn.close(); flash("Conclua o pedido antes de liberar o repasse."); return redirect(url_for("admin_pedidos"))
+        novo, pago_em, referencia = "liberado", None, ""
+    elif acao == "pagar":
+        if atual != "liberado":
+            conn.close(); flash("Libere o repasse antes de marcá-lo como pago."); return redirect(url_for("admin_pedidos"))
+        referencia = texto_seguro(request.form.get("referencia"), 180)
+        if len(referencia) < 3:
+            conn.close(); flash("Informe a referência ou identificação do comprovante."); return redirect(url_for("admin_pedidos"))
+        novo, pago_em = "pago", "CURRENT_TIMESTAMP"
+    else:
+        if atual == "pago":
+            conn.close(); flash("Um repasse já pago não pode ser reaberto automaticamente."); return redirect(url_for("admin_pedidos"))
+        novo, pago_em, referencia = "pendente", None, ""
+    if pago_em:
+        conn.execute("UPDATE pedidos SET repasse_status=?,repasse_pago_em=CURRENT_TIMESTAMP,repasse_referencia=? WHERE id=?", (novo, referencia, pedido_id))
+    else:
+        conn.execute("UPDATE pedidos SET repasse_status=?,repasse_pago_em=NULL,repasse_referencia=? WHERE id=?", (novo, referencia, pedido_id))
+    conn.commit(); conn.close()
+    flash("Repasse liberado." if novo == "liberado" else ("Repasse marcado como pago." if novo == "pago" else "Repasse voltou para conferência."))
+    return redirect(url_for("admin_pedidos"))
+
+
 # ---------- painel da impressora parceira (marketplace) ----------
 
 TELEFONE_MIN_DIGITOS_IMPRESSORA = 10
@@ -1985,6 +2065,19 @@ def impressora_cadastro():
         senha = request.form.get("senha", "")
         confirmar_senha = request.form.get("confirmar_senha", "")
         materiais_selecionados = [m for m in request.form.getlist("materiais") if m in MATERIAIS]
+        modelo_impressora = texto_seguro(request.form.get("modelo_impressora"), 160)
+        tecnologia = request.form.get("tecnologia", "fdm")
+        endereco_base = texto_seguro(request.form.get("endereco_base"), 300)
+        pix_recebimento = texto_seguro(request.form.get("pix_recebimento"), 180)
+        observacoes_equipamento = texto_seguro(request.form.get("observacoes_equipamento"), 500)
+        aceitou_termos = request.form.get("aceite_termos") == "1"
+        try:
+            volume_x = float(request.form.get("volume_x", ""))
+            volume_y = float(request.form.get("volume_y", ""))
+            volume_z = float(request.form.get("volume_z", ""))
+            capacidade_diaria_horas = float(request.form.get("capacidade_diaria_horas", ""))
+        except (TypeError, ValueError):
+            volume_x = volume_y = volume_z = capacidade_diaria_horas = 0
 
         erro = None
         if not nome:
@@ -1997,6 +2090,20 @@ def impressora_cadastro():
             erro = "As senhas não coincidem."
         elif not materiais_selecionados:
             erro = "Selecione pelo menos um material que você consegue produzir."
+        elif not modelo_impressora:
+            erro = "Informe o modelo principal da sua impressora."
+        elif tecnologia not in ("fdm", "resina", "ambas"):
+            erro = "Selecione uma tecnologia de impressão válida."
+        elif any(not math.isfinite(v) or v < 1 or v > 1000 for v in (volume_x, volume_y, volume_z)):
+            erro = "Informe um volume de impressão válido, entre 1 e 1000 mm por eixo."
+        elif not math.isfinite(capacidade_diaria_horas) or not 0.5 <= capacidade_diaria_horas <= 24:
+            erro = "Informe uma capacidade diária entre 0,5 e 24 horas."
+        elif len(endereco_base) < 8:
+            erro = "Informe a cidade e o endereço base da operação."
+        elif not pix_recebimento:
+            erro = "Informe a chave Pix que será usada nos repasses."
+        elif not aceitou_termos:
+            erro = "Confirme que você leu os Termos de Uso e a Política de Privacidade."
 
         conn = get_db()
         if not erro and buscar_impressora_por_telefone(conn, telefone):
@@ -2011,6 +2118,14 @@ def impressora_cadastro():
             impressora_id = criar_impressora(
                 conn, nome, telefone, generate_password_hash(senha), ",".join(materiais_selecionados)
             )
+            conn.execute(
+                """UPDATE impressoras SET termos_aceitos_em=CURRENT_TIMESTAMP,modelo_impressora=?,tecnologia=?,
+                   volume_x=?,volume_y=?,volume_z=?,capacidade_diaria_horas=?,endereco_base=?,pix_recebimento=?,
+                   observacoes_equipamento=?,atualizado_em=CURRENT_TIMESTAMP WHERE id=?""",
+                (modelo_impressora, tecnologia, volume_x, volume_y, volume_z, capacidade_diaria_horas,
+                 endereco_base, pix_recebimento, observacoes_equipamento, impressora_id),
+            )
+            conn.commit()
         except Exception:
             conn.rollback()
             conn.close()
@@ -2103,9 +2218,17 @@ def impressora_painel():
             oferta_ganho_estimado = round(oferta_pedido["valor_estimado"] * (1 - pct_comissao / 100), 2)
 
     pedidos_atribuidos = listar_pedidos_da_impressora(conn, impressora["id"])
-    ganho_acumulado = sum(
+    ganho_confirmado = sum(
         (p["valor_estimado"] - (p["comissao_voxxel"] or 0))
         for p in pedidos_atribuidos if p["status_pagamento"] == "confirmado" and p["status"] != "cancelado"
+    )
+    ganho_liberado = sum(
+        (p["valor_estimado"] - (p["comissao_voxxel"] or 0))
+        for p in pedidos_atribuidos if (p["repasse_status"] or "pendente") == "liberado" and p["status"] != "cancelado"
+    )
+    ganho_pago = sum(
+        (p["valor_estimado"] - (p["comissao_voxxel"] or 0))
+        for p in pedidos_atribuidos if (p["repasse_status"] or "pendente") == "pago" and p["status"] != "cancelado"
     )
     conn.close()
 
@@ -2113,9 +2236,76 @@ def impressora_painel():
         "impressora_painel.html", impressora=impressora, oferta=oferta, oferta_pedido=oferta_pedido,
         oferta_distancia_km=oferta_distancia_km, oferta_segundos_restantes=oferta_segundos_restantes,
         oferta_ganho_estimado=oferta_ganho_estimado, pedidos=pedidos_atribuidos,
-        ganho_acumulado=round(ganho_acumulado, 2), pct_comissao=pct_comissao, materiais=MATERIAIS,
+        ganho_confirmado=round(ganho_confirmado, 2), ganho_liberado=round(ganho_liberado, 2),
+        ganho_pago=round(ganho_pago, 2), pct_comissao=pct_comissao, materiais=MATERIAIS,
         fluxo_labels=FLUXO_LABELS,
     )
+
+
+@app.route("/impressora/perfil", methods=["GET", "POST"])
+@login_impressora_obrigatorio
+def impressora_perfil():
+    conn = get_db()
+    impressora = buscar_impressora_por_id(conn, session["impressora_id"])
+    if not impressora:
+        conn.close(); session.clear(); return redirect(url_for("impressora_entrar"))
+    if request.method == "POST":
+        acao = request.form.get("acao", "perfil")
+        if acao == "perfil":
+            nome = texto_seguro(request.form.get("nome"), 120)
+            telefone = normalizar_telefone(request.form.get("telefone"))
+            modelo = texto_seguro(request.form.get("modelo_impressora"), 160)
+            tecnologia = request.form.get("tecnologia", "fdm")
+            endereco = texto_seguro(request.form.get("endereco_base"), 300)
+            pix_recebimento = texto_seguro(request.form.get("pix_recebimento"), 180)
+            observacoes = texto_seguro(request.form.get("observacoes_equipamento"), 500)
+            existente = buscar_impressora_por_telefone(conn, telefone) if telefone else None
+            try:
+                vx=float(request.form.get("volume_x", "")); vy=float(request.form.get("volume_y", "")); vz=float(request.form.get("volume_z", ""))
+                capacidade=float(request.form.get("capacidade_diaria_horas", ""))
+            except (TypeError, ValueError):
+                vx=vy=vz=capacidade=0
+            latitude = ler_coordenada_formulario(request.form.get("latitude"), -90, 90)
+            longitude = ler_coordenada_formulario(request.form.get("longitude"), -180, 180)
+            erro = None
+            if not nome or not TELEFONE_MIN_DIGITOS_IMPRESSORA <= len(telefone) <= 13:
+                erro = "Informe o nome da operação e um telefone válido com DDD."
+            elif existente and existente["id"] != impressora["id"]:
+                erro = "Este telefone já está vinculado a outro parceiro."
+            elif not modelo or tecnologia not in ("fdm", "resina", "ambas"):
+                erro = "Informe o modelo e a tecnologia da impressora."
+            elif any(not math.isfinite(v) or v < 1 or v > 1000 for v in (vx,vy,vz)):
+                erro = "O volume deve ficar entre 1 e 1000 mm por eixo."
+            elif not math.isfinite(capacidade) or not 0.5 <= capacidade <= 24:
+                erro = "A capacidade diária deve ficar entre 0,5 e 24 horas."
+            elif len(endereco) < 8 or not pix_recebimento:
+                erro = "Informe o endereço base e a chave Pix para repasses."
+            elif (latitude is None) != (longitude is None):
+                erro = "Preencha latitude e longitude juntas ou deixe as duas em branco."
+            if erro:
+                flash(erro)
+            else:
+                conn.execute(
+                    """UPDATE impressoras SET nome=?,telefone=?,modelo_impressora=?,tecnologia=?,volume_x=?,volume_y=?,volume_z=?,
+                       capacidade_diaria_horas=?,endereco_base=?,pix_recebimento=?,observacoes_equipamento=?,
+                       latitude=COALESCE(?,latitude),longitude=COALESCE(?,longitude),
+                       localizacao_em=CASE WHEN ? IS NOT NULL THEN CURRENT_TIMESTAMP ELSE localizacao_em END,
+                       atualizado_em=CURRENT_TIMESTAMP WHERE id=?""",
+                    (nome,telefone,modelo,tecnologia,vx,vy,vz,capacidade,endereco,pix_recebimento,observacoes,
+                     latitude,longitude,latitude,impressora["id"]),
+                )
+                conn.commit(); session["impressora_nome"] = nome; flash("Perfil técnico atualizado.")
+        elif acao == "senha":
+            atual=request.form.get("senha_atual", ""); nova=request.form.get("nova_senha", ""); confirmar=request.form.get("confirmar_nova_senha", "")
+            if not check_password_hash(impressora["senha_hash"], atual): flash("A senha atual não confere.")
+            elif not 8 <= len(nova) <= 128: flash("A nova senha precisa ter entre 8 e 128 caracteres.")
+            elif nova != confirmar: flash("A confirmação da nova senha não coincide.")
+            else:
+                conn.execute("UPDATE impressoras SET senha_hash=?,atualizado_em=CURRENT_TIMESTAMP WHERE id=?", (generate_password_hash(nova),impressora["id"]))
+                conn.commit(); flash("Senha alterada com segurança.")
+        impressora = buscar_impressora_por_id(conn, session["impressora_id"])
+    conn.close()
+    return render_template("impressora_perfil.html", impressora=impressora)
 
 
 @app.route("/impressora/materiais", methods=["POST"])
@@ -2147,6 +2337,8 @@ def impressora_status():
     online = request.form.get("online") == "1"
     latitude = ler_coordenada_formulario(request.form.get("latitude"), -90, 90)
     longitude = ler_coordenada_formulario(request.form.get("longitude"), -180, 180)
+    if online and latitude is None and longitude is None and impressora["latitude"] is not None and impressora["longitude"] is not None:
+        latitude, longitude = impressora["latitude"], impressora["longitude"]
     if online and (latitude is None or longitude is None):
         conn.close()
         flash("Precisamos da sua localização pra te colocar online -- permita o acesso à localização no navegador.")
