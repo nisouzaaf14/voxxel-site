@@ -49,7 +49,7 @@
       <label class="field"><span>WhatsApp *</span><input name="telefone" type="tel" required maxlength="40" autocomplete="tel" placeholder="DDD + número" value="{{ request.form.get('telefone','') }}"></label>
       <label class="field quote-contact-email"><span>E-mail *</span><input name="email" type="email" required maxlength="180" autocomplete="email" value="{{ request.form.get('email','') }}"></label>
      </div>
-     <button type="submit" class="btn btn-primary btn-block guided-inline-submit">{{ 'Solicitar orçamento empresarial' if b2b else 'Quero ajuda com meu projeto' }} <span aria-hidden="true">→</span></button>
+     <button type="submit" class="btn btn-primary btn-block guided-inline-submit">{{ 'Solicitar orçamento' if b2b else 'Quero ajuda com meu projeto' }} <span aria-hidden="true">→</span></button>
      <p class="guided-inline-note">Você envia a solicitação agora e recebe a confirmação de viabilidade, valor e prazo antes da produção.</p>
     </section>
    </div>
@@ -58,13 +58,10 @@
     <h2>{{ 'Uma solução para sua operação.' if b2b else 'A parte técnica é com a gente.' }}</h2>
     <div class="quote-guidance-card"><div><strong>Não sabe qual material ou configuração escolher?</strong><span>Sem problema. A Voxxel analisa isso para você.</span></div></div>
     <ol class="project-next-steps"><li>Recebemos sua referência</li><li>Analisamos aplicação e viabilidade</li><li>Alinhamos valor e prazo antes de produzir</li></ol>
-    <button type="submit" class="btn btn-primary btn-block">{{ 'Solicitar orçamento empresarial' if b2b else 'Quero ajuda com meu projeto' }}</button>
+    <button type="submit" class="btn btn-primary btn-block">{{ 'Solicitar orçamento' if b2b else 'Quero ajuda com meu projeto' }}</button>
     <p class="quote-disclaimer">O envio é uma solicitação de análise, não uma compra. Você recebe acompanhamento seguro e pode vincular o projeto a uma conta depois.</p>
    </div></aside>
   </form>
-  {% if b2b %}
-  <section class="project-applications"><div class="eyebrow">Aplicações empresariais</div><h2>Do protótipo à demanda recorrente.</h2><div class="project-application-grid">{% for item in ['Prototipagem','Peças técnicas','Gabaritos','Pequenos lotes','Caixas para eletrônica','Suportes','Peças de reposição','Displays','Componentes personalizados','Produção recorrente','Projetos especiais'] %}<span>{{ item }}</span>{% endfor %}</div><div class="project-applications-cta"><div><strong>Seu caso não está na lista?</strong><span>Descreva a necessidade e avaliamos a aplicação.</span></div><a class="btn btn-primary" href="#guided-project-form">Solicitar orçamento empresarial <i aria-hidden="true">→</i></a></div></section>
-  {% endif %}
  </div>
 </section>
 {% endblock %}
