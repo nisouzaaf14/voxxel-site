@@ -2,91 +2,66 @@
   const root = document.querySelector('[data-project-carousel]');
   if (!root) return;
 
+  const track = root.querySelector('[data-carousel-track]');
   const cards = Array.from(root.querySelectorAll('[data-carousel-card]'));
   const dots = Array.from(root.querySelectorAll('[data-carousel-dot]'));
-  const prevButton = root.querySelector('[data-carousel-prev]');
-  const nextButton = root.querySelector('[data-carousel-next]');
+  const prev = root.querySelector('[data-carousel-prev]');
+  const next = root.querySelector('[data-carousel-next]');
   const live = root.querySelector('[data-carousel-live]');
-  let activeIndex = Math.max(0, cards.findIndex(card => card.classList.contains('is-active')));
-  let touchStartX = null;
-  let touchStartY = null;
+  if (!track || !cards.length) return;
 
-  const mod = (value, size) => ((value % size) + size) % size;
+  let activeIndex = 0;
+  let frame = 0;
 
-  function render(nextIndex, focusCard = false) {
-    activeIndex = mod(nextIndex, cards.length);
-    const prevIndex = mod(activeIndex - 1, cards.length);
-    const nextCardIndex = mod(activeIndex + 1, cards.length);
+  const clamp = (value) => Math.max(0, Math.min(cards.length - 1, value));
 
-    cards.forEach((card, index) => {
-      const active = index === activeIndex;
-      card.classList.toggle('is-active', active);
-      card.classList.toggle('is-prev', index === prevIndex);
-      card.classList.toggle('is-next', index === nextCardIndex);
-      card.setAttribute('aria-current', active ? 'true' : 'false');
-      card.setAttribute('tabindex', active ? '0' : '-1');
-    });
+  function cardCenter(index) {
+    const card = cards[index];
+    return card.offsetLeft - (track.clientWidth - card.offsetWidth) / 2;
+  }
 
-    dots.forEach((dot, index) => {
-      const active = index === activeIndex;
+  function setActive(index) {
+    activeIndex = clamp(index);
+    cards.forEach((card, i) => card.classList.toggle('is-active', i === activeIndex));
+    dots.forEach((dot, i) => {
+      const active = i === activeIndex;
       dot.classList.toggle('is-active', active);
       dot.setAttribute('aria-current', active ? 'true' : 'false');
     });
-
-    const selected = cards[activeIndex];
-    if (live && selected) {
-      live.textContent = `${selected.dataset.title || 'Opção'} selecionado. Toque novamente para entrar.`;
-    }
-    if (focusCard && selected) selected.focus({ preventScroll: true });
+    if (live) live.textContent = `${cards[activeIndex].dataset.title || 'Opção'} em destaque.`;
+    if (prev) prev.disabled = activeIndex === 0;
+    if (next) next.disabled = activeIndex === cards.length - 1;
   }
 
-  cards.forEach((card, index) => {
-    card.addEventListener('click', event => {
-      if (index !== activeIndex) {
-        event.preventDefault();
-        render(index, true);
-      }
+  function goTo(index) {
+    const target = clamp(index);
+    track.scrollTo({ left: cardCenter(target), behavior: 'smooth' });
+    setActive(target);
+  }
+
+  function syncFromScroll() {
+    cancelAnimationFrame(frame);
+    frame = requestAnimationFrame(() => {
+      const center = track.scrollLeft + track.clientWidth / 2;
+      let nearest = 0;
+      let distance = Infinity;
+      cards.forEach((card, index) => {
+        const cardMid = card.offsetLeft + card.offsetWidth / 2;
+        const delta = Math.abs(cardMid - center);
+        if (delta < distance) {
+          distance = delta;
+          nearest = index;
+        }
+      });
+      setActive(nearest);
     });
+  }
 
-    card.addEventListener('focus', () => {
-      if (index !== activeIndex) render(index);
-    });
-  });
+  prev?.addEventListener('click', () => goTo(activeIndex - 1));
+  next?.addEventListener('click', () => goTo(activeIndex + 1));
+  dots.forEach((dot, index) => dot.addEventListener('click', () => goTo(index)));
+  track.addEventListener('scroll', syncFromScroll, { passive: true });
+  window.addEventListener('resize', syncFromScroll);
 
-  dots.forEach((dot, index) => {
-    dot.addEventListener('click', () => render(index, true));
-  });
-
-  prevButton?.addEventListener('click', () => render(activeIndex - 1, true));
-  nextButton?.addEventListener('click', () => render(activeIndex + 1, true));
-
-  root.addEventListener('keydown', event => {
-    if (event.key === 'ArrowLeft') {
-      event.preventDefault();
-      render(activeIndex - 1, true);
-    } else if (event.key === 'ArrowRight') {
-      event.preventDefault();
-      render(activeIndex + 1, true);
-    }
-  });
-
-  root.addEventListener('touchstart', event => {
-    const touch = event.changedTouches[0];
-    touchStartX = touch.clientX;
-    touchStartY = touch.clientY;
-  }, { passive: true });
-
-  root.addEventListener('touchend', event => {
-    if (touchStartX === null || touchStartY === null) return;
-    const touch = event.changedTouches[0];
-    const dx = touch.clientX - touchStartX;
-    const dy = touch.clientY - touchStartY;
-    touchStartX = null;
-    touchStartY = null;
-
-    if (Math.abs(dx) < 42 || Math.abs(dx) < Math.abs(dy) * 1.2) return;
-    render(activeIndex + (dx < 0 ? 1 : -1));
-  }, { passive: true });
-
-  render(activeIndex);
+  setActive(0);
 })();
