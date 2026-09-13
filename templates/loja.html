@@ -18,11 +18,13 @@
     </form>
 
     <div class="catalog-filterbar">
-      <div class="filtros" aria-label="Filtrar por categoria">
-        <a class="chip {{ 'active' if categoria_ativa == 'todos' }}" href="{{ url_for('loja', q=busca, ordem=ordem) }}">Todos</a>
-        {% for chave, nome in categorias.items() %}<a class="chip {{ 'active' if categoria_ativa == chave }}" href="{{ url_for('loja', categoria=chave, q=busca, ordem=ordem) }}">{{ nome }}</a>{% endfor %}
+      <div class="catalog-category-rail">
+        <div class="filtros" aria-label="Filtrar por categoria">
+          <a class="chip {{ 'active' if categoria_ativa == 'todos' }}" {% if categoria_ativa == 'todos' %}aria-current="true"{% endif %} href="{{ url_for('loja', q=busca, ordem=ordem) }}">Todos</a>
+          {% for chave, nome in categorias.items() %}<a class="chip {{ 'active' if categoria_ativa == chave }}" {% if categoria_ativa == chave %}aria-current="true"{% endif %} href="{{ url_for('loja', categoria=chave, q=busca, ordem=ordem) }}">{{ nome }}</a>{% endfor %}
+        </div>
       </div>
-      {% if busca or categoria_ativa != 'todos' %}<a class="catalog-clear-v12" href="{{ url_for('loja') }}">Limpar filtros</a>{% else %}<span class="catalog-filter-note">Use os filtros para refinar a seleção</span>{% endif %}
+      {% if busca or categoria_ativa != 'todos' %}<a class="catalog-clear-v12" href="{{ url_for('loja') }}">Limpar filtros</a>{% else %}<span class="catalog-filter-note">Deslize para ver todas as categorias</span>{% endif %}
     </div>
 
     {% if produtos %}
