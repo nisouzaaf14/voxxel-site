@@ -47,6 +47,9 @@ class ProjectModeTests(unittest.TestCase):
         self.assertIn('href="/orcamento"', selector)
         self.assertIn('href="/empresas"', selector)
         self.assertEqual(selector.count('class="project-option '), 3)
+        home = self.client.get("/").text
+        self.assertIn('href="/projetos">Começar meu projeto', home)
+        self.assertNotIn("Pedir uma análise", home)
         self.assertNotIn("Encontrar meu caminho", selector)
         company = self.client.get("/empresas").text
         self.assertGreaterEqual(company.count("Solicitar orçamento empresarial"), 3)
