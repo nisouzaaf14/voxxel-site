@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% from "components/order_timeline.html" import order_timeline %}
 {% block title %}Projeto #{{ pedido['id'] }} — Voxxel{% endblock %}
+{% block body_class %}project-hub-page{% endblock %}
 {% block extra_styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/project-flow.css') }}"><link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard-v9.css') }}">{% endblock %}
 {% block content %}
 <section class="project-hub">
