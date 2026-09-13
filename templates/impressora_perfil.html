@@ -1,9 +1,11 @@
 {% extends "base.html" %}
 {% block title %}Perfil técnico — Voxxel{% endblock %}
-{% block body_class %}auth-page partner-settings-page{% endblock %}
+{% block body_class %}auth-page partner-settings-page partner-dashboard-page{% endblock %}
+{% block extra_styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard-v9.css') }}">{% endblock %}
 {% block content %}
 <section class="settings-shell"><div class="wrap settings-wrap">
-  <header class="settings-head"><div><p class="auth-kicker">REDE VOXXEL</p><h1>Perfil técnico e repasses.</h1><p>Mantenha sua capacidade, localização e dados de recebimento atualizados.</p></div><a class="btn btn-outline" href="{{ url_for('impressora_painel') }}">Voltar ao painel</a></header>
+  <header class="settings-head"><div><p class="auth-kicker">REDE VOXXEL</p><h1>Perfil técnico e repasses.</h1><p>Mantenha sua capacidade, localização e dados de recebimento atualizados.</p></div></header>
+  {% include "components/partner_work_nav.html" %}
   <div class="settings-grid settings-grid-wide">
     <section class="settings-card"><div class="auth-panel-head"><h2>Operação e equipamento</h2><p>Esses dados ajudam a Voxxel a encaminhar trabalhos compatíveis.</p></div>
       <form method="post" class="auth-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="acao" value="perfil">
