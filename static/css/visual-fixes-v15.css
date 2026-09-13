@@ -107,3 +107,21 @@
   .site-footer .footer-grid{column-gap:12px!important}
   .site-footer .footer-column a{font-size:.74rem}
 }
+
+
+/* Audit 2026-09 — catalog mobile density */
+@media(max-width:760px){
+  .catalog-page .catalog-shell{padding-top:26px;padding-bottom:66px}
+  .catalog-page .catalog-hero{gap:18px;margin-bottom:20px}
+  .catalog-page .catalog-hero h1{font-size:2.25rem;line-height:1.08;margin-bottom:12px}
+  .catalog-page .catalog-hero>div:first-child>p{font-size:.82rem;line-height:1.62}
+  .catalog-page .catalog-meta{padding:11px 13px;border-radius:11px}
+  .catalog-page .catalog-filterbar{margin:16px 0 20px}
+  .catalog-page .catalog-card{border-radius:17px}
+  .catalog-page .catalog-card-body{padding:15px}
+  .catalog-page .catalog-card h2{margin-top:9px;font-size:1rem}
+  .catalog-page .catalog-card-desc{margin-top:7px;font-size:.76rem;line-height:1.5;-webkit-line-clamp:2}
+  .catalog-page .catalog-card-footer{margin-top:16px}
+  .catalog-page .catalog-price{font-size:1.05rem}
+  .catalog-page .catalog-custom-cta{margin-top:28px;padding:20px;border-radius:18px}
+}
