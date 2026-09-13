@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% from "components/order_timeline.html" import order_timeline %}
 {% block title %}Central do parceiro — Voxxel{% endblock %}
+{% block body_class %}partner-dashboard-page{% endblock %}
 {% block extra_styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard-v9.css') }}">{% endblock %}
 {% block content %}
 {% set ns = namespace(unread=0, action=0, production=0, completed=0) %}
@@ -9,8 +10,9 @@
   <div class="wrap">
     <header class="dash-head fade-up">
       <div><div class="dash-eyebrow">Central de produção</div><h1>Olá, {{ impressora['nome'] }}.</h1><p>Gerencie sua disponibilidade, analise solicitações e acompanhe cada trabalho da Rede Voxxel até a conclusão.</p></div>
-      <div class="dash-head-actions"><a class="btn btn-outline" href="#fila">Fila de trabalho</a><a class="btn btn-outline" href="{{ url_for('impressora_perfil') }}">Perfil técnico</a><form class="inline-logout-form" method="post" action="{{ url_for('impressora_sair') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" class="dash-link">Sair</button></form></div>
+      <div class="dash-head-actions"><form class="inline-logout-form" method="post" action="{{ url_for('impressora_sair') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" class="dash-link">Sair da conta</button></form></div>
     </header>
+    {% include "components/partner_work_nav.html" %}
 
     {% if not impressora['ativo'] %}{% set cadastro_status=impressora['status_cadastro'] or 'bloqueado' %}<div class="partner-account-state fade-up {{ 'pending' if cadastro_status=='pendente' else 'blocked' }}"><strong>{{ 'Cadastro em análise' if cadastro_status=='pendente' else 'Conta pausada' }}</strong><span>{{ 'Você já pode revisar materiais e conhecer o painel. A Voxxel precisa liberar o cadastro antes de você ficar online e receber solicitações.' if cadastro_status=='pendente' else 'Sua conta não está recebendo novas solicitações. Fale com a Voxxel se precisar revisar o acesso.' }}</span></div>{% endif %}
 
