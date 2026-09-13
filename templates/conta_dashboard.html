@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% from "components/order_timeline.html" import order_timeline %}
 {% block title %}Minha Voxxel — Acompanhar pedidos{% endblock %}
+{% block body_class %}customer-dashboard-page{% endblock %}
 {% block extra_styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard-v9.css') }}">{% endblock %}
 {% block content %}
 {% set total = pedidos|length %}
