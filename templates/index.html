@@ -1,33 +1,64 @@
 {% extends "base.html" %}
 {% block title %}Voxxel — Sua ideia ganha forma{% endblock %}
-{% block body_class %}home-refined{% endblock %}
+{% block body_class %}home-refined home-v12{% endblock %}
 {% block extra_styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/home.css') }}">{% endblock %}
 {% macro arrow() %}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6"/></svg>{% endmacro %}
 {% block content %}
-<section class="vx-hero"><div class="wrap vx-hero-grid">
-  <div class="vx-intro"><p class="vx-kicker"><span></span> IMPRESSÃO 3D CONECTADA</p><h1>Sua ideia<br>ganha <em>forma.</em></h1><p class="vx-lead">Do primeiro arquivo ou referência à peça pronta, a Voxxel organiza seu projeto e conecta você a uma impressora parceira compatível.</p><div class="vx-actions"><a class="btn btn-primary" href="{{ url_for('orcamento') }}">Configurar meu projeto {{ arrow() }}</a><a class="btn btn-outline" href="{{ url_for('loja') }}">Explorar catálogo</a></div><p class="vx-hero-note"><span class="vx-live-dot"></span> Uma rede de produção sob demanda — disponibilidade sujeita à confirmação da parceira.</p></div>
-  <figure class="vx-showcase"><div class="vx-image-label"><span>ESTÚDIO VOXXEL</span><span>EXPLORAR POSSIBILIDADES</span></div><picture><source srcset="{{ url_for('static', filename='images/hero-voxxel.webp') }}" type="image/webp"><img src="{{ url_for('static', filename='images/hero-voxxel.png') }}" alt="Ilustração conceitual de um vaso, um organizador e uma escultura em roxo e grafite, com textura em camadas" width="1536" height="1024" fetchpriority="high" decoding="async"></picture><figcaption><div><strong>Uma ideia. Muitas possibilidades.</strong><span>Objetos ilustrativos · imagem conceitual</span></div><span class="vx-layer-icon" aria-hidden="true"><svg viewBox="0 0 40 40" fill="none" stroke="currentColor"><path d="m5 13 15-8 15 8-15 8-15-8Zm0 7 15 8 15-8M5 27l15 8 15-8"/></svg></span></figcaption></figure>
-</div></section>
-<div class="wrap"><div class="vx-details"><span><b>01</b> Configure seu pedido</span><span><b>02</b> A Voxxel busca compatibilidade</span><span><b>03</b> Uma parceira avalia e aceita</span></div></div>
-<section class="vx-network vx-section" id="como-funciona"><div class="wrap">
-  <div class="vx-network-head"><div><p class="vx-kicker">A REDE VOXXEL</p><h2>Seu projeto entra.<br><em>A rede encontra quem produz.</em></h2></div><p>A Voxxel conecta o seu pedido a impressoras parceiras. A busca considera os requisitos do projeto e, quando houver localização disponível, a proximidade entre você e as parceiras online.</p></div>
-  <div class="vx-routing" aria-label="Como a rede Voxxel encaminha um pedido">
-    <article class="vx-route-card"><span class="vx-route-num">01</span><div class="vx-route-icon"><svg viewBox="0 0 40 40" fill="none" stroke="currentColor"><path d="M10 8h20v24H10z"/><path d="M15 14h10M15 20h10M15 26h6"/></svg></div><h3>Você configura</h3><p>Envie um arquivo 3D ou imagens de referência, descreva o que precisa e complete medidas e material.</p></article>
-    <div class="vx-route-line"><span></span></div>
-    <article class="vx-route-core"><div class="vx-core-mark"><img src="{{ url_for('static', filename='images/voxxel-mark.png') }}" alt="" aria-hidden="true"></div><span class="vx-route-label">ROTEAMENTO VOXXEL</span><h3>Buscamos compatibilidade</h3><p>O sistema procura parceiras online que atendam ao material requerido e ordena as opções disponíveis por proximidade quando aplicável.</p><div class="vx-core-tags"><span>Material</span><span>Disponibilidade</span><span>Proximidade</span></div></article>
-    <div class="vx-route-line"><span></span></div>
-    <article class="vx-route-card"><span class="vx-route-num">03</span><div class="vx-route-icon"><svg viewBox="0 0 40 40" fill="none" stroke="currentColor"><path d="M8 29h24M12 29V14l8-5 8 5v15"/><path d="M16 29v-7h8v7M15 16h10"/></svg></div><h3>A parceira avalia</h3><p>A impressora recebe a oferta e pode aceitar ou recusar antes da atribuição.</p></article>
+<section class="home-hero">
+  <div class="wrap home-hero-grid">
+    <div class="home-hero-copy">
+      <p class="home-kicker"><span></span> IMPRESSÃO 3D SOB DEMANDA</p>
+      <h1>Sua ideia<br><em>ganha forma.</em></h1>
+      <p class="home-lead">Envie um modelo, mostre uma referência ou escolha uma peça pronta. A Voxxel organiza o pedido e conecta você a um parceiro de produção compatível.</p>
+      <div class="home-actions">
+        <a class="btn btn-primary" href="{{ url_for('orcamento') }}">Criar projeto personalizado {{ arrow() }}</a>
+        <a class="btn btn-outline" href="{{ url_for('loja') }}">Explorar catálogo</a>
+      </div>
+      <div class="home-trustline"><span></span> Orçamento inicial transparente · análise antes da produção · acompanhamento pela plataforma</div>
+    </div>
+    <figure class="home-visual">
+      <picture><source srcset="{{ url_for('static', filename='images/hero-voxxel.webp') }}" type="image/webp"><img src="{{ url_for('static', filename='images/hero-voxxel.png') }}" alt="Peças conceituais de impressão 3D em tons roxos e grafite" width="1536" height="1024" fetchpriority="high" decoding="async"></picture>
+      <figcaption><span>DA IDEIA À PEÇA FÍSICA</span><strong>Projetos, utilitários e produtos produzidos sob demanda.</strong></figcaption>
+    </figure>
   </div>
-  <div class="vx-network-foot"><div><strong>Depois do aceite</strong><span>O pedido fica vinculado à parceira e segue para as próximas etapas de atendimento e produção.</span></div><a href="{{ url_for('orcamento') }}" class="vx-text-link">Simular um projeto {{ arrow() }}</a></div>
-</div></section>
-<section class="vx-section" id="categorias"><div class="wrap">
-  <div class="vx-section-heading"><div><p class="vx-kicker">ENCONTRE SEU PRÓXIMO PROJETO</p><h2>O que vamos criar?</h2></div><a class="vx-text-link" href="{{ url_for('loja') }}">Ver catálogo completo {{ arrow() }}</a></div>
-  <div class="vx-categories">
-    <a class="vx-category" href="{{ url_for('loja', categoria='tecnica') }}"><div class="vx-category-top"><span>01 / FUNCIONALIDADE</span>{{ arrow() }}</div><div class="vx-category-art"><svg viewBox="0 0 160 110" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m39 75 44 24 45-26-44-23-45 25Z"/><path d="M39 75V24l14-8 17 9v39m-17 3V16m0 51 31 17 44-25v14M70 25l-17 8-14-9"/><ellipse cx="93" cy="74" rx="9" ry="4"/><path d="m42 82 40 23 44-25" opacity=".35"/></svg></div><h3>Peças & suportes</h3><p>Soluções para organizar, apoiar e facilitar o dia a dia.</p><span class="vx-category-link">Explorar peças {{ arrow() }}</span></a>
-    <a class="vx-category" href="{{ url_for('loja', categoria='cosplay') }}"><div class="vx-category-top"><span>02 / PERSONALIDADE</span>{{ arrow() }}</div><div class="vx-category-art"><svg viewBox="0 0 160 110" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m80 9 37 16-4 48-19 25H66L47 73l-4-48L80 9Z"/><path d="m80 9 1 74 13 15M43 25l23 12h28l23-12M52 47l21 8-4 11-16-6-1-13Zm56 0-21 8 4 11 16-6 1-13ZM66 98l3-17h23l2 17"/><path d="m38 29 4 49 20 26m60-75-4 49-20 26" opacity=".35"/></svg></div><h3>Cosplay & acessórios</h3><p>Detalhes para dar vida ao personagem que você imaginou.</p><span class="vx-category-link">Explorar acessórios {{ arrow() }}</span></a>
-    <a class="vx-category" href="{{ url_for('loja', categoria='decoracao') }}"><div class="vx-category-top"><span>03 / SEU ESPAÇO</span>{{ arrow() }}</div><div class="vx-category-art"><svg viewBox="0 0 160 110" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><ellipse cx="80" cy="20" rx="24" ry="8"/><path d="M56 20c0 22-19 33-18 59 0 24 84 24 84 0 1-26-18-37-18-59M64 26c0 29-14 39-13 65m21-64c0 28-6 50-6 68m14-67v68m8-69c0 28 6 50 6 68m2-69c0 29 14 39 13 65"/><path d="M41 69c16 12 62 12 78 0M38 80c18 13 66 13 84 0" opacity=".35"/></svg></div><h3>Decoração & utilitários</h3><p>Formas diferentes para deixar seu ambiente com a sua cara.</p><span class="vx-category-link">Explorar objetos {{ arrow() }}</span></a>
+</section>
+
+<section class="home-paths" aria-label="O que você pode fazer na Voxxel"><div class="wrap">
+  <div class="home-path-grid">
+    <a class="home-path primary" href="{{ url_for('orcamento') }}"><span class="path-index">01</span><div><small>PROJETO PERSONALIZADO</small><h2>Tenho uma ideia ou arquivo 3D</h2><p>Envie STL/3MF/OBJ ou imagens de referência, explique a peça e configure material e medidas.</p></div>{{ arrow() }}</a>
+    <a class="home-path" href="{{ url_for('loja') }}"><span class="path-index">02</span><div><small>CATÁLOGO</small><h2>Quero escolher uma peça pronta</h2><p>Explore produtos preparados para produção e finalize tudo dentro da Voxxel.</p></div>{{ arrow() }}</a>
   </div>
 </div></section>
-<section class="vx-custom vx-section" id="sobre"><div class="wrap vx-custom-grid"><div><p class="vx-kicker">SOB DEMANDA, SEM COMPLICAÇÃO</p><h2>Da ideia até<br><em>uma parceira disponível.</em></h2><p class="vx-lead">Você não precisa procurar impressora por impressora. A Voxxel centraliza a solicitação e encaminha o pedido pela rede.</p><a class="btn btn-primary" href="{{ url_for('orcamento') }}">Começar uma solicitação {{ arrow() }}</a><p class="vx-small">Valores da calculadora são simulações. Produção, material, prazo e recebimento dependem de confirmação.</p></div><ol class="vx-steps"><li><span>01</span><div><h3>Descreva o que precisa</h3><p>Envie uma referência visual ou arquivo 3D e descreva uso, medidas e detalhes essenciais da peça.</p></div></li><li><span>02</span><div><h3>A rede entra em ação</h3><p>A Voxxel procura uma parceira compatível e disponível para receber a solicitação.</p></div></li><li><span>03</span><div><h3>Acompanhe pela Voxxel</h3><p>Depois da atribuição, o pedido continua centralizado na plataforma para facilitar o acompanhamento.</p></div></li></ol></div></section>
-<section class="vx-section vx-partners" id="rede"><div class="wrap"><div class="vx-partner-panel"><div><p class="vx-kicker">PARA QUEM TAMBÉM CRIA</p><h2>Sua impressora pode<br>fazer parte da Voxxel.</h2><p>Cadastre-se como parceiro para receber solicitações na sua região. Você avalia cada pedido antes de aceitar.</p></div><div class="vx-partner-action"><a class="btn btn-outline" href="{{ url_for('impressora_cadastro') }}">Quero ser parceiro {{ arrow() }}</a><span>Cadastro exclusivo para impressoras parceiras.</span></div></div></div></section>
+
+<section class="home-section" id="como-funciona"><div class="wrap">
+  <div class="home-section-head"><div><p class="home-kicker">COMO FUNCIONA</p><h2>Um pedido claro do início ao acompanhamento.</h2></div><p>A Voxxel centraliza o que normalmente ficaria espalhado entre mensagens, arquivos e fornecedores diferentes.</p></div>
+  <div class="home-flow">
+    <article><span>01</span><h3>Você envia</h3><p>Escolha um produto ou descreva seu projeto com arquivo, imagens e informações essenciais.</p></article>
+    <article><span>02</span><h3>A Voxxel conecta</h3><p>A rede procura parceiros disponíveis e compatíveis com os materiais exigidos pelo pedido.</p></article>
+    <article><span>03</span><h3>O parceiro analisa</h3><p>Antes de produzir, o parceiro revisa o trabalho e alinha dúvidas quando necessário.</p></article>
+    <article><span>04</span><h3>Você acompanha</h3><p>Status, conversa, aprovação e pagamento permanecem organizados na mesma plataforma.</p></article>
+  </div>
+</div></section>
+
+<section class="home-section home-catalog" id="categorias"><div class="wrap">
+  <div class="home-section-head"><div><p class="home-kicker">CATÁLOGO VOXXEL</p><h2>Comece por algo que já está pronto para pedir.</h2></div><a class="home-text-link" href="{{ url_for('loja') }}">Ver catálogo completo {{ arrow() }}</a></div>
+  <div class="home-category-grid">
+    <a href="{{ url_for('loja', categoria='tecnica') }}"><span>PEÇAS TÉCNICAS</span><h3>Suportes, encaixes e soluções funcionais.</h3>{{ arrow() }}</a>
+    <a href="{{ url_for('loja', categoria='cosplay') }}"><span>COSPLAY & ACESSÓRIOS</span><h3>Formas que ajudam personagens a sair da tela.</h3>{{ arrow() }}</a>
+    <a href="{{ url_for('loja', categoria='decoracao') }}"><span>DECORAÇÃO & UTILITÁRIOS</span><h3>Objetos para casa, bancada e organização.</h3>{{ arrow() }}</a>
+  </div>
+</div></section>
+
+<section class="home-section home-value" id="sobre"><div class="wrap home-value-grid">
+  <div><p class="home-kicker">POR QUE VOXXEL</p><h2>Menos improviso.<br><em>Mais controle do pedido.</em></h2><p>A plataforma foi desenhada para reduzir a fricção entre quem precisa de uma peça e quem sabe produzi-la.</p></div>
+  <div class="home-value-list">
+    <div><strong>Projeto organizado</strong><span>Briefing, arquivos e conversa vinculados ao pedido.</span></div>
+    <div><strong>Rede compatível</strong><span>Material e disponibilidade entram no roteamento.</span></div>
+    <div><strong>Acompanhamento claro</strong><span>Você vê o estado atual e o próximo passo sem termos técnicos de banco.</span></div>
+  </div>
+</div></section>
+
+<section class="home-section home-partner" id="parceiros"><div class="wrap">
+  <div class="home-partner-panel"><div><p class="home-kicker">REDE DE PRODUÇÃO</p><h2>Tem uma impressora 3D?<br>Transforme capacidade ociosa em novos trabalhos.</h2><p>Cadastre-se como parceiro Voxxel, informe seus materiais e fique online quando quiser receber solicitações compatíveis. Você analisa cada trabalho antes de aceitar.</p></div><div><a class="btn btn-outline" href="{{ url_for('impressora_cadastro') }}">Tornar-me parceiro {{ arrow() }}</a><a class="home-text-link" href="{{ url_for('impressora_entrar') }}">Já sou parceiro · entrar</a></div></div>
+</div></section>
 {% endblock %}

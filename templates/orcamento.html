@@ -1,12 +1,12 @@
 {% extends "base.html" %}
-{% block title %}Orçamento personalizado — Voxxel{% endblock %}
+{% block title %}Projeto personalizado — Voxxel{% endblock %}
 {% block content %}
 
 <section class="quote-page">
   <div class="wrap">
     <div class="quote-heading fade-up">
       <div>
-        <div class="eyebrow">Orçamento personalizado</div>
+        <div class="eyebrow">Projeto personalizado</div>
         <h1>Dê forma ao seu projeto.</h1>
       </div>
       <p>Monte a simulação e ajuste o que importa. A confirmação final acontece antes da produção.</p>
@@ -145,7 +145,7 @@
             <span class="quote-step-number">04</span>
             <div>
               <h2>Escolha o material</h2>
-              <p>O material selecionado vira requisito para encontrar uma impressora parceira compatível.</p>
+              <p>O material selecionado vira requisito para encontrar um parceiro de produção compatível.</p>
             </div>
             <a class="quote-help-link" href="{{ url_for('home') }}#sobre">Não sei qual usar</a>
           </div>
@@ -266,7 +266,7 @@
 
           <div class="quote-match-card">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M12 2 4 6.5v9L12 20l8-4.5v-9z"/><path d="m4 6.5 8 4.5 8-4.5M12 11v9"/></svg>
-            <div><strong id="match-title">Buscaremos uma parceira compatível com PLA</strong><span>Proximidade + material entram no despacho automático.</span></div>
+            <div><strong id="match-title">Buscaremos um parceiro compatível com PLA</strong><span>Proximidade + material entram no despacho automático.</span></div>
           </div>
 
           <button type="submit" name="acao" value="enviar" class="btn btn-primary btn-block quote-submit">Solicitar análise deste projeto</button>
@@ -285,10 +285,10 @@
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/quote-visualizer.js') }}"></script>
 <script>
-  const MATERIAIS = {{ materiais_js | safe }};
-  const QUALIDADE = {{ qualidade_js | safe }};
-  const COMPLEXIDADE = {{ complexidade_js | safe }};
-  const REGRA = {{ regra_js | safe }};
+  const MATERIAIS = {{ materiais_js | tojson }};
+  const QUALIDADE = {{ qualidade_js | tojson }};
+  const COMPLEXIDADE = {{ complexidade_js | tojson }};
+  const REGRA = {{ regra_js | tojson }};
   const CATEGORIAS_LABEL = { tecnica: 'Peça técnica', cosplay: 'Cosplay & acessório', decoracao: 'Decoração & utilitário' };
   const QUALIDADE_LABEL = { rascunho: 'Rápido', padrao: 'Padrão', detalhado: 'Detalhado' };
   const COMPLEXIDADE_LABEL = { baixa: 'Simples', media: 'Moderada', alta: 'Complexa' };
@@ -375,7 +375,7 @@
     $('summary-quantity').textContent = `${qtd} ${qtd === 1 ? 'un.' : 'un.'}`;
     $('preview-dim').textContent = `${alt || 0} × ${larg || 0} × ${prof || 0} cm`;
     $('preview-material').textContent = `${mat.nome} · ${mat.processo}`;
-    $('match-title').textContent = `Buscaremos uma parceira compatível com ${mat.nome}`;
+    $('match-title').textContent = `Buscaremos um parceiro compatível com ${mat.nome}`;
 
     if(window.VoxxelQuoteVisualizer){
       window.VoxxelQuoteVisualizer.update({ altura: alt, largura: larg, profundidade: prof, material: materialKey });

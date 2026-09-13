@@ -1,37 +1,19 @@
 {% extends "base.html" %}
 {% block title %}Entrar — Voxxel{% endblock %}
+{% block body_class %}auth-page{% endblock %}
 {% block content %}
-
-<section style="padding-top:var(--space-3);">
-  <div class="wrap" style="max-width:440px; margin:0 auto;">
-    <div class="section-head fade-up" style="margin-bottom:var(--space-2);">
-      <div class="eyebrow">Minha conta</div>
-      <h2>Acesse sua conta</h2>
-      <p>Use o telefone e a senha do seu cadastro para continuar o pedido ou acompanhar suas compras.</p>
-    </div>
-
-    {% if erro %}<div class="flash" style="border-color:var(--err); color:var(--err);">{{ erro }}</div>{% endif %}
-
-    <p class="helper-text">Este acesso é para clientes. <a href="{{ url_for('impressora_entrar') }}">Sou parceiro de impressão</a></p>
-    <form method="post" class="form-card fade-up">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <input type="hidden" name="next" value="{{ request.args.get('next', '') }}">
-      <div class="field">
-        <label for="telefone">Telefone cadastrado com DDD</label>
-        <input id="telefone" type="tel" name="telefone" autocomplete="tel" value="{{ request.form.get('telefone', '') }}" required placeholder="(41) 9XXXX-XXXX" autofocus>
-      </div>
-      <div class="field">
-        <label for="senha">Senha</label>
-        <input id="senha" type="password" name="senha" autocomplete="current-password" required maxlength="128">
-      </div>
-      <button type="submit" class="btn btn-primary btn-block">Entrar</button>
+<section class="auth-shell"><div class="wrap auth-grid">
+  <div class="auth-copy"><p class="auth-kicker">CONTA DO CLIENTE</p><h1>Continue de onde parou.</h1><p>Acesse seus pedidos, projetos, mensagens e pagamentos em um único lugar.</p><div class="auth-points"><span>Acompanhe a produção</span><span>Converse sobre projetos</span><span>Revise pagamentos e pedidos</span></div></div>
+  <div class="auth-panel">
+    <div class="auth-panel-head"><h2>Entrar</h2><p>Use o telefone e a senha do seu cadastro.</p></div>
+    {% if erro %}<div class="auth-error" role="alert">{{ erro }}</div>{% endif %}
+    <form method="post" class="auth-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="next" value="{{ request.args.get('next', '') }}">
+      <div class="field"><label for="telefone">Telefone com DDD</label><input id="telefone" type="tel" name="telefone" autocomplete="tel" inputmode="tel" value="{{ request.form.get('telefone', '') }}" required placeholder="(41) 9XXXX-XXXX" autofocus></div>
+      <div class="field"><label for="senha">Senha</label><input id="senha" type="password" name="senha" autocomplete="current-password" required maxlength="128"></div>
+      <button type="submit" class="btn btn-primary btn-block">Entrar na minha conta</button>
     </form>
-
-    <p style="text-align:center; margin-top:18px; color:var(--muted); font-size:.9rem;">
-      É sua primeira compra?
-      <a href="{{ url_for('conta_cadastro', next=request.args.get('next','')) }}" style="color:var(--gold-soft);">Criar minha conta</a>
-    </p>
+    <div class="auth-foot">Primeira vez na Voxxel? <a href="{{ url_for('conta_cadastro', next=request.args.get('next','')) }}">Criar conta</a></div>
+    <div class="auth-role-switch">Produz com impressão 3D? <a href="{{ url_for('impressora_entrar') }}">Acessar área do parceiro</a></div>
   </div>
-</section>
-
+</div></section>
 {% endblock %}

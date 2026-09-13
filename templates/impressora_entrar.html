@@ -1,37 +1,19 @@
 {% extends "base.html" %}
 {% block title %}Entrar — Área do parceiro — Voxxel{% endblock %}
+{% block body_class %}auth-page partner-auth-page{% endblock %}
 {% block content %}
-
-<section style="padding-top:var(--space-3);">
-  <div class="wrap" style="max-width:440px; margin:0 auto;">
-    <div class="section-head fade-up" style="margin-bottom:var(--space-2);">
-      <div class="eyebrow">Área do parceiro</div>
-      <h2>Acesse seu painel</h2>
-      <p>Use o cadastro de parceiro para ficar disponível e acompanhar suas solicitações de impressão.</p>
-    </div>
-
-    {% if erro %}<div class="flash" style="border-color:var(--err); color:var(--err);">{{ erro }}</div>{% endif %}
-
-    <p class="helper-text">Quer comprar uma peça? <a href="{{ url_for('conta_entrar') }}">Acesse sua conta de cliente</a>.</p>
-    <form method="post" class="form-card fade-up">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <input type="hidden" name="next" value="{{ request.args.get('next', '') }}">
-      <div class="field">
-        <label>Telefone do parceiro com DDD</label>
-        <input type="tel" name="telefone" autocomplete="tel" maxlength="40" required placeholder="(41) 9XXXX-XXXX" autofocus>
-      </div>
-      <div class="field">
-        <label>Senha</label>
-        <input type="password" name="senha" autocomplete="current-password" required maxlength="128">
-      </div>
-      <button type="submit" class="btn btn-primary btn-block">Entrar</button>
+<section class="auth-shell"><div class="wrap auth-grid">
+  <div class="auth-copy"><p class="auth-kicker">REDE VOXXEL</p><h1>Sua central de produção.</h1><p>Fique disponível quando quiser, analise solicitações compatíveis e acompanhe trabalhos aceitos.</p><div class="auth-points"><span>Você decide o que aceitar</span><span>Compatibilidade por material</span><span>Projetos e mensagens organizados</span></div></div>
+  <div class="auth-panel">
+    <div class="auth-panel-head"><h2>Área do parceiro</h2><p>Entre com o telefone do seu cadastro.</p></div>
+    {% if erro %}<div class="auth-error" role="alert">{{ erro }}</div>{% endif %}
+    <form method="post" class="auth-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="next" value="{{ request.args.get('next', '') }}">
+      <div class="field"><label for="partner-phone">Telefone com DDD</label><input id="partner-phone" type="tel" name="telefone" autocomplete="tel" inputmode="tel" maxlength="40" required placeholder="(41) 9XXXX-XXXX" autofocus></div>
+      <div class="field"><label for="partner-password">Senha</label><input id="partner-password" type="password" name="senha" autocomplete="current-password" required maxlength="128"></div>
+      <button type="submit" class="btn btn-primary btn-block">Entrar no painel</button>
     </form>
-
-    <p style="text-align:center; margin-top:18px; color:var(--muted); font-size:.9rem;">
-      Ainda não faz parte da rede?
-      <a href="{{ url_for('impressora_cadastro') }}" style="color:var(--gold-soft);">Cadastre-se</a>
-    </p>
+    <div class="auth-foot">Ainda não faz parte da rede? <a href="{{ url_for('impressora_cadastro') }}">Tornar-me parceiro</a></div>
+    <div class="auth-role-switch">Quer comprar ou solicitar uma peça? <a href="{{ url_for('conta_entrar') }}">Acessar conta de cliente</a></div>
   </div>
-</section>
-
+</div></section>
 {% endblock %}

@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "components/order_timeline.html" import order_timeline %}
 {% block title %}Projeto #{{ pedido['id'] }} — Voxxel{% endblock %}
 {% block extra_styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/project-flow.css') }}"><link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard-v9.css') }}">{% endblock %}
 {% block content %}
@@ -11,20 +12,10 @@
           <h1>{{ pedido['descricao_projeto'] or 'Projeto personalizado' }}</h1>
           <p style="margin:0;color:var(--muted);font-size:.82rem;">Criado em {{ pedido['criado_em'] }}</p>
         </div>
-        <div class="project-top-actions"><span class="project-role-pill">{{ 'Cliente' if papel=='cliente' else ('Parceira' if papel=='impressora' else 'Voxxel') }}</span><span class="project-status"><i></i>{{ fluxo_labels.get(pedido['fluxo_status'] or 'recebido', pedido['fluxo_status'] or 'Pedido recebido') }}</span></div>
+        <div class="project-top-actions"><span class="project-role-pill">{{ 'Cliente' if papel=='cliente' else ('Parceiro' if papel=='impressora' else 'Voxxel') }}</span><span class="project-status"><i></i>{{ fluxo_labels.get(pedido['fluxo_status'] or 'recebido', pedido['fluxo_status'] or 'Pedido recebido') }}</span></div>
       </header>
-
       {% set fs = pedido['fluxo_status'] or 'recebido' %}
-      {% if fs == 'concluido' %}{% set stage=5 %}{% elif fs == 'pronto' %}{% set stage=4 %}{% elif fs in ('em_producao','producao_autorizada') %}{% set stage=4 %}{% elif fs in ('aguardando_aprovacao','precisa_info','cliente_respondeu','em_analise','recebido') %}{% set stage=3 %}{% else %}{% set stage=2 %}{% endif %}
-      <section class="project-timeline">
-        <div class="order-track" aria-label="Etapas do projeto">
-          <div class="track-step done"><div class="track-dot">1</div><div class="track-copy"><strong>Recebido</strong><span>Briefing registrado</span></div></div>
-          <div class="track-step done"><div class="track-dot">2</div><div class="track-copy"><strong>Parceira</strong><span>{{ impressora['nome'] if impressora else 'Rede Voxxel' }}</span></div></div>
-          <div class="track-step {{ 'done' if stage>3 else 'current' }}"><div class="track-dot">3</div><div class="track-copy"><strong>Análise e aprovação</strong><span>{% if fs=='precisa_info' %}Falta informação{% elif fs=='cliente_respondeu' %}Resposta recebida{% elif fs=='aguardando_aprovacao' %}Aguardando cliente{% else %}Revisão técnica{% endif %}</span></div></div>
-          <div class="track-step {{ 'done' if stage>4 else ('current' if stage==4 else '') }}"><div class="track-dot">4</div><div class="track-copy"><strong>Produção</strong><span>{% if fs=='em_producao' %}Em andamento{% elif fs=='pronto' %}Finalizada{% else %}Após autorização{% endif %}</span></div></div>
-          <div class="track-step {{ 'done' if stage>=5 else '' }}"><div class="track-dot">5</div><div class="track-copy"><strong>Concluído</strong><span>Fim do processo</span></div></div>
-        </div>
-      </section>
+      <section class="project-timeline">{{ order_timeline(pedido, papel, true) }}</section>
 
       <section class="project-brief">
         <div class="project-section-title">Briefing do cliente</div>
@@ -61,7 +52,7 @@
           {% set mine = (papel == m['autor_tipo']) %}
           <article class="chat-msg {{ 'system' if m['autor_tipo']=='sistema' else ('mine' if mine else '') }}">
             <div class="chat-msg-head">
-              <span>{% if m['autor_tipo']=='cliente' %}Cliente{% elif m['autor_tipo']=='impressora' %}Impressora parceira{% elif m['autor_tipo']=='admin' %}Voxxel{% else %}Voxxel · sistema{% endif %}</span>
+              <span>{% if m['autor_tipo']=='cliente' %}Cliente{% elif m['autor_tipo']=='impressora' %}Parceiro de produção{% elif m['autor_tipo']=='admin' %}Voxxel{% else %}Voxxel · sistema{% endif %}</span>
               <span>{{ m['criado_em'] }}</span>
             </div>
             {% if m['texto'] %}<p>{{ m['texto'] }}</p>{% endif %}
@@ -73,7 +64,7 @@
         {% if papel in ('cliente','impressora','admin') %}
         <form class="chat-compose" method="post" action="{{ url_for('pedido_projeto_mensagem', pedido_id=pedido['id']) }}" enctype="multipart/form-data">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-          <textarea name="mensagem" placeholder="{% if papel == 'impressora' %}Pergunte sobre medidas, encaixes, uso, acabamento ou qualquer ponto que precise confirmar...{% else %}Responda à parceira ou envie uma informação importante sobre a peça...{% endif %}"></textarea>
+          <textarea name="mensagem" placeholder="{% if papel == 'impressora' %}Pergunte sobre medidas, encaixes, uso, acabamento ou qualquer ponto que precise confirmar...{% else %}Responda ao parceiro ou envie uma informação importante sobre a peça...{% endif %}"></textarea>
           <div class="chat-compose-bottom">
             <label class="chat-attach">＋ Anexar imagem ou arquivo 3D<input type="file" name="anexo" accept=".stl,.3mf,.obj,image/jpeg,image/png,image/webp"></label>
             <div class="chat-compose-actions">
@@ -92,7 +83,7 @@
         <div class="project-facts">
           <div class="project-fact emphasis"><span>{{ 'Valor final' if fs in ('aguardando_aprovacao','producao_autorizada','em_producao','pronto','concluido') and pedido['tipo']=='orcamento' else 'Valor estimado' }}</span><strong>R$ {{ "%.2f"|format(pedido['valor_estimado'])|replace('.', ',') }}</strong></div>
           <div class="project-fact"><span>Material</span><strong>{{ (pedido['material_requisito'] or 'a confirmar')|upper|replace(',', ' + ') }}</strong></div>
-          <div class="project-fact"><span>Parceira</span><strong>{{ impressora['nome'] if impressora else 'Buscando na rede' }}</strong></div>
+          <div class="project-fact"><span>Parceiro</span><strong>{{ impressora['nome'] if impressora else 'Buscando na rede' }}</strong></div>
           <div class="project-fact"><span>Pagamento</span><strong class="project-payment-state {{ 'ok' if pedido['status_pagamento']=='confirmado' }}"><i></i>{{ 'Confirmado' if pedido['status_pagamento']=='confirmado' else ('Em conferência' if pedido['status_pagamento']=='informado' else 'Pendente') }}</strong></div>
         </div>
       </section>
@@ -100,7 +91,7 @@
       <section class="project-side-card">
         <h2>Qualidade da referência</h2>
         <div class="project-reference-badge">
-          {% if pedido['referencia_status'] == 'arquivo_3d' %}<strong>Arquivo 3D recebido.</strong><br>Há uma malha técnica para a parceira analisar junto com o briefing.
+          {% if pedido['referencia_status'] == 'arquivo_3d' %}<strong>Arquivo 3D recebido.</strong><br>Há uma malha técnica para o parceiro analisar junto com o briefing.
           {% elif pedido['referencia_status'] == 'imagem_descricao' %}<strong>Referência visual + descrição.</strong><br>O projeto pode exigir modelagem ou esclarecimentos antes da produção.
           {% else %}<strong>Pedido de catálogo.</strong><br>As referências dependem do item comprado.{% endif %}
         </div>

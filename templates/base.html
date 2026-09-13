@@ -3,16 +3,20 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="description" content="Impressão 3D sob demanda: envie seu projeto, acompanhe a análise e conecte-se a uma impressora parceira compatível pela Rede Voxxel.">
+<meta name="description" content="Impressão 3D sob demanda: envie seu projeto, acompanhe a análise e conecte-se a um parceiro de produção compatível pela Rede Voxxel.">
 <title>{% block title %}Voxxel — Impressão 3D sob demanda{% endblock %}</title>
 <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='images/favicon-32.png') }}">
 <link rel="icon" type="image/png" sizes="64x64" href="{{ url_for('static', filename='images/favicon-64.png') }}">
 <link rel="apple-touch-icon" href="{{ url_for('static', filename='images/apple-touch-icon.png') }}">
 <meta name="theme-color" content="#101014">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700;800;900&family=Sora:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/visual.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/refinement-v7.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/commerce-v8.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/ux-v12.css') }}">
 {% block extra_styles %}{% endblock %}
 </head>
 <body class="{% block body_class %}{% endblock %}">
@@ -25,10 +29,10 @@
       <span class="brand-header-word">VOXXEL</span>
     </a>
     <nav class="navlinks" aria-label="Navegação principal">
-      <a href="{{ url_for('home') }}#categorias">Categorias</a>
+      <a href="{{ url_for('home') }}#como-funciona">Como funciona</a>
       <a href="{{ url_for('loja') }}" class="{{ 'active' if request.endpoint == 'loja' }}">Catálogo</a>
-      <a href="{{ url_for('orcamento') }}" class="{{ 'active' if request.endpoint == 'orcamento' }}">Orçamento</a>
-      <a href="{{ url_for('home') }}#sobre">Sobre</a>
+      <a href="{{ url_for('orcamento') }}" class="{{ 'active' if request.endpoint == 'orcamento' }}">Projeto personalizado</a>
+      <a href="{{ url_for('home') }}#parceiros">Parceiros</a>
     </nav>
     <div class="nav-actions">
       <a class="icon-btn" href="{{ url_for('conta_dashboard') if session.get('cliente_id') else url_for('conta_entrar') }}" aria-label="Minha conta" title="{{ 'Olá, ' ~ session.get('cliente_nome') if session.get('cliente_id') else 'Entrar / Cadastrar' }}">
@@ -38,7 +42,7 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
         <span class="cart-badge">{{ qtd_carrinho }}</span>
       </a>
-      <a class="icon-btn partner-shortcut" href="{{ url_for('impressora_painel') if session.get('impressora_id') else url_for('impressora_entrar') }}" aria-label="Área da impressora parceira" title="{{ 'Painel da sua impressora' if session.get('impressora_id') else 'Sou parceiro de impressão' }}">
+      <a class="icon-btn partner-shortcut" href="{{ url_for('impressora_painel') if session.get('impressora_id') else url_for('impressora_entrar') }}" aria-label="Área do parceiro" title="{{ 'Painel do parceiro' if session.get('impressora_id') else 'Área do parceiro' }}">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 8.5 12 15 22 8.5 12 2"/><polyline points="2 15.5 12 22 22 15.5"/><polyline points="2 8.5 2 15.5"/><polyline points="22 8.5 22 15.5"/></svg>
       </a>
       <button type="button" class="menu-toggle" id="menu-toggle" aria-label="Abrir menu" aria-expanded="false" aria-controls="mobile-menu">
@@ -48,10 +52,10 @@
   </div>
 
   <div class="mobile-menu" id="mobile-menu" aria-label="Navegação móvel">
-    <a href="{{ url_for('home') }}#categorias">Categorias</a>
+    <a href="{{ url_for('home') }}#como-funciona">Como funciona</a>
     <a href="{{ url_for('loja') }}">Catálogo</a>
-    <a href="{{ url_for('orcamento') }}">Orçamento</a>
-    <a href="{{ url_for('home') }}#sobre">Sobre</a>
+    <a href="{{ url_for('orcamento') }}">Projeto personalizado</a>
+    <a href="{{ url_for('home') }}#parceiros">Parceiros</a>
     <div class="mobile-menu-divider"></div>
     {% if session.get('cliente_id') %}
     <a href="{{ url_for('conta_dashboard') }}">Minha conta ({{ session.get('cliente_nome') }})</a>
@@ -61,10 +65,10 @@
     {% endif %}
     <div class="mobile-menu-divider"></div>
     {% if session.get('impressora_id') %}
-    <a href="{{ url_for('impressora_painel') }}">Painel da impressora ({{ session.get('impressora_nome') }})</a>
+    <a href="{{ url_for('impressora_painel') }}">Painel do parceiro ({{ session.get('impressora_nome') }})</a>
     <form class="nav-logout-form" method="post" action="{{ url_for('impressora_sair') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit">Sair da conta de parceiro</button></form>
     {% else %}
-    <a href="{{ url_for('impressora_entrar') }}">Sou parceiro de impressão</a>
+    <a href="{{ url_for('impressora_entrar') }}">Área do parceiro</a>
     {% endif %}
   </div>
 </header>
@@ -84,8 +88,8 @@
 <footer class="site-footer">
   <div class="wrap footer-grid">
     <div class="footer-brand">
-      <a href="{{ url_for('home') }}" class="logo" aria-label="Voxxel — início">
-        <img class="brand-lockup" src="{{ url_for('static', filename='images/voxxel-logo-horizontal.png') }}" alt="Voxxel" width="190" height="64">
+      <a href="{{ url_for('home') }}" class="footer-brand-lockup-v12" aria-label="Voxxel — início">
+        <img src="{{ url_for('static', filename='images/voxxel-mark.png') }}" alt="" width="42" height="42"><span>VOXXEL</span>
       </a>
       <p>Impressão 3D sob encomenda para peças, ideias e projetos que precisam ganhar forma.</p>
       <span class="footer-location">São José dos Pinhais · Paraná</span>
@@ -94,8 +98,8 @@
     <nav class="footer-column" aria-label="Explorar">
       <span class="footer-label">Explorar</span>
       <a href="{{ url_for('loja') }}">Catálogo</a>
-      <a href="{{ url_for('orcamento') }}">Simular orçamento</a>
-      <a href="{{ url_for('home') }}#categorias">Categorias</a>
+      <a href="{{ url_for('orcamento') }}">Projeto personalizado</a>
+      <a href="{{ url_for('home') }}#como-funciona">Como funciona</a>
     </nav>
 
     <nav class="footer-column" aria-label="Sua conta">
@@ -106,14 +110,15 @@
     </nav>
 
     <nav class="footer-column footer-service" aria-label="Atendimento e parceiros">
-      <span class="footer-label">Atendimento</span>
+      <span class="footer-label">Suporte & parceiros</span>
       {% if whatsapp_numero %}<a class="footer-whatsapp" href="https://wa.me/{{ whatsapp_numero }}" target="_blank" rel="noopener"><img src="{{ url_for('static', filename='images/voxxel-mark.png') }}" alt="" width="22" height="22"><span>Falar com a Voxxel</span></a>{% endif %}
-      <a href="{{ url_for('impressora_entrar') }}">Área da impressora parceira</a>
-      <a href="{{ url_for('impressora_cadastro') }}">Quero ser parceiro</a>
+      <a href="{{ url_for('impressora_entrar') }}">Área do parceiro</a>
+      <a href="{{ url_for('impressora_cadastro') }}">Tornar-me parceiro</a>
     </nav>
   </div>
   <div class="wrap footer-bottom">
-    <span>Voxxel · impressão 3D sob encomenda</span>
+    <span>Voxxel · impressão 3D sob demanda</span>
+    <div class="footer-legal-v12"><a href="{{ url_for('termos') }}">Termos de uso</a><a href="{{ url_for('privacidade') }}">Privacidade</a></div>
     <span>Valores, prazo, material e disponibilidade são confirmados antes da produção.</span>
   </div>
 </footer>
@@ -129,6 +134,7 @@
   const toast=document.getElementById('project-message-toast'); if(!toast)return;
   let shown=Number(sessionStorage.getItem('voxxel_last_project_message')||0);
   async function checkProjectMessage(){
+    if(document.hidden)return;
     try{const r=await fetch({{ url_for('api_projeto_mensagem_pendente')|tojson }},{cache:'no-store'});if(!r.ok)return;const d=await r.json();const m=d.mensagem;if(!m||m.id<=shown)return;
       shown=m.id;sessionStorage.setItem('voxxel_last_project_message',String(m.id));
       document.getElementById('project-message-toast-author').textContent=m.autor+' · Projeto #'+m.pedido_id;
@@ -137,6 +143,7 @@
     }catch(_){ }
   }
   checkProjectMessage();setInterval(checkProjectMessage,10000);
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)checkProjectMessage();});
 })();
 </script>
 {% endif %}
@@ -175,7 +182,7 @@
 
   <div class="partner-offer-route">
     <span class="partner-offer-route-dot"></span>
-    <span>Pedido disponível para sua impressora</span>
+    <span>Pedido disponível para seu equipamento</span>
   </div>
 
   <h3 class="partner-offer-title" id="partner-offer-title">Pedido da Rede Voxxel</h3>
@@ -250,11 +257,12 @@ window.VOXXEL_PARTNER_OFFERS = {
     });
   }
 </script>
+<script src="{{ url_for('static', filename='js/app-ui.js') }}" defer></script>
 {% block scripts %}{% endblock %}
 {% if chat_auto_message %}
 <script>window.VOXXEL_CHAT_AUTO_MESSAGE = {{ chat_auto_message|tojson }};</script>
 {% endif %}
-<script>window.VOXXEL_WHATSAPP = {{ whatsapp_numero|tojson }};</script>
+<script>window.VOXXEL_WHATSAPP = {{ whatsapp_numero|tojson }}; window.VOXXEL_CHAT_WEBHOOK_URL = {{ chat_webhook_url|tojson }};</script>
 <script src="{{ url_for('static', filename='js/chat.js') }}"></script>
 </body>
 </html>

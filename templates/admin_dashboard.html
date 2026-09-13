@@ -58,7 +58,7 @@
   <div class="order-card">
     <div class="order-card-main">
       <div class="order-card-id">Pedido #{{ p['id'] }} · {{ p['criado_em'] }}</div>
-      <div class="order-card-tipo">{{ 'Loja' if p['tipo'] == 'loja' else 'Orçamento' }} · {{ p['cliente_nome'] or 'sem nome' }}</div>
+      <div class="order-card-tipo">{{ 'Catálogo' if p['tipo'] == 'loja' else 'Projeto personalizado' }} · {{ p['cliente_nome'] or 'sem nome' }}</div>
       <div class="order-card-detalhes">{{ p['detalhes'] }}</div>
     </div>
     <div class="order-card-side">

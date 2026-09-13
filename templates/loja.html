@@ -4,27 +4,24 @@
 {% block content %}
 <section class="catalog-shell">
   <div class="wrap">
-    <div class="catalog-hero fade-up">
-      <div>
-        <div class="catalog-kicker">Catálogo Voxxel</div>
-        <h1>Peças prontas para <em>ganhar forma.</em></h1>
-        <p>Explore produtos já preparados para produção na rede Voxxel. Você escolhe a peça; disponibilidade, prazo e recebimento são confirmados conforme o pedido.</p>
-      </div>
-      <div class="catalog-meta" aria-label="Resumo do catálogo">
-        <span>Disponíveis agora</span>
-        <strong>{{ produtos|length }}</strong>
-        <span>{{ "peça nesta seleção" if produtos|length == 1 else "peças nesta seleção" }}</span>
-      </div>
-    </div>
+    <header class="catalog-hero fade-up">
+      <div><div class="catalog-kicker">Catálogo Voxxel</div><h1>Encontre uma peça.<br><em>Ou comece pela sua ideia.</em></h1><p>Produtos preparados para produção sob demanda na Rede Voxxel. Use busca, categoria e ordenação para chegar mais rápido ao que você precisa.</p></div>
+      <div class="catalog-meta" aria-label="Resumo do catálogo"><span>Resultados</span><strong>{{ total_produtos }}</strong><span>{{ 'produto encontrado' if total_produtos == 1 else 'produtos encontrados' }}</span></div>
+    </header>
+
+    <form class="catalog-tools-v12" method="get" action="{{ url_for('loja') }}" role="search">
+      <label class="catalog-search-v12"><span class="sr-only">Buscar no catálogo</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><input type="search" name="q" value="{{ busca }}" placeholder="Buscar por nome ou descrição" maxlength="80" autocomplete="off"></label>
+      <input type="hidden" name="categoria" value="{{ categoria_ativa }}">
+      <label class="catalog-sort-v12"><span>Ordenar</span><select name="ordem" onchange="this.form.submit()"><option value="recentes" {{ 'selected' if ordem=='recentes' }}>Mais recentes</option><option value="nome" {{ 'selected' if ordem=='nome' }}>Nome A–Z</option><option value="preco_menor" {{ 'selected' if ordem=='preco_menor' }}>Menor preço</option><option value="preco_maior" {{ 'selected' if ordem=='preco_maior' }}>Maior preço</option></select></label>
+      <button class="btn btn-primary" type="submit">Buscar</button>
+    </form>
 
     <div class="catalog-filterbar">
       <div class="filtros" aria-label="Filtrar por categoria">
-        <a class="chip {{ 'active' if categoria_ativa == 'todos' }}" href="{{ url_for('loja') }}" {% if categoria_ativa == 'todos' %}aria-current="true"{% endif %}>Todos</a>
-        {% for chave, nome in categorias.items() %}
-          <a class="chip {{ 'active' if categoria_ativa == chave }}" href="{{ url_for('loja', categoria=chave) }}" {% if categoria_ativa == chave %}aria-current="true"{% endif %}>{{ nome }}</a>
-        {% endfor %}
+        <a class="chip {{ 'active' if categoria_ativa == 'todos' }}" href="{{ url_for('loja', q=busca, ordem=ordem) }}">Todos</a>
+        {% for chave, nome in categorias.items() %}<a class="chip {{ 'active' if categoria_ativa == chave }}" href="{{ url_for('loja', categoria=chave, q=busca, ordem=ordem) }}">{{ nome }}</a>{% endfor %}
       </div>
-      <span class="catalog-filter-note">Selecione uma categoria para refinar</span>
+      {% if busca or categoria_ativa != 'todos' %}<a class="catalog-clear-v12" href="{{ url_for('loja') }}">Limpar filtros</a>{% else %}<span class="catalog-filter-note">Use os filtros para refinar a seleção</span>{% endif %}
     </div>
 
     {% if produtos %}
@@ -32,52 +29,24 @@
       {% for p in produtos %}
       <article class="catalog-card">
         <a href="{{ url_for('produto_detalhe', produto_id=p['id']) }}" class="catalog-media" aria-label="Ver {{ p['nome'] }}">
-          {% if p['tem_imagem'] %}
-            <img src="{{ url_for('produto_imagem', produto_id=p['id']) }}" alt="{{ p['nome'] }}" loading="lazy">
-          {% else %}
-            <div class="catalog-image-placeholder"><div class="catalog-image-placeholder-inner"><img src="{{ url_for('static', filename='images/voxxel-mark.png') }}" alt=""><span>Visual do produto em preparação</span></div></div>
-          {% endif %}
-          {% if p['estoque'] is not none and p['estoque'] <= 0 %}
-            <span class="catalog-badge out">Esgotado</span>
-          {% elif p['estoque'] is none %}
-            <span class="catalog-badge">Produção sob consulta</span>
-          {% elif p['estoque'] <= 3 %}
-            <span class="catalog-badge">{{ p['estoque'] }} em estoque</span>
-          {% endif %}
+          {% if p['tem_imagem'] %}<img src="{{ url_for('produto_imagem', produto_id=p['id']) }}" alt="{{ p['nome'] }}" loading="lazy" decoding="async">
+          {% else %}<div class="catalog-image-placeholder"><div class="catalog-image-placeholder-inner"><img src="{{ url_for('static', filename='images/voxxel-mark.png') }}" alt="" width="68" height="68"><span>Imagem em preparação</span></div></div>{% endif %}
+          {% if p['estoque'] is not none and p['estoque'] <= 0 %}<span class="catalog-badge out">Indisponível</span>{% elif p['estoque'] is none %}<span class="catalog-badge">Sob demanda</span>{% elif p['estoque'] <= 3 %}<span class="catalog-badge">{{ p['estoque'] }} disponíveis</span>{% endif %}
         </a>
-
         <div class="catalog-card-body">
-          <div class="catalog-card-topline">
-            <span class="catalog-category">{{ categorias[p['categoria']] }} · {{ materiais_catalogo.get(p['material'], {}).get('nome', p['material']|upper) }}</span>
-            <a class="catalog-open" href="{{ url_for('produto_detalhe', produto_id=p['id']) }}" aria-label="Abrir produto">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-            </a>
-          </div>
-          <h2><a href="{{ url_for('produto_detalhe', produto_id=p['id']) }}">{{ p['nome'] }}</a></h2>
-          <p class="catalog-card-desc">{{ p['descricao'] }}</p>
-          <div class="catalog-card-footer">
-            <div><span class="catalog-price-label">A partir de</span><span class="catalog-price">R$ {{ "%.2f"|format(p['preco'])|replace('.', ',') }}</span></div>
-            <form class="catalog-add" method="post" action="{{ url_for('carrinho_adicionar', produto_id=p['id']) }}">
-              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-              {% if p['estoque'] is not none and p['estoque'] <= 0 %}
-                <button type="button" class="btn btn-ghost" disabled>Indisponível</button>
-              {% else %}
-                <button type="submit" class="btn btn-ghost">Adicionar</button>
-              {% endif %}
-            </form>
-          </div>
+          <div class="catalog-card-topline"><span class="catalog-category">{{ categorias[p['categoria']] }} · {{ materiais_catalogo.get(p['material'], {}).get('nome', p['material']|upper) }}</span><a class="catalog-open" href="{{ url_for('produto_detalhe', produto_id=p['id']) }}" aria-label="Abrir {{ p['nome'] }}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></div>
+          <h2><a href="{{ url_for('produto_detalhe', produto_id=p['id']) }}">{{ p['nome'] }}</a></h2><p class="catalog-card-desc">{{ p['descricao'] }}</p>
+          <div class="catalog-card-footer"><div><span class="catalog-price-label">Preço</span><span class="catalog-price">R$ {{ "%.2f"|format(p['preco'])|replace('.', ',') }}</span></div><form class="catalog-add" method="post" action="{{ url_for('carrinho_adicionar', produto_id=p['id']) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% if p['estoque'] is not none and p['estoque'] <= 0 %}<button type="button" class="btn btn-ghost" disabled>Indisponível</button>{% else %}<button type="submit" class="btn btn-ghost">Adicionar</button>{% endif %}</form></div>
         </div>
       </article>
       {% endfor %}
     </div>
+    {% if total_paginas > 1 %}<nav class="catalog-pagination-v12" aria-label="Paginação do catálogo">{% if pagina > 1 %}<a href="{{ url_for('loja', categoria=categoria_ativa, q=busca, ordem=ordem, pagina=pagina-1) }}">← Anterior</a>{% endif %}<span>Página {{ pagina }} de {{ total_paginas }}</span>{% if pagina < total_paginas %}<a href="{{ url_for('loja', categoria=categoria_ativa, q=busca, ordem=ordem, pagina=pagina+1) }}">Próxima →</a>{% endif %}</nav>{% endif %}
     {% else %}
-      <div class="empty-state"><h2>Nenhuma peça nesta categoria.</h2><p>Você ainda pode enviar uma referência e solicitar um projeto personalizado para a rede Voxxel.</p><a class="btn btn-primary" href="{{ url_for('orcamento') }}">Criar projeto personalizado</a></div>
+      <div class="catalog-empty-v12"><img src="{{ url_for('static', filename='images/voxxel-mark.png') }}" alt="" width="58" height="58"><h2>Nenhum produto corresponde a essa busca.</h2><p>Tente outro termo, remova os filtros ou envie sua própria referência para produzir um projeto personalizado.</p><div><a class="btn btn-outline" href="{{ url_for('loja') }}">Limpar filtros</a><a class="btn btn-primary" href="{{ url_for('orcamento') }}">Criar projeto personalizado</a></div></div>
     {% endif %}
 
-    <div class="catalog-custom-cta fade-up">
-      <div><small>Não encontrou o que precisa?</small><h2>A rede Voxxel também produz projetos personalizados.</h2><p>Envie seu arquivo 3D ou imagens de referência, descreva a peça e receba uma simulação antes da análise de produção.</p></div>
-      <a class="btn btn-primary" href="{{ url_for('orcamento') }}">Configurar projeto</a>
-    </div>
+    <div class="catalog-custom-cta fade-up"><div><small>PRECISA DE ALGO ESPECÍFICO?</small><h2>Seu projeto não precisa existir no catálogo.</h2><p>Envie um arquivo 3D ou referências, explique a aplicação da peça e deixe a Rede Voxxel encontrar um parceiro compatível.</p></div><a class="btn btn-primary" href="{{ url_for('orcamento') }}">Criar projeto</a></div>
   </div>
 </section>
 {% endblock %}

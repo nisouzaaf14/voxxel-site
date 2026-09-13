@@ -16,7 +16,7 @@
   <p style="color:var(--muted); font-size:.85rem; margin-bottom:22px; line-height:1.6;">
     Cadastre sua chave Pix aqui para que o site gere automaticamente o QR Code de pagamento
     com o valor certo em cada pedido. Sem chave cadastrada, os clientes só verão a opção de
-    combinar o pagamento pelo assistente virtual.
+    definir o pagamento depois da confirmação do pedido.
   </p>
 
   <div class="field">
@@ -55,7 +55,7 @@
   <div class="eyebrow" style="margin:32px 0 16px;">Precificação da rede</div>
   <p style="color:var(--muted); font-size:.85rem; margin-bottom:22px; line-height:1.6;">
     Estes valores alimentam a simulação de orçamento. A regra preserva o custo da produção,
-    adiciona a margem desejada do impressor e só então calcula o preço final já considerando
+    adiciona a margem desejada do parceiro e só então calcula o preço final já considerando
     a comissão da Voxxel.
   </p>
 
@@ -67,7 +67,7 @@
     <div class="field"><label>Hora de máquina FDM (R$)</label><input type="number" step="0.01" min="0" name="preco_hora_fdm" value="{{ config.preco_hora_fdm }}"></div>
     <div class="field"><label>Hora de máquina Resina (R$)</label><input type="number" step="0.01" min="0" name="preco_hora_resina" value="{{ config.preco_hora_resina }}"></div>
     <div class="field"><label>Reserva para perdas (%)</label><input type="number" step="0.1" min="0" max="60" name="reserva_falha_percentual" value="{{ config.reserva_falha_percentual }}"></div>
-    <div class="field"><label>Margem do impressor (%)</label><input type="number" step="0.1" min="0" max="200" name="margem_impressor_percentual" value="{{ config.margem_impressor_percentual }}"></div>
+    <div class="field"><label>Margem do parceiro (%)</label><input type="number" step="0.1" min="0" max="200" name="margem_impressor_percentual" value="{{ config.margem_impressor_percentual }}"></div>
     <div class="field"><label>Comissão Voxxel (%)</label><input type="number" step="0.1" min="0" max="80" name="comissao_percentual" value="{{ config.comissao_percentual }}"></div>
     <div class="field"><label>Pedido mínimo (R$)</label><input type="number" step="0.01" min="0" name="pedido_minimo" value="{{ config.pedido_minimo }}"></div>
   </div>

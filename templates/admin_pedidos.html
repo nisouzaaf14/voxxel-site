@@ -17,6 +17,9 @@
   <a class="chip {{ 'active' if status_filtro == 'concluido' }}" href="{{ url_for('admin_pedidos', status='concluido') }}">
     Concluído <span class="chip-count">{{ contagens.concluido }}</span>
   </a>
+  <a class="chip {{ 'active' if status_filtro == 'cancelado' }}" href="{{ url_for('admin_pedidos', status='cancelado') }}">
+    Cancelado <span class="chip-count">{{ contagens.cancelado }}</span>
+  </a>
 </div>
 
 {% if pedidos %}
@@ -25,7 +28,7 @@
   <div class="order-card">
     <div class="order-card-main">
       <div class="order-card-id">Pedido #{{ p['id'] }} · {{ p['criado_em'] }}</div>
-      <div class="order-card-tipo">{{ 'Loja' if p['tipo'] == 'loja' else 'Orçamento' }}</div>
+      <div class="order-card-tipo">{{ 'Catálogo' if p['tipo'] == 'loja' else 'Projeto personalizado' }}</div>
       {% if p['cliente_nome'] or p['cliente_telefone'] %}
       <div class="order-card-cliente">
         {{ p['cliente_nome'] or 'Cliente sem nome' }}
@@ -38,11 +41,11 @@
       {% if p['impressora_id'] or p['distribuicao_status'] in ('buscando', 'sem_impressora') %}
       <div class="order-card-impressora">
         {% if p['impressora_id'] %}
-          Impressora: <strong>{{ impressoras_por_id.get(p['impressora_id'], 'desconhecida') }}</strong>
+          Parceiro: <strong>{{ impressoras_por_id.get(p['impressora_id'], 'desconhecida') }}</strong>
         {% elif p['distribuicao_status'] == 'buscando' %}
-          Procurando impressora parceira...
+          Procurando parceiro de produção...
         {% elif p['distribuicao_status'] == 'sem_impressora' %}
-          <span style="color:var(--err);">Sem impressora disponível</span>
+          <span style="color:var(--err);">Sem parceiro disponível</span>
           {% if impressoras_disponiveis %}
           <form method="post" action="{{ url_for('admin_pedido_atribuir_impressora', pedido_id=p['id']) }}" style="display:inline-flex; gap:6px; margin-left:8px;">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -62,7 +65,7 @@
       <div class="order-card-valor">R$ {{ "%.2f"|format(p['valor_estimado'])|replace('.', ',') }}</div>
       <div class="order-card-pag">
         <span class="badge {{ 'badge-concluido' if p['status_pagamento'] == 'confirmado' else ('badge-andamento' if p['status_pagamento'] == 'informado' else 'badge-novo') }}">
-          {% if p['status_pagamento'] == 'confirmado' %}Pagamento confirmado{% elif p['status_pagamento'] == 'informado' %}Aguardando conferência{% else %}Aguardando pagamento{% endif %}
+          {% if p['status_pagamento'] == 'confirmado' %}Pagamento confirmado{% elif p['status_pagamento'] == 'informado' %}Aguardando conferência{% elif p['status_pagamento'] == 'recusado' %}Pagamento não aprovado{% else %}Aguardando pagamento{% endif %}
         </span>
         <span class="pag-metodo">
           {% if p['forma_pagamento'] == 'pix' %}Pix
@@ -83,13 +86,16 @@
         <button type="submit" class="btn-ghost" style="margin-top:8px;">Reabrir conferência</button>
       </form>
       {% endif %}
-      <form method="post" action="{{ url_for('admin_pedido_status', pedido_id=p['id']) }}">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <select name="status" onchange="this.form.submit()" class="badge badge-{{ p['status'] }}">
+      <form method="post" action="{{ url_for('admin_pedido_status', pedido_id=p['id']) }}" class="admin-status-form-v12">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label class="sr-only" for="status-pedido-{{ p['id'] }}">Status do pedido #{{ p['id'] }}</label>
+        <select id="status-pedido-{{ p['id'] }}" name="status" class="badge badge-{{ p['status'] }}">
           <option value="novo" {{ 'selected' if p['status']=='novo' }}>Novo</option>
           <option value="andamento" {{ 'selected' if p['status']=='andamento' }}>Em andamento</option>
           <option value="concluido" {{ 'selected' if p['status']=='concluido' }}>Concluído</option>
+          <option value="cancelado" {{ 'selected' if p['status']=='cancelado' }}>Cancelado</option>
         </select>
+        <button type="submit" class="btn-ghost">Atualizar status</button>
       </form>
     </div>
   </div>

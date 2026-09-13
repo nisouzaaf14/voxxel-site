@@ -1,42 +1,19 @@
 {% extends "base.html" %}
 {% block title %}Criar conta — Voxxel{% endblock %}
+{% block body_class %}auth-page{% endblock %}
 {% block content %}
-
-<section style="padding-top:var(--space-3);">
-  <div class="wrap" style="max-width:440px; margin:0 auto;">
-    <div class="section-head fade-up" style="margin-bottom:var(--space-2);">
-      <div class="eyebrow">Minha conta</div>
-      <h2>Criar conta</h2>
-      <p>Cadastre seus dados para fazer pedidos e acompanhar o atendimento. Seu carrinho será mantido.</p>
-    </div>
-
-    <form method="post" class="form-card fade-up">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <input type="hidden" name="next" value="{{ request.args.get('next', '') }}">
-      <div class="field">
-        <label for="nome">Nome</label>
-        <input id="nome" type="text" name="nome" autocomplete="name" maxlength="120" required placeholder="Seu nome" value="{{ request.form.get('nome','') }}">
-      </div>
-      <div class="field">
-        <label for="telefone">WhatsApp com DDD</label>
-        <input id="telefone" type="tel" name="telefone" autocomplete="tel" required placeholder="(41) 9XXXX-XXXX" value="{{ request.form.get('telefone','') }}">
-      </div>
-      <div class="field">
-        <label for="senha">Senha (mínimo 8 caracteres)</label>
-        <input id="senha" type="password" name="senha" autocomplete="new-password" required minlength="8" maxlength="128">
-      </div>
-      <div class="field">
-        <label for="confirmar_senha">Confirmar senha</label>
-        <input id="confirmar_senha" type="password" name="confirmar_senha" autocomplete="new-password" required minlength="8" maxlength="128">
-      </div>
-      <button type="submit" class="btn btn-primary btn-block">Criar conta</button>
+<section class="auth-shell"><div class="wrap auth-grid">
+  <div class="auth-copy"><p class="auth-kicker">SUA CONTA VOXXEL</p><h1>Pedidos mais simples de acompanhar.</h1><p>Crie sua conta para manter projetos, arquivos, mensagens e histórico vinculados a você.</p><div class="auth-points"><span>Seu carrinho é preservado</span><span>Projetos ficam no seu histórico</span><span>Acompanhamento centralizado</span></div></div>
+  <div class="auth-panel">
+    <div class="auth-panel-head"><h2>Criar conta</h2><p>Leva menos de um minuto.</p></div>
+    <form method="post" class="auth-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="next" value="{{ request.args.get('next', '') }}">
+      <div class="field"><label for="nome">Nome</label><input id="nome" type="text" name="nome" autocomplete="name" maxlength="120" required placeholder="Seu nome" value="{{ request.form.get('nome','') }}"></div>
+      <div class="field"><label for="telefone">WhatsApp com DDD</label><input id="telefone" type="tel" name="telefone" autocomplete="tel" inputmode="tel" maxlength="40" required placeholder="(41) 9XXXX-XXXX" value="{{ request.form.get('telefone','') }}"></div>
+      <div class="field"><label for="senha">Senha</label><input id="senha" type="password" name="senha" autocomplete="new-password" required minlength="8" maxlength="128"><small>Use pelo menos 8 caracteres.</small></div>
+      <div class="field"><label for="confirmar_senha">Confirmar senha</label><input id="confirmar_senha" type="password" name="confirmar_senha" autocomplete="new-password" required minlength="8" maxlength="128"></div>
+      <button type="submit" class="btn btn-primary btn-block">Criar minha conta</button>
     </form>
-
-    <p style="text-align:center; margin-top:18px; color:var(--muted); font-size:.9rem;">
-      Já tem conta?
-      <a href="{{ url_for('conta_entrar', next=request.args.get('next','')) }}" style="color:var(--gold-soft);">Entrar</a>
-    </p>
+    <div class="auth-foot">Já tem conta? <a href="{{ url_for('conta_entrar', next=request.args.get('next','')) }}">Entrar</a></div>
   </div>
-</section>
-
+</div></section>
 {% endblock %}

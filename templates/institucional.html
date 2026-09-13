@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Termos de uso' if pagina == 'termos' else 'Privacidade' }} — Voxxel{% endblock %}
+{% block body_class %}institutional-page{% endblock %}
+{% block content %}
+<section class="institutional-shell"><div class="wrap institutional-wrap">
+  <p class="section-eyebrow">VOXXEL · INFORMAÇÕES DA PLATAFORMA</p>
+  {% if pagina == 'termos' %}
+  <h1>Termos de uso</h1>
+  <p class="institutional-lead">A Voxxel intermedeia solicitações de impressão 3D, produtos de catálogo e a conexão com parceiros de produção. Valores, materiais, prazo, acabamento, recebimento e viabilidade podem depender de confirmação antes da produção.</p>
+  <div class="institutional-content">
+    <h2>Pedidos e projetos</h2><p>O cliente deve fornecer informações e referências suficientes para análise. Projetos personalizados só avançam depois das etapas de alinhamento e aprovação exibidas na plataforma.</p>
+    <h2>Simulações e disponibilidade</h2><p>Estimativas da calculadora não substituem a análise do arquivo/modelo, orientação de impressão, suportes, acabamento e capacidade do equipamento parceiro.</p>
+    <h2>Pagamentos</h2><p>A produção somente deve começar quando a própria plataforma indicar pagamento confirmado e, quando aplicável, aprovação do projeto.</p>
+    <h2>Rede de parceiros</h2><p>Parceiros atuam como produtores independentes cadastrados na Rede Voxxel e podem aceitar ou recusar solicitações conforme compatibilidade e disponibilidade.</p>
+  </div>
+  {% else %}
+  <h1>Privacidade</h1>
+  <p class="institutional-lead">A Voxxel utiliza somente os dados necessários para operar contas, pedidos, pagamentos, suporte e distribuição de solicitações entre parceiros compatíveis.</p>
+  <div class="institutional-content">
+    <h2>Dados de conta e pedido</h2><p>Nome, telefone, referências, mensagens e informações do pedido são utilizados para prestar o serviço e permitir o acompanhamento do projeto.</p>
+    <h2>Localização</h2><p>A localização é solicitada quando necessária ao roteamento da Rede Voxxel. O parceiro só entra na fila de distribuição quando opta por ficar online e autoriza localização no navegador.</p>
+    <h2>Arquivos enviados</h2><p>Modelos 3D e imagens de referência ficam restritos aos participantes autorizados daquele pedido e à administração da Voxxel.</p>
+    <h2>Pagamentos</h2><p>Dados de cartão são processados pelo provedor de pagamento; a Voxxel registra os identificadores e estados necessários para conciliar o pedido.</p>
+  </div>
+  {% endif %}
+</div></section>
+{% endblock %}

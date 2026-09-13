@@ -28,7 +28,7 @@
         <option value="{{ chave }}" {{ 'selected' if (produto and produto['material'] == chave) or (not produto and chave == 'pla') }}>{{ material.nome }} · {{ material.processo }}</option>
       {% endfor %}
     </select>
-    <p class="helper-text">A rede só oferecerá este item a parceiras compatíveis com o material.</p>
+    <p class="helper-text">A rede só oferecerá este item a parceiros compatíveis com o material.</p>
   </div>
   <div class="field">
     <label>Preço (R$)</label>

@@ -1,54 +1,20 @@
 {% extends "base.html" %}
-{% block title %}Seja um parceiro de impressão — Voxxel{% endblock %}
+{% block title %}Torne-se parceiro — Voxxel{% endblock %}
+{% block body_class %}auth-page partner-auth-page{% endblock %}
 {% block content %}
-
-<section style="padding-top:var(--space-3);">
-  <div class="wrap" style="max-width:440px; margin:0 auto;">
-    <div class="section-head fade-up" style="margin-bottom:var(--space-2);">
-      <div class="eyebrow">Parceiros de impressão</div>
-      <h2>Crie sua conta de parceiro</h2>
-      <p>Cadastre-se para receber solicitações de impressão próximas a você. Confira os detalhes de cada pedido antes de aceitar.</p>
-    </div>
-
-    <form method="post" class="form-card fade-up">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <div class="field">
-        <label>Seu nome ou nome do seu negócio</label>
-        <input type="text" name="nome" autocomplete="name" maxlength="120" required placeholder="Ex: Ateliê 3D do João" value="{{ request.form.get('nome','') }}">
-      </div>
-      <div class="field">
-        <label>WhatsApp com DDD</label>
-        <input type="tel" name="telefone" autocomplete="tel" maxlength="40" required placeholder="(41) 9XXXX-XXXX" value="{{ request.form.get('telefone','') }}">
-      </div>
-      <div class="field">
-        <label>Materiais que sua impressora produz</label>
-        <p class="helper-text">Isso evita receber pedidos incompatíveis com sua máquina. Você poderá alterar depois.</p>
-        <div class="partner-material-grid">
-          {% for chave, material in materiais.items() %}
-          <label class="partner-material-option">
-            <input type="checkbox" name="materiais" value="{{ chave }}" {{ 'checked' if chave in request.form.getlist('materiais') or (not request.form and chave == 'pla') }}>
-            <span><strong>{{ material.nome }}</strong><small>{{ material.processo }}</small></span>
-          </label>
-          {% endfor %}
-        </div>
-      </div>
-
-      <div class="field">
-        <label>Senha (mínimo 8 caracteres)</label>
-        <input type="password" name="senha" autocomplete="new-password" required minlength="8" maxlength="128">
-      </div>
-      <div class="field">
-        <label>Confirmar senha</label>
-        <input type="password" name="confirmar_senha" autocomplete="new-password" required minlength="8" maxlength="128">
-      </div>
-      <button type="submit" class="btn btn-primary btn-block">Criar conta de parceiro</button>
+<section class="auth-shell"><div class="wrap auth-grid partner-signup-grid">
+  <div class="auth-copy"><p class="auth-kicker">PARCEIROS VOXXEL</p><h1>Coloque sua capacidade de impressão para trabalhar.</h1><p>Cadastre seu negócio ou operação maker. Depois da análise da Voxxel, você poderá ficar online e receber solicitações compatíveis.</p><div class="auth-points"><span>Sem obrigação de aceitar trabalhos</span><span>Você informa os materiais disponíveis</span><span>Solicitações chegam com resumo e valor estimado</span></div></div>
+  <div class="auth-panel">
+    <div class="auth-panel-head"><h2>Cadastro de parceiro</h2><p>Depois do envio, o cadastro fica em análise antes de entrar na rede.</p></div>
+    <form method="post" class="auth-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="field"><label for="partner-name">Seu nome ou nome do negócio</label><input id="partner-name" type="text" name="nome" autocomplete="name" maxlength="120" required placeholder="Ex: Oficina LayerLab" value="{{ request.form.get('nome','') }}"></div>
+      <div class="field"><label for="partner-tel">WhatsApp com DDD</label><input id="partner-tel" type="tel" name="telefone" autocomplete="tel" inputmode="tel" maxlength="40" required placeholder="(41) 9XXXX-XXXX" value="{{ request.form.get('telefone','') }}"></div>
+      <fieldset class="partner-material-fieldset"><legend>Materiais disponíveis</legend><p>Marque apenas o que você realmente consegue produzir hoje. Isso controla a compatibilidade da fila.</p><div class="partner-material-grid">{% for chave, material in materiais.items() %}<label class="partner-material-option"><input type="checkbox" name="materiais" value="{{ chave }}" {{ 'checked' if chave in request.form.getlist('materiais') or (not request.form and chave == 'pla') }}><span><strong>{{ material.nome }}</strong><small>{{ material.processo }}</small></span></label>{% endfor %}</div></fieldset>
+      <div class="field"><label for="partner-new-pass">Senha</label><input id="partner-new-pass" type="password" name="senha" autocomplete="new-password" required minlength="8" maxlength="128"><small>Use pelo menos 8 caracteres.</small></div>
+      <div class="field"><label for="partner-confirm-pass">Confirmar senha</label><input id="partner-confirm-pass" type="password" name="confirmar_senha" autocomplete="new-password" required minlength="8" maxlength="128"></div>
+      <button type="submit" class="btn btn-primary btn-block">Enviar cadastro para análise</button>
     </form>
-
-    <p style="text-align:center; margin-top:18px; color:var(--muted); font-size:.9rem;">
-      Já tem cadastro?
-      <a href="{{ url_for('impressora_entrar') }}" style="color:var(--gold-soft);">Entrar</a>
-    </p>
+    <div class="auth-foot">Já é parceiro? <a href="{{ url_for('impressora_entrar') }}">Entrar no painel</a></div>
   </div>
-</section>
-
+</div></section>
 {% endblock %}

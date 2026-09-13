@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "components/order_timeline.html" import order_timeline %}
 {% block title %}Pedido #{{ pedido['id'] }} — Voxxel{% endblock %}
 {% block body_class %}commerce-v8 payment-page-v8{% endblock %}
 {% block extra_styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard-v9.css') }}">{% endblock %}
@@ -17,7 +18,7 @@
         <h1 class="commerce-title-v8">{{ 'Projeto recebido.' if pedido['tipo'] == 'orcamento' else 'Pedido recebido.' }}</h1>
         <p class="commerce-lead-v8">{% if pedido['tipo'] == 'orcamento' %}A estimativa ainda passa pela análise do projeto. Use a conversa para alinhar referências e aguarde a confirmação antes da produção.{% else %}Seu pedido foi registrado. Abaixo você encontra o pagamento disponível e o acompanhamento da Rede Voxxel.{% endif %}</p>
       </div>
-      <span class="payment-status-chip-v8">{% if pedido['status_pagamento'] == 'confirmado' %}Pagamento confirmado{% elif pedido['status_pagamento'] == 'informado' %}Pagamento em conferência{% elif pix_disponivel or cartao_disponivel %}Aguardando pagamento{% else %}Pedido registrado{% endif %}</span>
+      <span class="payment-status-chip-v8">{% if pedido['status']=='cancelado' %}Pedido cancelado{% elif pedido['status_pagamento'] == 'confirmado' %}Pagamento confirmado{% elif pedido['status_pagamento'] == 'informado' %}Pagamento em conferência{% elif pedido['status_pagamento'] == 'recusado' %}Pagamento não aprovado{% elif pix_disponivel or cartao_disponivel %}Aguardando pagamento{% else %}Pedido registrado{% endif %}</span>
     </div>
 
     <div class="payment-layout-v8">
@@ -27,16 +28,22 @@
           <strong>R$ {{ "%.2f"|format(pedido['valor_estimado'])|replace('.', ',') }}</strong>
         </div>
 
-        {% if pedido['status_pagamento'] == 'confirmado' %}
+        {% if pedido['status'] == 'cancelado' %}
+          <h2 class="payment-method-title-v8">Pedido cancelado</h2>
+          <div class="payment-wait-v8"><strong>Este pedido foi cancelado.</strong> Nenhuma nova tentativa de pagamento ou produção pode ser iniciada por esta tela. Se você já realizou um pagamento, fale com a Voxxel para conferência e tratativa.</div>
+        {% elif pedido['status_pagamento'] == 'confirmado' %}
           <h2 class="payment-method-title-v8">Pagamento confirmado</h2>
-          <div class="payment-done-v8">A Voxxel confirmou o pagamento. Se o projeto também estiver aprovado, a parceira poderá avançar para a produção.</div>
+          <div class="payment-done-v8">A Voxxel confirmou o pagamento. Se o projeto também estiver aprovado, o parceiro poderá avançar para a produção.</div>
         {% elif pedido['status_pagamento'] == 'informado' %}
           <h2 class="payment-method-title-v8">Pagamento em conferência</h2>
           <p>Recebemos seu aviso de pagamento. A Voxxel ainda precisa confirmar a compensação antes de liberar a produção.</p>
         {% elif pedido['tipo'] == 'orcamento' and not pedido['producao_autorizada'] %}
           <h2 class="payment-method-title-v8">Pagamento ainda não liberado</h2>
-          <div class="payment-wait-v8">A parceira primeiro analisa seu projeto, confirma o valor final e envia para sua aprovação. Só depois disso o pagamento é liberado.</div>
+          <div class="payment-wait-v8">O parceiro primeiro analisa seu projeto, confirma o valor final e envia para sua aprovação. Só depois disso o pagamento é liberado.</div>
           <a class="btn btn-outline btn-block" href="{{ url_for('pedido_projeto', pedido_id=pedido['id']) }}">Voltar ao projeto e conversa</a>
+        {% elif pedido['status_pagamento'] == 'recusado' %}
+          <div class="payment-wait-v8"><strong>Pagamento não aprovado.</strong> Nenhum valor foi confirmado pela Voxxel. Você pode tentar novamente.</div>
+          {% if cartao_disponivel %}<form method="post" action="{{ url_for('pedido_pagar_cartao', pedido_id=pedido['id']) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-primary" type="submit">Tentar pagamento novamente</button></form>{% endif %}
         {% elif pix_disponivel %}
           <h2 class="payment-method-title-v8">Pagar com Pix</h2>
           <p class="payment-method-text-v8">Escaneie o QR Code no aplicativo do seu banco ou use o código Pix copia e cola.</p>
@@ -70,24 +77,16 @@
       <aside class="commerce-panel-v8 payment-side-v8 fade-up">
         <p class="commerce-kicker-v8">ACOMPANHAMENTO</p>
         <h2>Onde seu pedido está</h2>
-        {% set fs = pedido['fluxo_status'] or 'recebido' %}{% set ds = pedido['distribuicao_status'] or 'nao_aplicavel' %}
-        {% if fs == 'concluido' or pedido['status']=='concluido' %}{% set pos=5 %}{% elif fs in ('pronto','em_producao','producao_autorizada') %}{% set pos=4 %}{% elif fs in ('aguardando_aprovacao','precisa_info','cliente_respondeu','em_analise') %}{% set pos=3 %}{% elif ds=='atribuido' %}{% set pos=2 %}{% else %}{% set pos=1 %}{% endif %}
-        <div class="order-track" style="margin:16px 0 22px;">
-          <div class="track-step {{ 'done' if pos>1 else 'current' }}"><div class="track-dot">1</div><div class="track-copy"><strong>Recebido</strong></div></div>
-          <div class="track-step {{ 'done' if pos>2 else ('current' if pos==2 else '') }}"><div class="track-dot">2</div><div class="track-copy"><strong>Rede</strong></div></div>
-          <div class="track-step {{ 'done' if pos>3 else ('current' if pos==3 else '') }}"><div class="track-dot">3</div><div class="track-copy"><strong>Análise</strong></div></div>
-          <div class="track-step {{ 'done' if pos>4 else ('current' if pos==4 else '') }}"><div class="track-dot">4</div><div class="track-copy"><strong>Produção</strong></div></div>
-          <div class="track-step {{ 'done' if pos>=5 else '' }}"><div class="track-dot">5</div><div class="track-copy"><strong>Concluído</strong></div></div>
-        </div>
+        <div class="payment-timeline-v12">{{ order_timeline(pedido, 'cliente', false) }}</div>
         <div class="payment-side-row-v8"><span>Pedido</span><strong>#{{ pedido['id'] }}</strong></div>
         <div class="payment-side-row-v8"><span>Tipo</span><strong>{{ 'Projeto personalizado' if pedido['tipo'] == 'orcamento' else 'Catálogo' }}</strong></div>
-        <div class="payment-side-row-v8"><span>Pagamento</span><strong>{% if pedido['status_pagamento'] == 'confirmado' %}Confirmado{% elif pedido['status_pagamento'] == 'informado' %}Em conferência{% elif pix_disponivel %}Pix pendente{% elif cartao_disponivel %}Cartão pendente{% else %}A combinar{% endif %}</strong></div>
+        <div class="payment-side-row-v8"><span>Pagamento</span><strong>{% if pedido['status']=='cancelado' %}Cancelado{% elif pedido['status_pagamento'] == 'confirmado' %}Confirmado{% elif pedido['status_pagamento'] == 'informado' %}Em conferência{% elif pedido['status_pagamento']=='recusado' %}Não aprovado{% elif pix_disponivel %}Pix pendente{% elif cartao_disponivel %}Cartão pendente{% else %}A combinar{% endif %}</strong></div>
 
         <div class="payment-project-v8">
           {% if impressora %}
             <strong>Parceiro encontrado</strong><br>{{ impressora['nome'] }} está vinculada ao pedido. Quando houver análise ou dúvidas, elas ficam registradas no projeto/conversa.
           {% elif pedido['distribuicao_status'] == 'buscando' %}
-            <strong>Buscando parceiro</strong><br>A Rede Voxxel está procurando uma impressora disponível compatível com seu pedido.
+            <strong>Buscando parceiro</strong><br>A Rede Voxxel está procurando um parceiro disponível e compatível com seu pedido.
           {% elif pedido['distribuicao_status'] == 'sem_impressora' %}
             <strong>Aguardando disponibilidade</strong><br>Ainda não encontramos um parceiro disponível para este pedido.
           {% elif pedido['distribuicao_status'] == 'sem_localizacao' %}
