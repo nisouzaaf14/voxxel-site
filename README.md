@@ -28,18 +28,16 @@ defina `VOXXEL_ADMIN_PASSWORD` no ambiente. Em produção, defina também uma
 No painel você pode:
 - Cadastrar, editar, ativar/desativar e excluir produtos da loja
 - Ver todos os pedidos (tanto da loja quanto os orçamentos enviados) e mudar o status deles
-- Ver e bloquear/desbloquear impressoras parceiras cadastradas (aba "Impressoras")
-- Atribuir manualmente uma impressora a um pedido, quando ninguém aceitou automaticamente
+- Ver, aprovar, pausar e reativar parceiros cadastrados (aba "Parceiros")
+- Atribuir manualmente um parceiro compatível a um pedido, quando necessário
 
-## Marketplace de impressão (impressoras parceiras)
+## Marketplace de impressão (parceiros Voxxel)
 
-O site funciona como um "iFood de impressão 3D": qualquer pessoa com uma
-impressora pode se cadastrar em `/impressora/cadastro`, ficar online
+O site funciona como um "iFood de impressão 3D": uma pessoa ou negócio com capacidade de produção 3D pode se cadastrar em `/impressora/cadastro`, ficar online
 (compartilhando a localização do navegador) e passar a receber ofertas de
-pedidos feitos por clientes próximos. A impressora vê a oferta no painel
-dela (`/impressora/painel`) e tem 5 minutos pra aceitar ou recusar — se
+pedidos feitos por clientes próximos. O parceiro vê a oferta no painel (`/impressora/painel`) e tem 5 minutos pra aceitar ou recusar — se
 recusar (ou não responder a tempo), o pedido é automaticamente oferecido
-pra próxima impressora online mais próxima do cliente.
+para o próximo parceiro compatível e disponível.
 
 Detalhes técnicos e decisões de design estão comentados em `distribuicao.py`.
 Resumo:
@@ -78,5 +76,5 @@ voxxel.db         -> banco de dados (criado automaticamente)
 ## Auditoria técnica atual
 
 A revisão consolidada mais recente está documentada em
-`AUDITORIA-PROFISSIONAL-V11.md`, com correções aplicadas, testes executados,
+`AUDITORIA-PROFISSIONAL-V12.md`, com correções aplicadas, testes executados,
 limites conhecidos e checklist de publicação.

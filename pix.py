@@ -16,7 +16,25 @@ import qrcode
 
 def _campo(id_campo, valor):
     valor = str(valor)
-    return f"{id_campo}{len(valor):02d}{valor}"
+    tamanho = len(valor.encode("utf-8"))
+    if tamanho > 99:
+        raise ValueError(f"Campo Pix {id_campo} excede o limite de 99 bytes.")
+    return f"{id_campo}{tamanho:02d}{valor}"
+
+
+def chave_valida(chave):
+    """Validação defensiva da chave antes de montar o BR Code.
+
+    O Banco Central admite diferentes tipos de chave; aqui evitamos tentar
+    gerar um payload com valor vazio, controles ou tamanho incompatível com
+    o subcampo EMV. A validação de titularidade continua sendo do PSP/banco.
+    """
+    chave = (chave or "").strip()
+    if not chave or len(chave.encode("utf-8")) > 77:
+        return False
+    if any(ord(c) < 32 for c in chave):
+        return False
+    return True
 
 
 def _limpar_texto(texto, tamanho_max):
@@ -44,6 +62,15 @@ def _crc16(payload):
 def gerar_payload(chave, nome, cidade, valor, txid="VOXXEL"):
     """Monta a string "Copia e Cola" do Pix. `valor` é um número (R$);
     `txid` identifica o pedido (só letras/números, até 25 caracteres)."""
+    if not chave_valida(chave):
+        raise ValueError("Chave Pix ausente ou inválida para gerar a cobrança.")
+    try:
+        valor_decimal = Decimal(str(valor)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    except Exception as exc:
+        raise ValueError("Valor Pix inválido.") from exc
+    if valor_decimal <= 0 or valor_decimal >= Decimal("1000000000"):
+        raise ValueError("Valor Pix fora da faixa aceita pela Voxxel.")
+
     nome = _limpar_texto(nome, 25)
     cidade = _limpar_texto(cidade, 15)
     txid_limpo = re.sub(r"[^A-Za-z0-9]", "", txid)[:25] or "VOXXEL"
@@ -58,7 +85,7 @@ def gerar_payload(chave, nome, cidade, valor, txid="VOXXEL"):
         merchant_account,                # 26 — informações da conta Pix
         _campo("52", "0000"),            # Merchant Category Code
         _campo("53", "986"),             # moeda: Real (BRL)
-        _campo("54", format(Decimal(str(valor)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP), "f")),  # valor da cobrança
+        _campo("54", format(valor_decimal, "f")),  # valor da cobrança
         _campo("58", "BR"),              # país
         _campo("59", nome),              # nome do recebedor
         _campo("60", cidade),            # cidade do recebedor

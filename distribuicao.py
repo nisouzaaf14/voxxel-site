@@ -159,6 +159,8 @@ def avancar_distribuicao(conn, pedido_id):
     pedido = conn.execute("SELECT * FROM pedidos WHERE id = ?", (pedido_id,)).fetchone()
     if not pedido or pedido["impressora_id"] is not None:
         return  # já foi aceito por alguém, nada a fazer
+    if pedido["status"] in ("cancelado", "concluido") or pedido["fluxo_status"] in ("cancelado", "concluido"):
+        return
     if pedido["cliente_lat"] is None or pedido["cliente_lng"] is None:
         return  # nunca teve como despachar esse pedido
 
@@ -200,15 +202,16 @@ def avancar_distribuicao(conn, pedido_id):
         return
 
     _distancia, proxima = candidatos[0]
-    conn.execute(
+    cur = conn.execute(
         """INSERT INTO ofertas_impressao (pedido_id, impressora_id, status, criado_em)
-           VALUES (?, ?, 'pendente', ?)""",
+           VALUES (?, ?, 'pendente', ?) ON CONFLICT DO NOTHING""",
         (pedido_id, proxima["id"], _agora()),
     )
-    conn.execute(
-        "UPDATE pedidos SET distribuicao_status = ? WHERE id = ?",
-        (STATUS_BUSCANDO, pedido_id),
-    )
+    if cur.rowcount == 1:
+        conn.execute(
+            "UPDATE pedidos SET distribuicao_status = ? WHERE id = ?",
+            (STATUS_BUSCANDO, pedido_id),
+        )
     conn.commit()
 
 
@@ -277,7 +280,8 @@ def responder_oferta(conn, oferta_id, impressora_id, aceitar):
         autorizado = aprovado
         cur = conn.execute(
             """UPDATE pedidos SET impressora_id=?, distribuicao_status=?, fluxo_status=?,
-               aprovado_cliente=?, producao_autorizada=? WHERE id=? AND impressora_id IS NULL""",
+               aprovado_cliente=?, producao_autorizada=? WHERE id=? AND impressora_id IS NULL
+               AND status NOT IN ('cancelado','concluido') AND fluxo_status NOT IN ('cancelado','concluido')""",
             (impressora_id, STATUS_ATRIBUIDO, fluxo, aprovado, autorizado, oferta["pedido_id"]),
         )
         if cur.rowcount != 1:
@@ -306,7 +310,7 @@ def reconsiderar_pedidos_sem_impressora(conn):
     sempre que o admin abre a lista de pedidos, pra dar uma segunda chance
     a esses pedidos assim que aparecer alguém disponível."""
     pendentes = conn.execute(
-        "SELECT id FROM pedidos WHERE distribuicao_status = ? AND impressora_id IS NULL",
+        "SELECT id FROM pedidos WHERE distribuicao_status = ? AND impressora_id IS NULL AND status NOT IN ('cancelado', 'concluido')",
         (STATUS_SEM_IMPRESSORA,),
     ).fetchall()
     for row in pendentes:
@@ -314,23 +318,38 @@ def reconsiderar_pedidos_sem_impressora(conn):
 
 
 def atribuir_manualmente(conn, pedido_id, impressora_id):
-    """Usado pelo painel do admin como válvula de escape: atribui um
-    pedido direto a uma impressora especificada, sem passar pela fila de
-    ofertas (útil quando ninguém aceitou automaticamente)."""
+    """Atribuição administrativa, com as mesmas garantias essenciais da fila.
+
+    O caller valida compatibilidade e permissão. Aqui protegemos a transição
+    contra pedidos encerrados e encerramos ofertas concorrentes antigas.
+    """
+    pedido = conn.execute(
+        "SELECT tipo, valor_estimado, status, fluxo_status FROM pedidos WHERE id = ?", (pedido_id,)
+    ).fetchone()
+    if not pedido or pedido["status"] in ("cancelado", "concluido") or pedido["fluxo_status"] in ("cancelado", "concluido"):
+        return False
+    fluxo = "producao_autorizada" if pedido["tipo"] == "loja" else "em_analise"
+    aprovado = 1 if pedido["tipo"] == "loja" else 0
+    cur = conn.execute(
+        """UPDATE pedidos SET impressora_id=?, distribuicao_status=?, fluxo_status=?,
+           aprovado_cliente=?, producao_autorizada=?
+           WHERE id=? AND status NOT IN ('cancelado','concluido')
+           AND fluxo_status NOT IN ('cancelado','concluido')""",
+        (impressora_id, STATUS_ATRIBUIDO, fluxo, aprovado, aprovado, pedido_id),
+    )
+    if cur.rowcount != 1:
+        conn.rollback()
+        return False
+    agora = _agora()
+    conn.execute(
+        "UPDATE ofertas_impressao SET status='expirada', respondido_em=? WHERE pedido_id=? AND status='pendente'",
+        (agora, pedido_id),
+    )
     conn.execute(
         """INSERT INTO ofertas_impressao (pedido_id, impressora_id, status, criado_em, respondido_em)
            VALUES (?, ?, 'aceita', ?, ?)""",
-        (pedido_id, impressora_id, _agora(), _agora()),
+        (pedido_id, impressora_id, agora, agora),
     )
-    pedido = conn.execute("SELECT tipo, valor_estimado FROM pedidos WHERE id = ?", (pedido_id,)).fetchone()
-    fluxo = "producao_autorizada" if pedido and pedido["tipo"] == "loja" else "em_analise"
-    aprovado = 1 if pedido and pedido["tipo"] == "loja" else 0
-    conn.execute(
-        "UPDATE pedidos SET impressora_id=?, distribuicao_status=?, fluxo_status=?, aprovado_cliente=?, producao_autorizada=? WHERE id=?",
-        (impressora_id, STATUS_ATRIBUIDO, fluxo, aprovado, aprovado, pedido_id),
-    )
-    # Mesma regra de comissão da aceitação automática -- atribuição manual
-    # também é um pedido indo pra rede de parceiros, não muda o negócio.
-    if pedido:
-        aplicar_comissao_pedido(conn, pedido_id, pedido["valor_estimado"])
+    aplicar_comissao_pedido(conn, pedido_id, pedido["valor_estimado"])
     conn.commit()
+    return True

@@ -279,6 +279,8 @@ def _criar_tabelas(conn, is_new_sqlite):
         conn.execute("ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS referencia_status TEXT DEFAULT 'nao_aplicavel'")
         conn.execute("ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS aprovado_cliente INTEGER DEFAULT 0")
         conn.execute("ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS producao_autorizada INTEGER DEFAULT 0")
+        conn.execute("ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS cancelado_em TEXT")
+        conn.execute("ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS estoque_devolvido INTEGER DEFAULT 0")
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS configuracoes (
@@ -326,6 +328,7 @@ def _criar_tabelas(conn, is_new_sqlite):
         )
         conn.commit()
         conn.execute("ALTER TABLE impressoras ADD COLUMN IF NOT EXISTS materiais TEXT DEFAULT 'pla'")
+        conn.execute("ALTER TABLE impressoras ADD COLUMN IF NOT EXISTS status_cadastro TEXT DEFAULT 'aprovado'")
         conn.commit()
 
         # Histórico de ofertas de cada pedido pra cada impressora -- é
@@ -443,6 +446,8 @@ def _criar_tabelas(conn, is_new_sqlite):
             "ALTER TABLE pedidos ADD COLUMN referencia_status TEXT DEFAULT 'nao_aplicavel'",
             "ALTER TABLE pedidos ADD COLUMN aprovado_cliente INTEGER DEFAULT 0",
             "ALTER TABLE pedidos ADD COLUMN producao_autorizada INTEGER DEFAULT 0",
+            "ALTER TABLE pedidos ADD COLUMN cancelado_em TEXT",
+            "ALTER TABLE pedidos ADD COLUMN estoque_devolvido INTEGER DEFAULT 0",
         ):
             try:
                 conn.execute(coluna_sql)
@@ -498,6 +503,10 @@ def _criar_tabelas(conn, is_new_sqlite):
         )
         try:
             conn.execute("ALTER TABLE impressoras ADD COLUMN materiais TEXT DEFAULT 'pla'")
+        except sqlite3.OperationalError:
+            pass
+        try:
+            conn.execute("ALTER TABLE impressoras ADD COLUMN status_cadastro TEXT DEFAULT 'aprovado'")
         except sqlite3.OperationalError:
             pass
 
@@ -602,8 +611,21 @@ def _criar_tabelas(conn, is_new_sqlite):
     conn.execute("CREATE INDEX IF NOT EXISTS idx_pedidos_distribuicao ON pedidos(distribuicao_status, impressora_id)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_pedidos_pagamento ON pedidos(status_pagamento, id)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_impressoras_disponiveis ON impressoras(ativo, online)")
+    # Repara eventual duplicidade antiga antes de impor a invariável de fila:
+    # no máximo uma oferta pendente por pedido e por parceiro. Isso evita
+    # corridas entre polling, painel admin e múltiplos workers HTTP.
+    conn.execute("""UPDATE ofertas_impressao SET status='expirada'
+                    WHERE status='pendente' AND id NOT IN (
+                      SELECT MIN(id) FROM ofertas_impressao WHERE status='pendente' GROUP BY pedido_id
+                    )""")
+    conn.execute("""UPDATE ofertas_impressao SET status='expirada'
+                    WHERE status='pendente' AND id NOT IN (
+                      SELECT MIN(id) FROM ofertas_impressao WHERE status='pendente' GROUP BY impressora_id
+                    )""")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_ofertas_pedido ON ofertas_impressao(pedido_id)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_ofertas_impressora ON ofertas_impressao(impressora_id, status)")
+    conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_oferta_pendente_pedido ON ofertas_impressao(pedido_id) WHERE status='pendente'")
+    conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_oferta_pendente_impressora ON ofertas_impressao(impressora_id) WHERE status='pendente'")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_ofertas_status_criado ON ofertas_impressao(status, criado_em)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_pedido_itens_pedido ON pedido_itens(pedido_id, id)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_referencias_pedido ON pedido_referencias(pedido_id)")
@@ -674,17 +696,18 @@ def ler_coordenada_formulario(valor, minimo=-180.0, maximo=180.0):
 # ---------- impressoras parceiras (marketplace) ----------
 
 def criar_impressora(conn, nome, telefone, senha_hash, materiais="pla"):
+    """Cria um parceiro em estado pendente; só o admin pode liberar a rede."""
     telefone = normalizar_telefone(telefone)
     materiais = materiais or "pla"
     if USING_POSTGRES:
         cur = conn.execute(
-            "INSERT INTO impressoras (nome, telefone, senha_hash, materiais) VALUES (?, ?, ?, ?) RETURNING id",
+            "INSERT INTO impressoras (nome, telefone, senha_hash, materiais, ativo, status_cadastro) VALUES (?, ?, ?, ?, 0, 'pendente') RETURNING id",
             (nome, telefone, senha_hash, materiais),
         )
         novo_id = cur.fetchone()["id"]
     else:
         cur = conn.execute(
-            "INSERT INTO impressoras (nome, telefone, senha_hash, materiais) VALUES (?, ?, ?, ?)",
+            "INSERT INTO impressoras (nome, telefone, senha_hash, materiais, ativo, status_cadastro) VALUES (?, ?, ?, ?, 0, 'pendente')",
             (nome, telefone, senha_hash, materiais),
         )
         novo_id = cur.lastrowid
@@ -739,9 +762,12 @@ def atualizar_localizacao_impressora(conn, impressora_id, latitude, longitude):
 
 
 def definir_impressora_ativa(conn, impressora_id, ativo):
-    """Usado pelo admin pra bloquear/desbloquear uma impressora parceira
-    (ela para de receber ofertas novas, mas o histórico dela continua)."""
-    conn.execute("UPDATE impressoras SET ativo = ?, online = 0 WHERE id = ?", (1 if ativo else 0, impressora_id))
+    """Aprova/pausa um parceiro e o remove da fila enquanto estiver inativo."""
+    status = "aprovado" if ativo else "bloqueado"
+    conn.execute(
+        "UPDATE impressoras SET ativo = ?, online = 0, status_cadastro = ? WHERE id = ?",
+        (1 if ativo else 0, status, impressora_id),
+    )
     conn.commit()
 
 
@@ -836,14 +862,14 @@ def resumo_comissoes(conn):
     impressoras parceiras, e o detalhamento por impressora -- pra exibir
     no painel do admin (quanto o marketplace já rendeu, e quem gerou mais)."""
     total = conn.execute(
-        "SELECT COALESCE(SUM(comissao_voxxel), 0) AS total FROM pedidos WHERE comissao_voxxel IS NOT NULL AND status_pagamento='confirmado' "
+        "SELECT COALESCE(SUM(comissao_voxxel), 0) AS total FROM pedidos WHERE comissao_voxxel IS NOT NULL AND status_pagamento='confirmado' AND status<>'cancelado' "
     ).fetchone()["total"]
     por_impressora = conn.execute(
         """SELECT i.id, i.nome, COUNT(p.id) AS pedidos,
                   COALESCE(SUM(p.comissao_voxxel), 0) AS comissao_total,
                   COALESCE(SUM(p.valor_estimado), 0) AS faturamento_total
            FROM impressoras i
-           JOIN pedidos p ON p.impressora_id = i.id AND p.comissao_voxxel IS NOT NULL AND p.status_pagamento='confirmado' 
+           JOIN pedidos p ON p.impressora_id = i.id AND p.comissao_voxxel IS NOT NULL AND p.status_pagamento='confirmado' AND p.status<>'cancelado' 
            GROUP BY i.id, i.nome
            ORDER BY comissao_total DESC"""
     ).fetchall()

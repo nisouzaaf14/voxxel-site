@@ -37,6 +37,7 @@ preços mudam com o tempo; confira as condições atuais no painel do provedor.
    - `VOXXEL_SECRET_KEY` → qualquer texto longo e aleatório
    - `VOXXEL_DEBUG` → `false`
    - `VOXXEL_TRUST_PROXY` → `true` no Render/proxy confiável
+   - `VOXXEL_CHAT_WEBHOOK_URL` → opcional; URL HTTPS do webhook de atendimento, se utilizado
 6. Clique em **Create Web Service**.
 
 Em alguns minutos o Render te dá uma URL tipo `https://voxxel.onrender.com` —
@@ -144,6 +145,6 @@ serviço para consultar esse caminho. Resposta saudável: HTTP 200 com `ok=true`
 
 ## Antes de liberar vendas
 
-Leia `AUDITORIA-PROFISSIONAL-V11.md`. Além do deploy, faça um ensaio completo
+Leia `AUDITORIA-PROFISSIONAL-V12.md`. Além do deploy, faça um ensaio completo
 no domínio publicado: conta de cliente, conta de parceiro, geolocalização,
 referências, chat, aprovação, Pix/Mercado Pago, início e conclusão da produção.

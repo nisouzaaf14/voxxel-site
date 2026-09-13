@@ -33,6 +33,7 @@ import distribuicao
 
 SECRET_KEY_ENV = os.environ.get("VOXXEL_SECRET_KEY", "").strip()
 ADMIN_PASSWORD = os.environ.get("VOXXEL_ADMIN_PASSWORD", "").strip()
+CHAT_WEBHOOK_URL = os.environ.get("VOXXEL_CHAT_WEBHOOK_URL", "").strip()
 
 # Nunca mantenha credenciais reais no repositório. Em produção, defina
 # VOXXEL_SECRET_KEY e VOXXEL_ADMIN_PASSWORD nas variáveis de ambiente.
@@ -53,7 +54,7 @@ MAX_ANEXO_CHAT_BYTES = 12 * 1024 * 1024
 
 FLUXO_LABELS = {
     "recebido": "Pedido recebido",
-    "em_analise": "Em análise pela parceira",
+    "em_analise": "Em análise pelo parceiro",
     "precisa_info": "Precisamos de informações",
     "cliente_respondeu": "Cliente respondeu",
     "aguardando_aprovacao": "Aguardando sua aprovação",
@@ -61,6 +62,7 @@ FLUXO_LABELS = {
     "em_producao": "Em produção",
     "pronto": "Pronto",
     "concluido": "Concluído",
+    "cancelado": "Cancelado",
 }
 
 app = Flask(__name__)
@@ -147,7 +149,7 @@ def login_impressora_obrigatorio(rota):
     @wraps(rota)
     def rota_protegida(*args, **kwargs):
         if not session.get("impressora_id"):
-            flash("Faça login para acessar o painel da impressora.")
+            flash("Faça login para acessar a área do parceiro.")
             return redirect(url_for("impressora_entrar", next=request.path))
         return rota(*args, **kwargs)
     return rota_protegida
@@ -251,7 +253,7 @@ def adicionar_headers_seguranca(resposta):
         "font-src 'self' https://fonts.gstatic.com; "
         "img-src 'self' data:; "
         "connect-src 'self' https:; "
-        "frame-ancestors 'none'; "
+        "frame-src 'none'; frame-ancestors 'none'; "
         "base-uri 'self'; "
         "form-action 'self'; "
         "object-src 'none'"
@@ -371,9 +373,14 @@ def inject_globals():
             conn.close()
     vendedor_nome = config.get("vendedor_nome", "Voxxel") if session.get("admin_logado") else None
     whatsapp_numero = "".join(c for c in config.get("whatsapp", "") if c.isdigit())
+    chat_webhook_url = ""
+    if CHAT_WEBHOOK_URL:
+        parsed_chat = urlparse(CHAT_WEBHOOK_URL)
+        if parsed_chat.scheme in ("https", "http") and parsed_chat.netloc:
+            chat_webhook_url = CHAT_WEBHOOK_URL
     return dict(
         categorias=CATEGORIAS, materiais_catalogo=MATERIAIS, qtd_carrinho=qtd_carrinho, chat_auto_message=chat_auto_message,
-        vendedor_nome=vendedor_nome, whatsapp_numero=whatsapp_numero,
+        vendedor_nome=vendedor_nome, whatsapp_numero=whatsapp_numero, chat_webhook_url=chat_webhook_url,
     )
 
 
@@ -382,6 +389,16 @@ def inject_globals():
 @app.route("/")
 def home():
     return render_template("index.html")
+
+
+@app.route("/termos")
+def termos():
+    return render_template("institucional.html", pagina="termos")
+
+
+@app.route("/privacidade")
+def privacidade():
+    return render_template("institucional.html", pagina="privacidade")
 
 
 @app.route("/health")
@@ -407,19 +424,54 @@ COLUNAS_PRODUTO_LISTA = """
 
 @app.route("/loja")
 def loja():
+    """Catálogo público com busca, categoria, ordenação e paginação no servidor.
+
+    Os filtros são validados por allowlist e os valores do usuário sempre entram
+    como parâmetros SQL, nunca como trechos de consulta.
+    """
     conn = get_db()
-    categoria = request.args.get("categoria", "todos")
-    if categoria == "todos":
-        produtos = conn.execute(
-            f"SELECT {COLUNAS_PRODUTO_LISTA} FROM produtos WHERE ativo = 1 ORDER BY id DESC"
-        ).fetchall()
-    else:
-        produtos = conn.execute(
-            f"SELECT {COLUNAS_PRODUTO_LISTA} FROM produtos WHERE ativo = 1 AND categoria = ? ORDER BY id DESC",
-            (categoria,),
-        ).fetchall()
+    categoria = request.args.get("categoria", "todos").strip().lower()
+    if categoria != "todos" and categoria not in CATEGORIAS:
+        categoria = "todos"
+    busca = texto_seguro(request.args.get("q"), 80)
+    ordem = request.args.get("ordem", "recentes").strip().lower()
+    ordenacoes = {
+        "recentes": "id DESC",
+        "preco_menor": "preco ASC, id DESC",
+        "preco_maior": "preco DESC, id DESC",
+        "nome": "nome ASC, id DESC",
+    }
+    if ordem not in ordenacoes:
+        ordem = "recentes"
+    try:
+        pagina = max(1, int(request.args.get("pagina", 1)))
+    except (TypeError, ValueError):
+        pagina = 1
+    por_pagina = 12
+
+    filtros = ["ativo = 1"]
+    params = []
+    if categoria != "todos":
+        filtros.append("categoria = ?")
+        params.append(categoria)
+    if busca:
+        filtros.append("(LOWER(nome) LIKE ? OR LOWER(descricao) LIKE ?)")
+        termo = f"%{busca.lower()}%"
+        params.extend([termo, termo])
+    where = " AND ".join(filtros)
+    total = conn.execute(f"SELECT COUNT(*) AS total FROM produtos WHERE {where}", tuple(params)).fetchone()["total"]
+    total_paginas = max(1, (total + por_pagina - 1) // por_pagina)
+    pagina = min(pagina, total_paginas)
+    offset = (pagina - 1) * por_pagina
+    produtos = conn.execute(
+        f"SELECT {COLUNAS_PRODUTO_LISTA} FROM produtos WHERE {where} ORDER BY {ordenacoes[ordem]} LIMIT ? OFFSET ?",
+        tuple(params + [por_pagina, offset]),
+    ).fetchall()
     conn.close()
-    return render_template("loja.html", produtos=produtos, categoria_ativa=categoria)
+    return render_template(
+        "loja.html", produtos=produtos, categoria_ativa=categoria, busca=busca, ordem=ordem,
+        pagina=pagina, total_paginas=total_paginas, total_produtos=total,
+    )
 
 
 @app.route("/produto/<int:produto_id>")
@@ -523,8 +575,8 @@ def checkout():
 
     cliente = buscar_cliente_por_id(conn, session["cliente_id"])
     config = get_configs(conn)
-    pagamentos = {"combinar": "Combinar no WhatsApp"}
-    if config["pix_chave"].strip():
+    pagamentos = {"combinar": "Definir após confirmação"}
+    if pix.chave_valida(config.get("pix_chave", "")):
         pagamentos["pix"] = "Pix"
     if config["mp_access_token"].strip():
         pagamentos["cartao"] = "Cartão"
@@ -555,7 +607,7 @@ def checkout():
              f"R$ {i['subtotal']:.2f}").replace(".", ",")
             for i in itens
         ]
-        nomes_recebimento = {"combinar": "A combinar pelo WhatsApp", "retirada": "Retirada — local e horário a confirmar", "entrega": "Entrega — frete e prazo a confirmar antes do pagamento"}
+        nomes_recebimento = {"combinar": "A combinar após confirmação", "retirada": "Retirada — local e horário a confirmar", "entrega": "Entrega — frete e prazo a confirmar antes do pagamento"}
         linhas.append("Recebimento: " + nomes_recebimento[recebimento])
         if recebimento == "entrega":
             linhas.append("Endereço: " + endereco)
@@ -635,8 +687,8 @@ def pedido_pagamento(pedido_id):
     config = get_configs(conn)
     conn.close()
 
-    pagamento_liberado = pedido["tipo"] != "orcamento" or bool(pedido["producao_autorizada"])
-    pix_disponivel = pagamento_liberado and bool(config["pix_chave"].strip()) and pedido["forma_pagamento"] == "pix"
+    pagamento_liberado = pedido["status"] != "cancelado" and (pedido["tipo"] != "orcamento" or bool(pedido["producao_autorizada"]))
+    pix_disponivel = pagamento_liberado and pix.chave_valida(config.get("pix_chave", "")) and pedido["forma_pagamento"] == "pix"
     cartao_disponivel = pagamento_liberado and bool(config["mp_access_token"].strip()) and pedido["forma_pagamento"] == "cartao"
     pix_payload = ""
     if pix_disponivel:
@@ -662,7 +714,7 @@ def pedido_pagar_cartao(pedido_id):
     if not pedido_pertence_ao_usuario(pedido):
         conn.close()
         abort(403)
-    if pedido["forma_pagamento"] != "cartao" or pedido["status_pagamento"] == "confirmado":
+    if pedido["status"] == "cancelado" or pedido["forma_pagamento"] != "cartao" or pedido["status_pagamento"] == "confirmado":
         conn.close()
         flash("Esse pedido não está disponível para pagamento por cartão.")
         return redirect(url_for("pedido_pagamento", pedido_id=pedido_id))
@@ -705,7 +757,11 @@ def pedido_retorno_cartao(pedido_id):
 
     if pedido and config["mp_access_token"].strip():
         payment_id = request.args.get("payment_id") or request.args.get("collection_id")
+        payment_id = str(payment_id or "").strip()
+        if not payment_id.isdigit() or len(payment_id) > 32:
+            payment_id = ""
         status = None
+        dados_pagamento = {}
         if payment_id:
             try:
                 dados_pagamento = mercadopago_pay.consultar_pagamento(config["mp_access_token"], payment_id)
@@ -731,7 +787,10 @@ def pedido_retorno_cartao(pedido_id):
         elif status == "pending" or request.args.get("status") == "pending":
             flash("Pagamento em análise. Assim que for aprovado, atualizamos seu pedido.")
         else:
-            flash("O pagamento não foi concluído. Você pode tentar novamente ou combinar direto com a gente.")
+            if status in ("rejected", "cancelled"):
+                conn.execute("UPDATE pedidos SET status_pagamento='recusado' WHERE id=? AND status_pagamento<>'confirmado'", (pedido_id,))
+                conn.commit()
+            flash("O pagamento não foi concluído. Você pode tentar novamente.")
     conn.close()
     return redirect(url_for("pedido_pagamento", pedido_id=pedido_id))
 
@@ -742,7 +801,8 @@ def webhook_mercadopago():
     saber que um pagamento por cartão foi aprovado, mesmo se o cliente
     fechar a aba antes de voltar pro site."""
     payment_id = request.args.get("data.id") or (request.get_json(silent=True) or {}).get("data", {}).get("id")
-    if not payment_id:
+    payment_id = str(payment_id or "").strip()
+    if not payment_id.isdigit() or len(payment_id) > 32:
         return "", 200
 
     conn = get_db()
@@ -778,18 +838,24 @@ def webhook_mercadopago():
 @app.route("/pedido/<int:pedido_id>/pix.png")
 def pedido_pix_png(pedido_id):
     conn = get_db()
-    pedido = conn.execute("SELECT valor_estimado, cliente_id FROM pedidos WHERE id = ?", (pedido_id,)).fetchone()
+    pedido = conn.execute("SELECT * FROM pedidos WHERE id = ?", (pedido_id,)).fetchone()
     config = get_configs(conn)
     conn.close()
-    if not pedido or not config["pix_chave"].strip():
+    if not pedido or not pix.chave_valida(config.get("pix_chave", "")):
         return "", 404
     if not pedido_pertence_ao_usuario(pedido):
         abort(403)
+    if (pedido["status"] == "cancelado" or pedido["forma_pagamento"] != "pix" or
+            (pedido["tipo"] == "orcamento" and not pedido["producao_autorizada"])):
+        abort(404)
 
-    payload = pix.gerar_payload(
-        config["pix_chave"], config["pix_nome"], config["pix_cidade"],
-        pedido["valor_estimado"], txid=f"VOXXEL{pedido_id}",
-    )
+    try:
+        payload = pix.gerar_payload(
+            config["pix_chave"], config["pix_nome"], config["pix_cidade"],
+            pedido["valor_estimado"], txid=f"VOXXEL{pedido_id}",
+        )
+    except ValueError:
+        abort(404)
     png = pix.gerar_qrcode_png(payload)
     resposta = Response(png, mimetype="image/png")
     resposta.headers["Cache-Control"] = "no-store"
@@ -804,7 +870,7 @@ def pedido_confirmar_pagamento(pedido_id):
         conn.close()
         abort(403)
     if pedido:
-        if pedido["forma_pagamento"] != "pix" or pedido["status_pagamento"] == "confirmado":
+        if pedido["status"] == "cancelado" or pedido["forma_pagamento"] != "pix" or pedido["status_pagamento"] == "confirmado":
             conn.close()
             flash("Esse pedido não está aguardando confirmação de Pix.")
             return redirect(url_for("pedido_pagamento", pedido_id=pedido_id))
@@ -876,17 +942,11 @@ def validar_imagem_referencia(arquivo, limite=MAX_IMAGEM_REFERENCIA_BYTES):
     if len(dados) > limite:
         raise ValueError("Cada imagem de referência pode ter no máximo 6 MB.")
     try:
-        imagem = Image.open(io.BytesIO(dados))
-        if imagem.width <= 0 or imagem.height <= 0 or imagem.width * imagem.height > 25_000_000:
-            raise ValueError
-        formato = (imagem.format or "").upper()
-        imagem.verify()
-    except Exception:
-        raise ValueError("Uma das referências não é uma imagem válida.")
-    formatos = {"JPEG": "image/jpeg", "PNG": "image/png", "WEBP": "image/webp"}
-    if formato not in formatos:
-        raise ValueError("Use JPG, PNG ou WEBP nas imagens de referência.")
-    return {"nome": secure_filename(arquivo.filename)[:180] or f"referencia.{formato.lower()}", "mimetype": formatos[formato], "dados": dados}
+        dados_webp, mimetype = _imagem_webp_segura(dados, max_dim=1800, qualidade=84)
+    except ValueError:
+        raise ValueError("Uma das referências não é uma imagem válida. Use JPG, PNG ou WEBP.")
+    stem = os.path.splitext(secure_filename(arquivo.filename)[:170] or "referencia")[0]
+    return {"nome": f"{stem}.webp", "mimetype": mimetype, "dados": dados_webp}
 
 
 def inserir_referencia(conn, pedido_id, tipo, arquivo_info):
@@ -949,9 +1009,9 @@ def orcamento():
         return dict(
             form=form, resultado=resultado_local,
             materiais=materiais_front, qualidades=QUALIDADE, complexidades=COMPLEXIDADE,
-            materiais_js=json.dumps(materiais_front), qualidade_js=json.dumps(QUALIDADE),
-            complexidade_js=json.dumps(COMPLEXIDADE), cliente_logado=cliente_logado,
-            regra_js=json.dumps(regra_front),
+            materiais_js=materiais_front, qualidade_js=QUALIDADE,
+            complexidade_js=COMPLEXIDADE, cliente_logado=cliente_logado,
+            regra_js=regra_front,
         )
 
     cliente_logado = None
@@ -999,13 +1059,13 @@ def orcamento():
 
         if request.form.get("acao") == "enviar":
             if not session.get("cliente_id"):
-                flash("Faça login para enviar este orçamento e acompanhá-lo em ‘Minha conta’. Sua estimativa não foi perdida -- é só recalcular depois de entrar.")
+                flash("Faça login para enviar o projeto e acompanhá-lo em ‘Minha conta’. Depois de entrar, volte a esta página e reanexe os arquivos de referência.")
                 return redirect(url_for("conta_entrar", next=url_for("orcamento")))
 
             nome = texto_seguro(request.form.get("nome"), 120)
             telefone = normalizar_telefone(request.form.get("telefone"))
             if not nome or not 10 <= len(telefone) <= 13:
-                flash("Preencha seu nome e um telefone válido com DDD para enviar o orçamento.")
+                flash("Preencha seu nome e um telefone válido com DDD para enviar o projeto.")
                 return render_template("orcamento.html", **contexto_orcamento(resultado))
 
             descricao_projeto = texto_seguro(request.form.get("descricao_projeto"), 1400)
@@ -1046,7 +1106,7 @@ def orcamento():
             conn = get_db()
             pedido_id = criar_pedido(
                 conn, "orcamento", detalhes, resultado["preco_total"], nome, telefone,
-                ("pix" if config_precos.get("pix_chave", "").strip() else
+                ("pix" if pix.chave_valida(config_precos.get("pix_chave", "")) else
                  "cartao" if config_precos.get("mp_access_token", "").strip() else "combinar"),
                 cliente_id=session["cliente_id"], cliente_lat=cliente_lat, cliente_lng=cliente_lng,
                 material_requisito=form["material"],
@@ -1060,11 +1120,11 @@ def orcamento():
                 inserir_referencia(conn, pedido_id, "modelo_3d", modelo)
             for imagem in imagens:
                 inserir_referencia(conn, pedido_id, "imagem", imagem)
-            _mensagem_sistema(conn, pedido_id, "Projeto enviado para a Rede Voxxel. A parceira poderá solicitar detalhes antes da produção.")
+            _mensagem_sistema(conn, pedido_id, "Projeto enviado para a Rede Voxxel. O parceiro responsável poderá solicitar detalhes antes da produção.")
             conn.commit()
             distribuicao.despachar_pedido(conn, pedido_id)
             conn.close()
-            flash("Projeto recebido! Agora ele pode ser analisado por uma parceira da Rede Voxxel.")
+            flash("Projeto recebido! Agora ele pode ser analisado por um parceiro da Rede Voxxel.")
             return redirect(url_for("pedido_projeto", pedido_id=pedido_id))
 
     return render_template("orcamento.html", **contexto_orcamento(resultado))
@@ -1098,7 +1158,7 @@ def api_projeto_mensagem_pendente():
         texto = "Novo arquivo anexado ao projeto." if row["anexo_nome"] else "Há uma atualização no projeto."
     dados = {
         "id": row["id"], "pedido_id": row["pedido_id"], "texto": texto[:180],
-        "autor": "Voxxel" if row["autor_tipo"] in ("sistema", "admin") else ("Cliente" if row["autor_tipo"] == "cliente" else "Impressora parceira"),
+        "autor": "Voxxel" if row["autor_tipo"] in ("sistema", "admin") else ("Cliente" if row["autor_tipo"] == "cliente" else "Parceiro de produção"),
         "url": url_for("pedido_projeto", pedido_id=row["pedido_id"]), "papel": papel,
     }
     conn.close(); return {"ok": True, "mensagem": dados}
@@ -1222,7 +1282,7 @@ def pedido_projeto_status(pedido_id):
     acao = request.form.get("acao")
     atual = pedido["fluxo_status"] or "recebido"
     if acao == "solicitar_info" and atual in ("em_analise", "cliente_respondeu", "aguardando_aprovacao", "recebido"):
-        novo, texto = "precisa_info", "A parceira precisa de mais informações para compreender o projeto."
+        novo, texto = "precisa_info", "O parceiro precisa de mais informações para compreender o projeto."
     elif acao == "enviar_aprovacao" and atual in ("em_analise", "cliente_respondeu", "recebido"):
         if pedido["tipo"] == "orcamento" and pedido["status_pagamento"] != "confirmado":
             bruto = (request.form.get("valor_final") or "").strip().replace(",", ".")
@@ -1235,12 +1295,12 @@ def pedido_projeto_status(pedido_id):
             conn.execute("UPDATE pedidos SET valor_estimado=? WHERE id=?", (valor_final, pedido_id))
             if pedido["impressora_id"]:
                 aplicar_comissao_pedido(conn, pedido_id, valor_final)
-        novo, texto = "aguardando_aprovacao", "A parceira concluiu a análise. Revise as referências, o valor final e confirme se o projeto está correto."
+        novo, texto = "aguardando_aprovacao", "O parceiro concluiu a análise. Revise as referências, o valor final e confirme se o projeto está correto."
     elif acao == "iniciar_producao" and atual == "producao_autorizada" and pedido["producao_autorizada"] and pedido["status_pagamento"] == "confirmado":
-        novo, texto = "em_producao", "A produção foi iniciada pela impressora parceira."
+        novo, texto = "em_producao", "A produção foi iniciada pelo parceiro responsável."
         conn.execute("UPDATE pedidos SET status='andamento' WHERE id=?", (pedido_id,))
     elif acao == "marcar_pronto" and pedido["fluxo_status"] == "em_producao":
-        novo, texto = "pronto", "A parceira marcou o pedido como pronto."
+        novo, texto = "pronto", "O parceiro marcou o pedido como pronto."
     elif acao == "concluir" and pedido["fluxo_status"] == "pronto":
         novo, texto = "concluido", "Pedido concluído."
         conn.execute("UPDATE pedidos SET status='concluido' WHERE id=?", (pedido_id,))
@@ -1264,7 +1324,7 @@ def pedido_projeto_aprovar(pedido_id):
     conn.execute("UPDATE pedidos SET aprovado_cliente=1, producao_autorizada=1, fluxo_status='producao_autorizada' WHERE id=?", (pedido_id,))
     _mensagem_sistema(conn, pedido_id, "O cliente aprovou o projeto e autorizou o avanço para produção.")
     conn.commit(); conn.close()
-    flash("Projeto aprovado. A parceira já pode avançar para a produção.")
+    flash("Projeto aprovado. O parceiro poderá avançar quando o pagamento estiver confirmado.")
     return redirect(url_for("pedido_projeto", pedido_id=pedido_id))
 
 
@@ -1303,7 +1363,13 @@ def conta_cadastro():
             flash(erro)
             return render_template("conta_cadastro.html")
 
-        cliente_id = criar_cliente(conn, nome, telefone, generate_password_hash(senha))
+        try:
+            cliente_id = criar_cliente(conn, nome, telefone, generate_password_hash(senha))
+        except Exception:
+            conn.rollback()
+            conn.close()
+            flash("Não foi possível criar a conta com esse telefone. Se ele já estiver cadastrado, faça login.")
+            return render_template("conta_cadastro.html")
         conn.close()
 
         carrinho_salvo = dict(carrinho_sessao())
@@ -1422,7 +1488,7 @@ def admin_dashboard():
         ticket_medio=ticket_medio,
         produtos_ativos=produtos_ativos,
         produtos_esgotados=produtos_esgotados,
-        pix_configurado=bool(config["pix_chave"].strip()),
+        pix_configurado=pix.chave_valida(config.get("pix_chave", "")),
         cartao_configurado=bool(config["mp_access_token"].strip()),
         ultimos_pedidos=pedidos[:5],
         comissao_total=comissoes["total"],
@@ -1456,9 +1522,15 @@ def admin_configuracoes():
 
         config_atual = get_configs(conn)
         token_novo = request.form.get("mp_access_token", "").strip()
+        pix_chave_nova = texto_seguro(request.form.get("pix_chave"), 180)
+        if pix_chave_nova and not pix.chave_valida(pix_chave_nova):
+            flash("A chave Pix informada é inválida ou longa demais para gerar um QR Code compatível.")
+            config = dict(config_atual)
+            conn.close()
+            return render_template("admin_configuracoes.html", config=config), 400
         set_configs(conn, {
             "vendedor_nome": texto_seguro(request.form.get("vendedor_nome"), 120) or "Voxxel",
-            "pix_chave": texto_seguro(request.form.get("pix_chave"), 180),
+            "pix_chave": pix_chave_nova,
             "pix_nome": texto_seguro(request.form.get("pix_nome"), 80) or "Voxxel Impressao 3D",
             "pix_cidade": texto_seguro(request.form.get("pix_cidade"), 80) or "Sao Jose dos Pinhais",
             "whatsapp": normalizar_telefone(request.form.get("whatsapp"))[:15],
@@ -1491,17 +1563,31 @@ def admin_produtos():
     return render_template("admin_produtos.html", produtos=produtos)
 
 
-def processar_upload_imagem(arquivo):
-    """Lê o arquivo enviado no formulário e valida formato/conteúdo.
-    Retorna (bytes, mimetype) ou None se não veio nenhum arquivo.
+def _imagem_webp_segura(dados, max_pixels=25_000_000, max_dim=1800, qualidade=86):
+    """Valida, redimensiona e reencoda uma imagem sem EXIF/metadados.
 
-    Não confia só na extensão/mimetype que o navegador informou (fácil de
-    forjar) -- abre o arquivo de verdade com o Pillow pra confirmar que os
-    bytes são realmente uma imagem válida antes de guardar no banco."""
+    Além de reduzir peso, evita persistir metadados de câmera/localização de
+    arquivos enviados por clientes, parceiros ou administradores.
+    """
+    try:
+        imagem = Image.open(io.BytesIO(dados))
+        if imagem.width <= 0 or imagem.height <= 0 or imagem.width * imagem.height > max_pixels:
+            raise ValueError
+        imagem.load()
+    except Exception as exc:
+        raise ValueError("O arquivo enviado não é uma imagem válida.") from exc
+    if max(imagem.size) > max_dim:
+        imagem.thumbnail((max_dim, max_dim), Image.Resampling.LANCZOS)
+    if imagem.mode not in ("RGB", "RGBA"):
+        imagem = imagem.convert("RGBA" if "A" in imagem.getbands() else "RGB")
+    saida = io.BytesIO()
+    imagem.save(saida, format="WEBP", quality=qualidade, method=4)
+    return saida.getvalue(), "image/webp"
+
+
+def processar_upload_imagem(arquivo):
+    """Valida e normaliza imagem de produto para WEBP otimizado."""
     if not arquivo or not arquivo.filename:
-        return None
-    if arquivo.mimetype not in TIPOS_IMAGEM_PERMITIDOS:
-        flash("Formato de imagem não suportado. Envie um JPG, PNG ou WEBP.")
         return None
     dados = arquivo.read(8 * 1024 * 1024 + 1)
     if not dados:
@@ -1510,19 +1596,10 @@ def processar_upload_imagem(arquivo):
         flash("A imagem do produto pode ter no máximo 8 MB.")
         return None
     try:
-        imagem = Image.open(io.BytesIO(dados))
-        if imagem.width <= 0 or imagem.height <= 0 or imagem.width * imagem.height > 25_000_000:
-            raise ValueError
-        formato = (imagem.format or "").upper()
-        imagem.verify()
-    except Exception:
-        flash("O arquivo enviado não é uma imagem válida.")
+        return _imagem_webp_segura(dados)
+    except ValueError as erro:
+        flash(str(erro))
         return None
-    mimetype_real = {"JPEG":"image/jpeg","PNG":"image/png","WEBP":"image/webp"}.get(formato)
-    if not mimetype_real:
-        flash("Formato de imagem não suportado. Envie JPG, PNG ou WEBP.")
-        return None
-    return dados, mimetype_real
 
 
 
@@ -1715,11 +1792,11 @@ def admin_pedidos():
     impressoras_por_id = {imp["id"]: imp["nome"] for imp in conn.execute("SELECT id, nome FROM impressoras").fetchall()}
     conn.close()
 
-    contagens = {"todos": len(todos), "novo": 0, "andamento": 0, "concluido": 0}
+    contagens = {"todos": len(todos), "novo": 0, "andamento": 0, "concluido": 0, "cancelado": 0}
     for p in todos:
         contagens[p["status"]] = contagens.get(p["status"], 0) + 1
 
-    if status_filtro in ("novo", "andamento", "concluido"):
+    if status_filtro in ("novo", "andamento", "concluido", "cancelado"):
         pedidos = [p for p in todos if p["status"] == status_filtro]
     else:
         status_filtro = "todos"
@@ -1745,7 +1822,7 @@ def admin_pedido_atribuir_impressora(pedido_id):
 
     conn = get_db()
     pedido = conn.execute(
-        "SELECT id, impressora_id, fluxo_status FROM pedidos WHERE id = ?",
+        "SELECT id, impressora_id, fluxo_status, status, material_requisito FROM pedidos WHERE id = ?",
         (pedido_id,),
     ).fetchone()
     impressora = buscar_impressora_por_id(conn, impressora_id)
@@ -1755,14 +1832,27 @@ def admin_pedido_atribuir_impressora(pedido_id):
         return redirect(url_for("admin_pedidos"))
     if not impressora or not impressora["ativo"]:
         conn.close()
-        flash("Essa impressora não está disponível pra receber pedidos.")
+        flash("Esse parceiro não está disponível para receber pedidos.")
+        return redirect(url_for("admin_pedidos"))
+    if pedido["status"] in ("cancelado", "concluido") or pedido["fluxo_status"] in ("cancelado", "concluido"):
+        conn.close()
+        flash("Pedidos cancelados ou concluídos não podem ser atribuídos a outro parceiro.")
+        return redirect(url_for("admin_pedidos"))
+    requeridos = {m.strip().lower() for m in (pedido["material_requisito"] or "").split(",") if m.strip()}
+    suportados = {m.strip().lower() for m in (impressora["materiais"] or "").split(",") if m.strip()}
+    if requeridos and not requeridos.issubset(suportados):
+        conn.close()
+        flash("Esse parceiro não suporta todos os materiais exigidos pelo pedido.")
         return redirect(url_for("admin_pedidos"))
     if pedido["impressora_id"] and pedido["fluxo_status"] in ("em_producao", "pronto", "concluido"):
         conn.close()
         flash("Não é seguro trocar a impressora depois que a produção já começou.")
         return redirect(url_for("admin_pedidos"))
 
-    distribuicao.atribuir_manualmente(conn, pedido_id, impressora_id)
+    if not distribuicao.atribuir_manualmente(conn, pedido_id, impressora_id):
+        conn.close()
+        flash("O pedido mudou de estado antes da atribuição. Atualize a página e tente novamente.")
+        return redirect(url_for("admin_pedidos"))
     conn.close()
     flash(f"Pedido atribuído manualmente a {impressora['nome']}.")
     return redirect(url_for("admin_pedidos"))
@@ -1792,19 +1882,57 @@ def admin_impressora_toggle(impressora_id):
 @login_obrigatorio
 def admin_pedido_status(pedido_id):
     novo_status = request.form.get("status", "")
-    if novo_status not in ("novo", "andamento", "concluido"):
+    if novo_status not in ("novo", "andamento", "concluido", "cancelado"):
         flash("Status inválido.")
         return redirect(url_for("admin_pedidos"))
     conn = get_db()
-    if novo_status == "concluido":
+    pedido = conn.execute("SELECT * FROM pedidos WHERE id = ?", (pedido_id,)).fetchone()
+    if not pedido:
+        conn.close(); abort(404)
+    if pedido["status"] == "cancelado" and novo_status != "cancelado":
+        conn.close()
+        flash("Um pedido cancelado não pode ser reaberto automaticamente porque o estoque já pode ter sido devolvido. Crie uma nova tratativa/pedido.")
+        return redirect(url_for("admin_pedidos"))
+    if pedido["status"] == "concluido" and novo_status != "concluido":
+        conn.close()
+        flash("Um pedido concluído não pode voltar para uma etapa operacional pelo seletor de status.")
+        return redirect(url_for("admin_pedidos"))
+    if novo_status == "cancelado":
+        if pedido["fluxo_status"] in ("em_producao", "pronto", "concluido"):
+            conn.close()
+            flash("Não cancele automaticamente um pedido depois que a produção começou. Faça a tratativa manual.")
+            return redirect(url_for("admin_pedidos"))
+        if not pedido["estoque_devolvido"] and pedido["tipo"] == "loja":
+            itens = conn.execute("SELECT produto_id, quantidade FROM pedido_itens WHERE pedido_id = ?", (pedido_id,)).fetchall()
+            for item in itens:
+                if item["produto_id"]:
+                    conn.execute(
+                        "UPDATE produtos SET estoque = estoque + ? WHERE id = ? AND estoque IS NOT NULL",
+                        (item["quantidade"], item["produto_id"]),
+                    )
+            conn.execute("UPDATE pedidos SET estoque_devolvido=1 WHERE id=?", (pedido_id,))
         conn.execute(
-            "UPDATE pedidos SET status = ?, fluxo_status = 'concluido' WHERE id = ?",
-            (novo_status, pedido_id),
+            "UPDATE pedidos SET status='cancelado', fluxo_status='cancelado', producao_autorizada=0, cancelado_em=CURRENT_TIMESTAMP WHERE id=?",
+            (pedido_id,),
         )
+        conn.execute(
+            "UPDATE ofertas_impressao SET status='expirada', respondido_em=CURRENT_TIMESTAMP WHERE pedido_id=? AND status='pendente'",
+            (pedido_id,),
+        )
+        _mensagem_sistema(conn, pedido_id, "Pedido cancelado pela Voxxel.")
+    elif novo_status == "concluido":
+        conn.execute("UPDATE pedidos SET status='concluido', fluxo_status='concluido' WHERE id=?", (pedido_id,))
     else:
         conn.execute("UPDATE pedidos SET status = ? WHERE id = ?", (novo_status, pedido_id))
     conn.commit()
+    pagamento_ja_confirmado = pedido["status_pagamento"] == "confirmado"
     conn.close()
+    if novo_status == "cancelado":
+        flash("Pedido cancelado e estoque elegível devolvido." + (" O pagamento estava confirmado: faça a tratativa de estorno/reembolso separadamente." if pagamento_ja_confirmado else ""))
+    elif novo_status == "concluido":
+        flash("Pedido marcado como concluído.")
+    else:
+        flash("Status do pedido atualizado.")
     return redirect(url_for("admin_pedidos"))
 
 
@@ -1817,12 +1945,16 @@ def admin_pedido_pagamento(pedido_id):
         abort(400)
     conn = get_db()
     pedido = conn.execute(
-        "SELECT id, status_pagamento, fluxo_status FROM pedidos WHERE id = ?",
+        "SELECT id, status, status_pagamento, fluxo_status FROM pedidos WHERE id = ?",
         (pedido_id,),
     ).fetchone()
     if not pedido:
         conn.close()
         abort(404)
+    if pedido["status"] == "cancelado":
+        conn.close()
+        flash("O pagamento de um pedido cancelado deve ser tratado manualmente, sem alterar o estado do pedido.")
+        return redirect(redirecionamento_seguro(url_for("admin_pedidos")))
     if acao == "reabrir" and pedido["fluxo_status"] in ("em_producao", "pronto", "concluido"):
         conn.close()
         flash("Não é seguro reabrir o pagamento depois que a produção já começou.")
@@ -1856,7 +1988,7 @@ def impressora_cadastro():
 
         erro = None
         if not nome:
-            erro = "Preencha seu nome (ou o nome da sua impressora/oficina)."
+            erro = "Preencha seu nome ou o nome do seu negócio."
         elif not TELEFONE_MIN_DIGITOS_IMPRESSORA <= len(telefone) <= 13:
             erro = "Informe um telefone válido, com DDD."
         elif not 8 <= len(senha) <= 128:
@@ -1864,27 +1996,33 @@ def impressora_cadastro():
         elif senha != confirmar_senha:
             erro = "As senhas não coincidem."
         elif not materiais_selecionados:
-            erro = "Selecione pelo menos um material que sua impressora consegue produzir."
+            erro = "Selecione pelo menos um material que você consegue produzir."
 
         conn = get_db()
         if not erro and buscar_impressora_por_telefone(conn, telefone):
-            erro = "Já existe uma impressora cadastrada com esse telefone. Faça login."
+            erro = "Já existe um parceiro cadastrado com esse telefone. Faça login."
 
         if erro:
             conn.close()
             flash(erro)
             return render_template("impressora_cadastro.html", materiais=MATERIAIS)
 
-        impressora_id = criar_impressora(
-            conn, nome, telefone, generate_password_hash(senha), ",".join(materiais_selecionados)
-        )
+        try:
+            impressora_id = criar_impressora(
+                conn, nome, telefone, generate_password_hash(senha), ",".join(materiais_selecionados)
+            )
+        except Exception:
+            conn.rollback()
+            conn.close()
+            flash("Não foi possível concluir o cadastro com esse telefone. Se ele já estiver cadastrado, faça login.")
+            return render_template("impressora_cadastro.html", materiais=MATERIAIS)
         conn.close()
 
         session.clear()
         session["impressora_id"] = impressora_id
         session["impressora_nome"] = nome
         session.permanent = True
-        flash("Cadastro feito! Agora é só ficar online no painel pra começar a receber pedidos.")
+        flash("Cadastro enviado. Revise seus materiais no painel enquanto a Voxxel analisa a ativação da sua conta.")
         return redirect(url_for("impressora_painel"))
 
     return render_template("impressora_cadastro.html", materiais=MATERIAIS)
@@ -1967,7 +2105,7 @@ def impressora_painel():
     pedidos_atribuidos = listar_pedidos_da_impressora(conn, impressora["id"])
     ganho_acumulado = sum(
         (p["valor_estimado"] - (p["comissao_voxxel"] or 0))
-        for p in pedidos_atribuidos if p["status_pagamento"] == "confirmado"
+        for p in pedidos_atribuidos if p["status_pagamento"] == "confirmado" and p["status"] != "cancelado"
     )
     conn.close()
 
@@ -2003,7 +2141,7 @@ def impressora_status():
     impressora = buscar_impressora_por_id(conn, session["impressora_id"])
     if not impressora or not impressora["ativo"]:
         conn.close()
-        flash("Sua conta de impressora parceira está bloqueada. Fale com a Voxxel.")
+        flash("Sua conta ainda não está liberada para receber solicitações. Confira o status no painel ou fale com a Voxxel.")
         return redirect(url_for("impressora_painel"))
 
     online = request.form.get("online") == "1"
@@ -2125,7 +2263,7 @@ def impressora_api_oferta_atual():
     dados = {
         "id": oferta["id"],
         "pedido_id": pedido["id"],
-        "tipo": "Pedido do catálogo" if pedido["tipo"] == "loja" else "Orçamento personalizado",
+        "tipo": "Pedido do catálogo" if pedido["tipo"] == "loja" else "Projeto personalizado",
         "detalhes": _resumo_seguro_oferta(pedido),
         "material": material_nome,
         "distancia_km": distancia,
@@ -2164,9 +2302,9 @@ def impressora_oferta_responder(oferta_id):
     if not aplicado:
         flash("Essa oferta não está mais disponível (talvez já tenha expirado).")
     elif acao == "aceitar":
-        flash("Solicitação aceita para análise. Revise as referências e fale com o cliente se precisar.")
+        flash("Solicitação aceita para análise. Revise as referências e alinhe dúvidas com o cliente antes de produzir.")
     else:
-        flash("Oferta recusada. Ela foi repassada pra próxima impressora mais próxima.")
+        flash("Solicitação recusada. A Rede Voxxel seguirá buscando outro parceiro compatível.")
     return redirect(url_for("impressora_painel"))
 
 
