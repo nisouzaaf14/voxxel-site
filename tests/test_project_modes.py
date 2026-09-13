@@ -52,7 +52,13 @@ class ProjectModeTests(unittest.TestCase):
         self.assertNotIn("Pedir uma análise", home)
         self.assertNotIn("Encontrar meu caminho", selector)
         company = self.client.get("/empresas").text
-        self.assertGreaterEqual(company.count("Solicitar orçamento empresarial"), 3)
+        self.assertGreaterEqual(company.count("Solicitar orçamento"), 2)
+        self.assertNotIn("Solicitar orçamento empresarial", company)
+        piece = self.client.get("/peca-sob-medida").text
+        self.assertNotIn("commercial-visual", piece)
+        self.assertNotIn("application-grid", piece)
+        stl = self.client.get("/imprimir-stl").text
+        self.assertNotIn("commercial-visual", stl)
 
     def test_business_contact_without_attachment(self):
         response = self.post("/empresas", {
