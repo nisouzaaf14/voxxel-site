@@ -125,3 +125,109 @@
   .catalog-page .catalog-price{font-size:1.05rem}
   .catalog-page .catalog-custom-cta{margin-top:28px;padding:20px;border-radius:18px}
 }
+
+
+/* Audit 2026-09 — compact catalog category rail */
+.catalog-page .catalog-category-rail{
+  min-width:0;
+}
+.catalog-page .catalog-category-rail .filtros{
+  margin-bottom:0;
+}
+@media(max-width:760px){
+  .catalog-page .catalog-filterbar{
+    display:block;
+    overflow:visible;
+    margin:14px 0 22px;
+  }
+  .catalog-page .catalog-category-rail{
+    position:relative;
+    width:100%;
+    max-width:100%;
+    overflow:hidden;
+    border-radius:12px;
+  }
+  .catalog-page .catalog-category-rail::after{
+    content:"";
+    position:absolute;
+    z-index:2;
+    top:0;
+    right:0;
+    bottom:5px;
+    width:28px;
+    pointer-events:none;
+    background:linear-gradient(90deg,transparent,#0d0d12 88%);
+  }
+  .catalog-page .catalog-filterbar .filtros{
+    display:flex;
+    width:100%;
+    max-width:100%;
+    gap:7px;
+    justify-content:flex-start;
+    flex-wrap:nowrap;
+    overflow-x:auto;
+    overflow-y:hidden;
+    padding:2px 26px 7px 1px;
+    scroll-padding-inline:1px 28px;
+    scroll-snap-type:x proximity;
+    scrollbar-width:none;
+    -webkit-overflow-scrolling:touch;
+  }
+  .catalog-page .catalog-filterbar .filtros::-webkit-scrollbar{
+    display:none;
+  }
+  .catalog-page .catalog-filterbar .chip{
+    flex:0 0 auto;
+    width:auto;
+    min-width:0;
+    min-height:36px;
+    padding:7px 13px;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    border:1px solid rgba(255,255,255,.095);
+    border-radius:999px;
+    background:#17171d;
+    color:#aaa4b2;
+    box-shadow:none;
+    font-size:.76rem;
+    font-weight:500;
+    line-height:1;
+    white-space:nowrap;
+    scroll-snap-align:start;
+    transition:border-color .18s ease,background .18s ease,color .18s ease,box-shadow .18s ease;
+  }
+  .catalog-page .catalog-filterbar .chip:hover{
+    transform:none;
+    color:#ece5f5;
+    border-color:rgba(177,117,255,.38);
+    background:#1d1923;
+  }
+  .catalog-page .catalog-filterbar .chip.active,
+  .catalog-page .catalog-filterbar .chip[aria-current="true"]{
+    color:#f6efff;
+    border-color:rgba(185,123,255,.72);
+    background:linear-gradient(180deg,rgba(126,72,194,.25),rgba(63,40,86,.28));
+    box-shadow:
+      inset 0 0 0 1px rgba(191,136,255,.08),
+      0 0 14px rgba(142,78,226,.11);
+  }
+  .catalog-page .catalog-filter-note{
+    display:block;
+    margin-top:5px;
+    color:#6f6975;
+    font-size:.6rem;
+    line-height:1.4;
+  }
+  .catalog-page .catalog-clear-v12{
+    margin-top:7px;
+    font-size:.66rem;
+  }
+}
+@media(max-width:390px){
+  .catalog-page .catalog-filterbar .chip{
+    min-height:34px;
+    padding:7px 12px;
+    font-size:.72rem;
+  }
+}
