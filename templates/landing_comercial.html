@@ -25,8 +25,23 @@
   <form method="post" action="{{ url_for('orcamento') }}" enctype="multipart/form-data" class="lead-form">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="acao" value="enviar"><input type="hidden" name="origem" value="{{ pagina.origem }}"><input type="hidden" name="categoria" value="{{ pagina.categoria }}"><input type="hidden" name="altura" value="10"><input type="hidden" name="largura" value="10"><input type="hidden" name="profundidade" value="10"><input type="hidden" name="material" value="pla"><input type="hidden" name="qualidade" value="padrao"><input type="hidden" name="complexidade" value="media">
     {% if pagina.origem == 'empresas' %}<label class="field full"><span>Empresa</span><input name="empresa_nome" maxlength="160" required placeholder="Nome da empresa"></label>{% endif %}
-    <label class="field full"><span>Foto ou arquivo 3D {% if pagina.origem == 'empresas' %}<small>opcional</small>{% endif %}</span><div class="lead-uploads"><input type="file" name="imagens_referencia" accept="image/jpeg,image/png,image/webp" multiple><input type="file" name="modelo_3d" accept=".stl,.obj,.3mf"></div><small>JPG, PNG, WEBP, STL, OBJ ou 3MF. Você pode enviar apenas um dos tipos.</small></label>
-    <label class="field full"><span>Descrição</span><textarea name="descricao_projeto" rows="5" minlength="12" maxlength="1400" required placeholder="Explique o que você precisa, onde será usado e o que é mais importante."></textarea></label>
+    <fieldset class="field full lead-upload-field">
+      <legend>Foto ou arquivo 3D {% if pagina.origem == 'empresas' %}<small>opcional</small>{% endif %}</legend>
+      <div class="lead-uploads">
+        <label class="lead-upload-control">
+          <input type="file" name="imagens_referencia" accept="image/jpeg,image/png,image/webp" multiple data-upload-input>
+          <span class="lead-upload-icon" aria-hidden="true">{{ icon('camera') }}</span>
+          <span class="lead-upload-copy"><strong>Enviar fotos</strong><small data-upload-label>JPG, PNG ou WEBP</small></span>
+        </label>
+        <label class="lead-upload-control">
+          <input type="file" name="modelo_3d" accept=".stl,.obj,.3mf" data-upload-input>
+          <span class="lead-upload-icon" aria-hidden="true">{{ icon('cube') }}</span>
+          <span class="lead-upload-copy"><strong>Enviar arquivo 3D</strong><small data-upload-label>STL, OBJ ou 3MF</small></span>
+        </label>
+      </div>
+      <small class="lead-upload-help">Você pode enviar apenas fotos ou apenas o arquivo 3D.</small>
+    </fieldset>
+    <label class="field full"><span>Descrição</span><textarea name="descricao_projeto" rows="4" minlength="12" maxlength="1400" required placeholder="Explique o que você precisa, onde será usado e o que é mais importante."></textarea></label>
     <label class="field"><span>Quantidade aproximada</span><input type="number" name="quantidade" min="1" max="100" value="1" required></label>
     <label class="field"><span>Nome</span><input name="nome" autocomplete="name" maxlength="120" required></label>
     <label class="field"><span>WhatsApp</span><input type="tel" name="telefone" autocomplete="tel" maxlength="40" placeholder="(41) 9XXXX-XXXX" required></label>
@@ -34,4 +49,19 @@
     <button class="btn btn-primary full" type="submit">{{ pagina.cta }} <span aria-hidden="true">→</span></button><p class="lead-privacy full">Você envia primeiro e decide depois se quer criar uma conta para acompanhar. Seus dados são usados para analisar e responder à solicitação.</p>
   </form>
 </div></section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.querySelectorAll('[data-upload-input]').forEach((input)=>{
+  input.addEventListener('change',()=>{
+    const label=input.closest('.lead-upload-control')?.querySelector('[data-upload-label]');
+    if(!label)return;
+    const files=Array.from(input.files||[]);
+    if(!files.length)return;
+    label.textContent=files.length>1 ? files.length+' arquivos selecionados' : files[0].name;
+    input.closest('.lead-upload-control')?.classList.add('has-file');
+  });
+});
+</script>
 {% endblock %}
