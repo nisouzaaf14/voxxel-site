@@ -213,3 +213,86 @@
     text-align:center;
   }
 }
+
+
+/* V11 — customer mobile continuity */
+.customer-dashboard-page .dashboard-shell{
+  min-height:60vh;
+}
+@media(max-width:680px){
+  .customer-dashboard-page .dash-head{
+    margin-bottom:18px;
+  }
+  .customer-dashboard-page .dash-head h1{
+    max-width:360px;
+    font-size:2.05rem;
+  }
+  .customer-dashboard-page .dash-head-actions{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:7px;
+  }
+  .customer-dashboard-page .dash-head-actions .btn{
+    width:100%;
+    min-height:42px;
+    padding:0 12px;
+    font-size:.68rem;
+  }
+  .customer-dashboard-page .dash-head-actions .btn:first-child{
+    grid-column:1/-1;
+  }
+  .customer-dashboard-page .dash-head-actions .inline-logout-form{
+    grid-column:1/-1;
+    width:auto!important;
+  }
+  .customer-dashboard-page .dash-head-actions .dash-link{
+    width:auto!important;
+    padding:7px 0;
+    text-align:left!important;
+    font-size:.66rem;
+  }
+  .customer-dashboard-page .dash-stats{
+    margin-bottom:20px;
+  }
+  .customer-dashboard-page .order-feed-card{
+    border-radius:18px;
+  }
+  .customer-dashboard-page .order-feed-main{
+    padding:16px;
+  }
+  .customer-dashboard-page .order-feed-title{
+    font-size:.91rem;
+    line-height:1.4;
+  }
+  .customer-dashboard-page .order-feed-value strong{
+    font-size:.96rem;
+  }
+  .customer-dashboard-page .order-feed-footer{
+    padding:12px 16px;
+  }
+  .customer-dashboard-page .order-next{
+    align-items:flex-start;
+    font-size:.65rem;
+  }
+  .customer-dashboard-page .order-feed-actions{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:7px;
+  }
+  .customer-dashboard-page .order-feed-actions .btn{
+    width:100%;
+    min-width:0;
+    justify-content:center;
+  }
+}
+@media(max-width:420px){
+  .customer-dashboard-page .dash-stats{
+    grid-template-columns:1fr 1fr!important;
+  }
+  .customer-dashboard-page .dash-stat{
+    min-height:94px;
+  }
+  .customer-dashboard-page .order-feed-actions{
+    grid-template-columns:1fr;
+  }
+}
