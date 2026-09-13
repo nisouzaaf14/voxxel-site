@@ -1,6 +1,6 @@
 <nav class="project-modes" aria-label="Modos de projeto">
-  <a href="{{ url_for('projetos') }}">Visão geral</a>
-  <a href="{{ url_for('simplificado') }}" {{ 'aria-current=page' if request.endpoint == 'simplificado' }}>Simplificado</a>
-  <a href="{{ url_for('orcamento') }}" {{ 'aria-current=page' if request.endpoint == 'orcamento' }}>Projetos</a>
-  <a href="{{ url_for('empresas') }}" {{ 'aria-current=page' if request.endpoint == 'empresas' }}>Empresas</a>
+  <a href="{{ url_for('projetos') }}" {% if request.endpoint == 'projetos' %}aria-current="page"{% endif %}>Visão geral</a>
+  <a href="{{ url_for('ideias') }}" {% if request.endpoint in ['ideias','simplificado'] %}aria-current="page"{% endif %}>Ideias</a>
+  <a href="{{ url_for('orcamento') }}" {% if request.endpoint == 'orcamento' %}aria-current="page"{% endif %}>Projetos</a>
+  <a href="{{ url_for('empresas') }}" {% if request.endpoint == 'empresas' %}aria-current="page"{% endif %}>Empresas</a>
 </nav>

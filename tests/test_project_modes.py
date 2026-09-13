@@ -35,13 +35,21 @@ class ProjectModeTests(unittest.TestCase):
             return self.client.post(route, data=data, content_type="multipart/form-data")
 
     def test_modes_render_and_technical_resources_remain(self):
-        for route in ["/projetos", "/simplificado", "/orcamento", "/empresas", "/loja"]:
+        for route in ["/projetos", "/ideias", "/simplificado", "/orcamento", "/empresas", "/loja"]:
             response = self.client.get(route)
             self.assertEqual(response.status_code, 200, route)
         html = self.client.get("/orcamento").text
         for resource in ["quote-visualizer", "material-input", "qualidade-input", "complexidade-input", "breakdown-toggle", "brief-changes"]:
             self.assertIn(resource, html)
         self.assertNotIn('<details class="quote-advanced-panel">', html)
+        selector = self.client.get("/projetos").text
+        self.assertIn('href="/ideias"', selector)
+        self.assertIn('href="/orcamento"', selector)
+        self.assertIn('href="/empresas"', selector)
+        self.assertEqual(selector.count('class="project-option '), 3)
+        self.assertNotIn("Encontrar meu caminho", selector)
+        company = self.client.get("/empresas").text
+        self.assertGreaterEqual(company.count("Solicitar orçamento empresarial"), 3)
 
     def test_business_contact_without_attachment(self):
         response = self.post("/empresas", {
@@ -64,7 +72,7 @@ class ProjectModeTests(unittest.TestCase):
         image = io.BytesIO()
         Image.new("RGB", (32, 32), "#9d6bce").save(image, format="PNG")
         image.seek(0)
-        response = self.post("/simplificado", {
+        response = self.post("/ideias", {
             "acao": "enviar", "origem": "orcamento", "nome": "Teste guiado",
             "telefone": "41999999999", "email": "qa@example.com",
             "descricao_projeto": "Preciso substituir a tampa de uma caixa.",

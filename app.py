@@ -465,6 +465,11 @@ def simplificado():
     return orcamento()
 
 
+@app.route("/ideias", methods=["GET", "POST"])
+def ideias():
+    return orcamento()
+
+
 @app.route("/empresas", methods=["GET", "POST"])
 def empresas():
     return orcamento()
@@ -1082,7 +1087,7 @@ def _mensagem_sistema(conn, pedido_id, texto):
 
 @app.route("/orcamento", methods=["GET", "POST"])
 def orcamento():
-    modo = "empresas" if request.endpoint == "empresas" else "simplificado" if request.endpoint == "simplificado" else "projetos"
+    modo = "empresas" if request.endpoint == "empresas" else "simplificado" if request.endpoint in {"simplificado", "ideias"} else "projetos"
     template_orcamento = "orcamento.html" if modo == "projetos" else "projeto_guiado.html"
     resultado = None
     form = {

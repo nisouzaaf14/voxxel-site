@@ -1,20 +1,20 @@
 {% extends "base.html" %}
 {% set b2b = modo == 'empresas' %}
-{% block title %}Voxxel {{ 'Empresas' if b2b else 'Simplificado' }} — Projetos{% endblock %}
+{% block title %}Voxxel {{ 'Empresas' if b2b else 'Ideias' }} — Projetos{% endblock %}
 {% block meta_description %}{{ 'Protótipos, peças técnicas e pequenos lotes com análise técnica para empresas.' if b2b else 'Envie sua ideia, foto ou arquivo. A Voxxel ajuda a definir a parte técnica, sem exigir cadastro inicial.' }}{% endblock %}
-{% block og_title %}Voxxel {{ 'Empresas' if b2b else 'Simplificado' }}{% endblock %}
+{% block og_title %}Voxxel {{ 'Empresas' if b2b else 'Ideias' }}{% endblock %}
 {% block og_description %}Da referência à produção, com análise técnica e acompanhamento do projeto.{% endblock %}
 {% block whatsapp_cta %}{{ 'Falar sobre meu projeto' if b2b else 'Preciso de ajuda' }}{% endblock %}
 {% block content %}
-<section class="quote-page guided-project {{ 'project-business' if b2b }}">
+<section class="quote-page guided-project {{ 'project-business' if b2b }}" {% if b2b %}id="solicitar-empresa"{% endif %}>
  <div class="wrap">
   {% include "components/project_modes.html" %}
   <header class="quote-heading">
-   <div><div class="eyebrow">Voxxel {{ 'Empresas' if b2b else 'Simplificado' }}</div>
+   <div><div class="eyebrow">Voxxel {{ 'Empresas' if b2b else 'Ideias' }}</div>
     <h1>{{ 'Produção 3D sob demanda para empresas.' if b2b else 'Você mostra o que precisa.' }}</h1></div>
    <p>{{ 'Protótipos, peças técnicas e pequenos lotes. Avaliamos quando a impressão 3D é adequada à sua aplicação.' if b2b else 'A gente ajuda com a parte técnica. Comece com uma ideia, uma foto ou um arquivo.' }}</p>
   </header>
-  <form method="post" enctype="multipart/form-data" class="quote-layout" id="guided-project-form" action="{{ url_for('empresas' if b2b else 'simplificado') }}">
+  <form method="post" enctype="multipart/form-data" class="quote-layout" id="guided-project-form" action="{{ url_for('empresas' if b2b else 'ideias') }}">
    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
    <input type="hidden" name="acao" value="enviar">
    <input type="hidden" name="origem" value="{{ 'empresas' if b2b else 'orcamento' }}">
@@ -50,6 +50,8 @@
       <label class="field"><span>WhatsApp *</span><input name="telefone" type="tel" required maxlength="40" autocomplete="tel" placeholder="DDD + número" value="{{ request.form.get('telefone','') }}"></label>
       <label class="field quote-contact-email"><span>E-mail *</span><input name="email" type="email" required maxlength="180" autocomplete="email" value="{{ request.form.get('email','') }}"></label>
      </div>
+     <button type="submit" class="btn btn-primary btn-block guided-inline-submit">{{ 'Solicitar orçamento empresarial' if b2b else 'Quero ajuda com meu projeto' }} <span aria-hidden="true">→</span></button>
+     <p class="guided-inline-note">Você envia a solicitação agora e recebe a confirmação de viabilidade, valor e prazo antes da produção.</p>
     </section>
    </div>
    <aside class="quote-summary"><div class="quote-summary-sticky guided-summary">
@@ -62,7 +64,7 @@
    </div></aside>
   </form>
   {% if b2b %}
-  <section class="project-applications"><div class="eyebrow">Aplicações empresariais</div><h2>Do protótipo à demanda recorrente.</h2><div>{% for item in ['Prototipagem','Peças técnicas','Gabaritos','Pequenos lotes','Caixas para eletrônica','Suportes','Peças de reposição','Displays','Componentes personalizados','Produção recorrente','Projetos especiais'] %}<span>{{ item }}</span>{% endfor %}</div></section>
+  <section class="project-applications"><div class="eyebrow">Aplicações empresariais</div><h2>Do protótipo à demanda recorrente.</h2><div class="project-application-grid">{% for item in ['Prototipagem','Peças técnicas','Gabaritos','Pequenos lotes','Caixas para eletrônica','Suportes','Peças de reposição','Displays','Componentes personalizados','Produção recorrente','Projetos especiais'] %}<span>{{ item }}</span>{% endfor %}</div><div class="project-applications-cta"><div><strong>Seu caso não está na lista?</strong><span>Descreva a necessidade e avaliamos a aplicação.</span></div><a class="btn btn-primary" href="#guided-project-form">Solicitar orçamento empresarial <i aria-hidden="true">→</i></a></div></section>
   {% endif %}
  </div>
 </section>

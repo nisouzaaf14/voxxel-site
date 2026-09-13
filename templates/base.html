@@ -43,7 +43,7 @@
     <nav class="navlinks" aria-label="Navegação principal">
       <a href="{{ url_for('home') }}#como-funciona">Como funciona</a>
       <a href="{{ url_for('loja') }}" class="{{ 'active' if request.endpoint == 'loja' }}">Catálogo</a>
-      <a href="{{ url_for('projetos') }}" class="{{ 'active' if request.endpoint == 'orcamento' }}">Projetos</a>
+      <a href="{{ url_for('projetos') }}" class="{{ 'active' if request.endpoint in ['projetos','ideias','simplificado','orcamento','empresas'] }}">Projetos</a>
       <a href="{{ url_for('home') }}#parceiros">Parceiros</a>
     </nav>
     <div class="nav-actions">

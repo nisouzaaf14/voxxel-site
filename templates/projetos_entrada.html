@@ -1,32 +1,59 @@
 {% extends "base.html" %}
-{% block title %}Voxxel Projetos — Da ideia à fabricação{% endblock %}
-{% block meta_description %}Escolha como começar seu projeto de impressão 3D: ajuda com uma ideia, configuração técnica ou produção para empresas.{% endblock %}
-{% block og_title %}Voxxel Projetos — Da ideia à fabricação{% endblock %}
-{% block og_description %}Uma plataforma, três caminhos para transformar referências em peças físicas.{% endblock %}
+{% block title %}Escolha seu caminho — Voxxel Projetos{% endblock %}
+{% block meta_description %}Escolha como começar: Voxxel Ideias, Voxxel Projetos ou Voxxel Empresas.{% endblock %}
+{% block og_title %}Encontre a experiência Voxxel ideal para seu projeto{% endblock %}
+{% block og_description %}Da primeira ideia à produção técnica ou empresarial, escolha como você quer começar.{% endblock %}
 {% block content %}
-<section class="quote-page project-entry"><div class="wrap">
- {% include "components/project_modes.html" %}
- <header class="project-entry-hero">
-  <div><div class="eyebrow">Voxxel Projetos / fabricação digital</div><h1>Seu próximo projeto<br>começa aqui.</h1><p>Uma ideia, uma peça ou um arquivo. Escolha seu ponto de partida — a análise técnica conecta sua referência à produção.</p><a href="#escolher-modo" class="btn btn-outline">Encontrar meu caminho</a></div>
-  <div class="project-cad" role="img" aria-label="Estudo geométrico ilustrativo de uma peça, com linhas de construção CAD">
-   <span class="cad-caption">ESTUDO DE FORMA / VOXXEL</span>
-   <svg viewBox="0 0 480 380" fill="none" aria-hidden="true">
-    <defs><linearGradient id="cad-surface" x1="100" y1="80" x2="350" y2="300" gradientUnits="userSpaceOnUse"><stop stop-color="#c79aff"/><stop offset="1" stop-color="#543083"/></linearGradient></defs>
-    <g stroke="#b790ed" opacity=".18"><path d="M30 290 260 160 450 268M30 250 260 120 450 228M30 210 260 80 450 188M30 170 260 40 450 148M80 320V80M160 350V50M240 360V30M320 330V60M400 300V100"/></g>
-    <g stroke="#dbbdff" stroke-width="1.5"><path d="m115 210 110-65 140 80-110 65z" fill="url(#cad-surface)"/><path d="M115 210v28l140 82v-30M255 320l110-65v-30" fill="#573580"/><path d="M145 193V99l80-47 30 18v159l-30 17z" fill="url(#cad-surface)"/><path d="m145 99 80 47 30-17M225 146v100M225 52v94" opacity=".7"/><ellipse cx="286" cy="237" rx="24" ry="13" fill="#171020"/><ellipse cx="185" cy="143" rx="13" ry="22" fill="#171020" transform="rotate(-25 185 143)"/></g>
-    <g stroke="#d1acff" opacity=".65" stroke-dasharray="5 6"><path d="M95 98v166M82 98h45M82 264h45M126 340h250M126 329v22M376 329v22"/></g>
-   </svg><span class="cad-caption cad-bottom">REFERÊNCIA → ANÁLISE → PRODUÇÃO</span>
+<section class="project-selector">
+  <div class="wrap">
+    <header class="project-selector-heading">
+      <div class="selector-heading-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9Z"/><path d="m4 7.5 8 4.5 8-4.5M12 12v9"/></svg>
+      </div>
+      <div><div class="eyebrow">Voxxel / fabricação digital</div><h1>Como você quer começar?</h1><p>Escolha a opção que mais combina com o momento do seu projeto.</p></div>
+    </header>
+
+    <div class="project-selector-grid" aria-label="Escolha o tipo de projeto">
+      <a class="project-option project-option-ideas" href="{{ url_for('ideias') }}">
+        <span class="project-option-visual" aria-hidden="true">
+          <svg viewBox="0 0 120 120" fill="none"><path d="M44 76h32M48 87h24" stroke="currentColor" stroke-width="4" stroke-linecap="round"/><path d="M38 50c0-13 10-23 22-23s22 10 22 23c0 9-4 14-10 20-3 3-4 6-4 9H52c0-3-1-6-4-9-6-6-10-11-10-20Z" stroke="currentColor" stroke-width="4"/><path d="M60 11v8M25 23l6 6M95 23l-6 6M17 53h9M94 53h9" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>
+        </span>
+        <span class="project-option-copy">
+          <small>PRECISO DE ORIENTAÇÃO</small>
+          <strong>VOXXEL IDEIAS</strong>
+          <span>Tenho uma ideia, foto ou peça, mas não sei como produzir.</span>
+          <b>COMEÇAR <i aria-hidden="true">→</i></b>
+        </span>
+      </a>
+
+      <a class="project-option project-option-technical" href="{{ url_for('orcamento') }}">
+        <span class="project-option-visual" aria-hidden="true">
+          <svg viewBox="0 0 120 120" fill="none"><path d="m60 22 34 19v38L60 98 26 79V41Z" stroke="currentColor" stroke-width="4"/><path d="m26 41 34 20 34-20M60 61v37" stroke="currentColor" stroke-width="4"/><path d="M18 24v72M12 30h12M12 90h12M31 106h58M37 100v12M83 100v12" stroke="currentColor" stroke-width="2" stroke-dasharray="4 4"/></svg>
+        </span>
+        <span class="project-option-copy">
+          <small>JÁ SEI O QUE PRECISO</small>
+          <strong>VOXXEL PROJETOS</strong>
+          <span>Tenho arquivo, medidas ou quero controlar os detalhes técnicos.</span>
+          <b>CONFIGURAR <i aria-hidden="true">→</i></b>
+        </span>
+      </a>
+
+      <a class="project-option project-option-business" href="{{ url_for('empresas') }}">
+        <span class="project-option-visual" aria-hidden="true">
+          <svg viewBox="0 0 120 120" fill="none"><path d="M24 99V39l37-17v77M61 52h35v47M35 52h8M35 66h8M35 80h8M73 66h10M73 80h10M17 99h86" stroke="currentColor" stroke-width="4" stroke-linejoin="round"/></svg>
+        </span>
+        <span class="project-option-copy">
+          <small>DEMANDA PROFISSIONAL</small>
+          <strong>VOXXEL EMPRESAS</strong>
+          <span>Preciso de protótipos, peças técnicas ou produção recorrente.</span>
+          <b>SOLICITAR ANÁLISE <i aria-hidden="true">→</i></b>
+        </span>
+      </a>
+    </div>
+
+    <div class="project-selector-assurance">
+      <span>01 · Envie sua referência</span><span>02 · Receba uma análise</span><span>03 · Aprove antes da produção</span>
+    </div>
   </div>
- </header>
- <div class="project-paths" id="escolher-modo">
- {% for name,eyebrow,copy,detail,endpoint,cta in [
- ('Voxxel Simplificado','01 / COM ORIENTAÇÃO','Tenho uma ideia, foto ou peça e preciso de ajuda.','Mostre sua referência. A Voxxel ajuda a definir material, medidas e viabilidade.','simplificado','Quero ajuda com meu projeto'),
- ('Voxxel Projetos','02 / CONTROLE TÉCNICO','Tenho meu arquivo ou sei exatamente o que quero.','Configure material, dimensões e perfil. Explore a simulação e a prévia volumétrica.','orcamento','Configurar meu projeto'),
- ('Voxxel Empresas','03 / DEMANDAS B2B','Preciso produzir para minha empresa ou em maior escala.','Compartilhe aplicação, prazo e recorrência para uma análise alinhada à sua operação.','empresas','Solicitar orçamento empresarial')
- ] %}
- <article class="project-path {{ 'project-path-primary' if endpoint == 'orcamento' }}"><div class="eyebrow">{{ eyebrow }}</div><h2>{{ name }}</h2><p class="project-path-intent">{{ copy }}</p><p>{{ detail }}</p><a href="{{ url_for(endpoint) }}" class="btn {{ 'btn-primary' if endpoint == 'orcamento' else 'btn-outline' }}">{{ cta }} <span aria-hidden="true">→</span></a></article>
- {% endfor %}
- </div>
- <p class="project-entry-note">Um mesmo sistema de projetos. Nenhuma produção começa sem confirmação de viabilidade, valor e prazo.</p>
-</div></section>
+</section>
 {% endblock %}
