@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Voxxel Projetos — Da ideia à fabricação{% endblock %}
+{% block meta_description %}Escolha como começar seu projeto de impressão 3D: ajuda com uma ideia, configuração técnica ou produção para empresas.{% endblock %}
+{% block og_title %}Voxxel Projetos — Da ideia à fabricação{% endblock %}
+{% block og_description %}Uma plataforma, três caminhos para transformar referências em peças físicas.{% endblock %}
+{% block content %}
+<section class="quote-page project-entry"><div class="wrap">
+ {% include "components/project_modes.html" %}
+ <header class="project-entry-hero">
+  <div><div class="eyebrow">Voxxel Projetos / fabricação digital</div><h1>Seu próximo projeto<br>começa aqui.</h1><p>Uma ideia, uma peça ou um arquivo. Escolha seu ponto de partida — a análise técnica conecta sua referência à produção.</p><a href="#escolher-modo" class="btn btn-outline">Encontrar meu caminho</a></div>
+  <div class="project-cad" role="img" aria-label="Estudo geométrico ilustrativo de uma peça, com linhas de construção CAD">
+   <span class="cad-caption">ESTUDO DE FORMA / VOXXEL</span>
+   <svg viewBox="0 0 480 380" fill="none" aria-hidden="true">
+    <defs><linearGradient id="cad-surface" x1="100" y1="80" x2="350" y2="300" gradientUnits="userSpaceOnUse"><stop stop-color="#c79aff"/><stop offset="1" stop-color="#543083"/></linearGradient></defs>
+    <g stroke="#b790ed" opacity=".18"><path d="M30 290 260 160 450 268M30 250 260 120 450 228M30 210 260 80 450 188M30 170 260 40 450 148M80 320V80M160 350V50M240 360V30M320 330V60M400 300V100"/></g>
+    <g stroke="#dbbdff" stroke-width="1.5"><path d="m115 210 110-65 140 80-110 65z" fill="url(#cad-surface)"/><path d="M115 210v28l140 82v-30M255 320l110-65v-30" fill="#573580"/><path d="M145 193V99l80-47 30 18v159l-30 17z" fill="url(#cad-surface)"/><path d="m145 99 80 47 30-17M225 146v100M225 52v94" opacity=".7"/><ellipse cx="286" cy="237" rx="24" ry="13" fill="#171020"/><ellipse cx="185" cy="143" rx="13" ry="22" fill="#171020" transform="rotate(-25 185 143)"/></g>
+    <g stroke="#d1acff" opacity=".65" stroke-dasharray="5 6"><path d="M95 98v166M82 98h45M82 264h45M126 340h250M126 329v22M376 329v22"/></g>
+   </svg><span class="cad-caption cad-bottom">REFERÊNCIA → ANÁLISE → PRODUÇÃO</span>
+  </div>
+ </header>
+ <div class="project-paths" id="escolher-modo">
+ {% for name,eyebrow,copy,detail,endpoint,cta in [
+ ('Voxxel Simplificado','01 / COM ORIENTAÇÃO','Tenho uma ideia, foto ou peça e preciso de ajuda.','Mostre sua referência. A Voxxel ajuda a definir material, medidas e viabilidade.','simplificado','Quero ajuda com meu projeto'),
+ ('Voxxel Projetos','02 / CONTROLE TÉCNICO','Tenho meu arquivo ou sei exatamente o que quero.','Configure material, dimensões e perfil. Explore a simulação e a prévia volumétrica.','orcamento','Configurar meu projeto'),
+ ('Voxxel Empresas','03 / DEMANDAS B2B','Preciso produzir para minha empresa ou em maior escala.','Compartilhe aplicação, prazo e recorrência para uma análise alinhada à sua operação.','empresas','Solicitar orçamento empresarial')
+ ] %}
+ <article class="project-path {{ 'project-path-primary' if endpoint == 'orcamento' }}"><div class="eyebrow">{{ eyebrow }}</div><h2>{{ name }}</h2><p class="project-path-intent">{{ copy }}</p><p>{{ detail }}</p><a href="{{ url_for(endpoint) }}" class="btn {{ 'btn-primary' if endpoint == 'orcamento' else 'btn-outline' }}">{{ cta }} <span aria-hidden="true">→</span></a></article>
+ {% endfor %}
+ </div>
+ <p class="project-entry-note">Um mesmo sistema de projetos. Nenhuma produção começa sem confirmação de viabilidade, valor e prazo.</p>
+</div></section>
+{% endblock %}

@@ -27,6 +27,8 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='css/commercial-v15.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/visual-fixes-v15.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/hotfix-v15.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/quote-restore-v16.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/project-system-v16.css') }}">
 {% block extra_styles %}{% endblock %}
 </head>
 <body class="{% block body_class %}{% endblock %}" data-whatsapp-cta="{% block whatsapp_cta %}Atendimento{% endblock %}" data-whatsapp-message="{% block whatsapp_message %}Olá! Preciso de ajuda com um projeto de impressão 3D.{% endblock %}">
@@ -41,7 +43,7 @@
     <nav class="navlinks" aria-label="Navegação principal">
       <a href="{{ url_for('home') }}#como-funciona">Como funciona</a>
       <a href="{{ url_for('loja') }}" class="{{ 'active' if request.endpoint == 'loja' }}">Catálogo</a>
-      <a href="{{ url_for('orcamento') }}" class="{{ 'active' if request.endpoint == 'orcamento' }}">Projeto personalizado</a>
+      <a href="{{ url_for('projetos') }}" class="{{ 'active' if request.endpoint == 'orcamento' }}">Projetos</a>
       <a href="{{ url_for('home') }}#parceiros">Parceiros</a>
     </nav>
     <div class="nav-actions">
@@ -64,7 +66,7 @@
   <div class="mobile-menu" id="mobile-menu" aria-label="Navegação móvel" aria-hidden="true">
     <a href="{{ url_for('home') }}#como-funciona">Como funciona</a>
     <a href="{{ url_for('loja') }}">Catálogo</a>
-    <a href="{{ url_for('orcamento') }}">Projeto personalizado</a>
+    <a href="{{ url_for('projetos') }}">Projetos</a>
     <a href="{{ url_for('empresas') }}">Empresas</a>
     <a href="{{ url_for('home') }}#parceiros">Parceiros</a>
     <div class="mobile-menu-divider"></div>
@@ -109,7 +111,7 @@
     <nav class="footer-column" aria-label="Explorar">
       <span class="footer-label">Explorar</span>
       <a href="{{ url_for('loja') }}">Catálogo</a>
-      <a href="{{ url_for('orcamento') }}">Projeto personalizado</a>
+      <a href="{{ url_for('projetos') }}">Projetos</a>
       <a href="{{ url_for('peca_sob_medida') }}">Peça sob medida</a>
       <a href="{{ url_for('imprimir_stl') }}">Imprimir STL</a>
       <a href="{{ url_for('empresas') }}">Voxxel Empresas</a>

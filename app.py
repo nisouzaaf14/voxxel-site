@@ -455,9 +455,19 @@ def imprimir_stl():
     return render_template("landing_comercial.html", pagina=PAGINAS_COMERCIAIS["imprimir_stl"])
 
 
-@app.route("/empresas")
+@app.route("/projetos")
+def projetos():
+    return render_template("projetos_entrada.html")
+
+
+@app.route("/simplificado", methods=["GET", "POST"])
+def simplificado():
+    return orcamento()
+
+
+@app.route("/empresas", methods=["GET", "POST"])
 def empresas():
-    return render_template("landing_comercial.html", pagina=PAGINAS_COMERCIAIS["empresas"])
+    return orcamento()
 
 
 @app.route("/termos")
@@ -1072,6 +1082,8 @@ def _mensagem_sistema(conn, pedido_id, texto):
 
 @app.route("/orcamento", methods=["GET", "POST"])
 def orcamento():
+    modo = "empresas" if request.endpoint == "empresas" else "simplificado" if request.endpoint == "simplificado" else "projetos"
+    template_orcamento = "orcamento.html" if modo == "projetos" else "projeto_guiado.html"
     resultado = None
     form = {
         "categoria": "tecnica", "altura": 10, "largura": 10, "profundidade": 10,
@@ -1103,6 +1115,7 @@ def orcamento():
             materiais_js=materiais_front, qualidade_js=QUALIDADE,
             complexidade_js=COMPLEXIDADE, cliente_logado=cliente_logado,
             regra_js=regra_front,
+            modo=modo,
         )
 
     cliente_logado = None
@@ -1125,21 +1138,21 @@ def orcamento():
             })
         except (ValueError, TypeError):
             flash("Verifique os valores preenchidos na calculadora.")
-            return render_template("orcamento.html", **contexto_orcamento(None))
+            return render_template(template_orcamento, **contexto_orcamento(None))
 
         if not all(math.isfinite(form[chave]) for chave in ("altura", "largura", "profundidade")):
             flash("As dimensões informadas não são válidas.")
-            return render_template("orcamento.html", **contexto_orcamento(None))
+            return render_template(template_orcamento, **contexto_orcamento(None))
         if (form["categoria"] not in CAT_ACABAMENTO or form["material"] not in MATERIAIS or
                 form["qualidade"] not in QUALIDADE or form["complexidade"] not in COMPLEXIDADE):
             flash("Uma das opções selecionadas não é válida. Revise a configuração do projeto.")
-            return render_template("orcamento.html", **contexto_orcamento(None))
+            return render_template(template_orcamento, **contexto_orcamento(None))
         if any(form[chave] <= 0 or form[chave] > 300 for chave in ("altura", "largura", "profundidade")):
             flash("Informe dimensões maiores que zero e de até 300 cm por eixo para usar a simulação automática.")
-            return render_template("orcamento.html", **contexto_orcamento(None))
+            return render_template(template_orcamento, **contexto_orcamento(None))
         if form["quantidade"] > 100:
             flash("Para mais de 100 unidades, envie o projeto em lotes ou fale com a Voxxel para uma cotação específica.")
-            return render_template("orcamento.html", **contexto_orcamento(None))
+            return render_template(template_orcamento, **contexto_orcamento(None))
 
         resultado = calcular_orcamento(
             form["altura"], form["largura"], form["profundidade"], form["quantidade"],
@@ -1153,38 +1166,50 @@ def orcamento():
             telefone = normalizar_telefone(request.form.get("telefone"))
             email = texto_seguro(request.form.get("email"), 180).lower()
             empresa_nome = texto_seguro(request.form.get("empresa_nome"), 160)
-            origem = texto_seguro(request.form.get("origem"), 40) or "orcamento"
+            origem = "empresas" if modo == "empresas" else texto_seguro(request.form.get("origem"), 40) or "orcamento"
             if origem not in {"orcamento", "peca_sob_medida", "imprimir_stl", "empresas"}:
                 origem = "orcamento"
             if not nome or not 10 <= len(telefone) <= 13 or not email_valido(email):
                 flash("Preencha nome, WhatsApp com DDD e um e-mail válido.")
-                return render_template("orcamento.html", **contexto_orcamento(resultado))
+                return render_template(template_orcamento, **contexto_orcamento(resultado))
             if origem == "empresas" and not empresa_nome:
                 flash("Informe o nome da empresa para solicitar o orçamento empresarial.")
-                return render_template("orcamento.html", **contexto_orcamento(resultado))
+                return render_template(template_orcamento, **contexto_orcamento(resultado))
 
             descricao_projeto = texto_seguro(request.form.get("descricao_projeto"), 1400)
             requisitos_projeto = texto_seguro(request.form.get("requisitos_projeto"), 1400)
             uso_projeto = texto_seguro(request.form.get("uso_projeto"), 1000)
             alteracoes_projeto = texto_seguro(request.form.get("alteracoes_projeto"), 1000)
+            if modo == "empresas":
+                extras = [
+                    ("CNPJ informado", texto_seguro(request.form.get("cnpj"), 24)),
+                    ("Prazo desejado (a confirmar)", texto_seguro(request.form.get("prazo"), 100)),
+                    ("Demanda", texto_seguro(request.form.get("demanda"), 20)),
+                    ("Quantidade aproximada", texto_seguro(request.form.get("quantidade_aproximada"), 80)),
+                ]
+                requisitos_projeto = "\n".join(f"{label}: {value}" for label, value in extras if value)
+            if modo in {"simplificado", "empresas"}:
+                requisitos_projeto += "\nMaterial e configuração técnica a definir na análise. Valores da simulação interna são preliminares."
             if len(descricao_projeto) < 12:
                 flash("Conte em poucas palavras o que você precisa produzir.")
-                return render_template("orcamento.html", **contexto_orcamento(resultado))
+                return render_template(template_orcamento, **contexto_orcamento(resultado))
 
             try:
                 modelo = validar_modelo_3d(request.files.get("modelo_3d"))
                 imagens = []
+                if modo in {"simplificado", "empresas"} and len(request.files.getlist("imagens_referencia")) > 6:
+                    raise ValueError("Envie no máximo 6 imagens de referência.")
                 for arq in request.files.getlist("imagens_referencia")[:6]:
                     info = validar_imagem_referencia(arq)
                     if info:
                         imagens.append(info)
             except ValueError as erro:
                 flash(str(erro))
-                return render_template("orcamento.html", **contexto_orcamento(resultado))
+                return render_template(template_orcamento, **contexto_orcamento(resultado))
 
             if not modelo and not imagens and origem != "empresas":
                 flash("Envie um arquivo 3D ou pelo menos uma imagem de referência para conseguirmos entender o projeto.")
-                return render_template("orcamento.html", **contexto_orcamento(resultado))
+                return render_template(template_orcamento, **contexto_orcamento(resultado))
 
             referencia_status = "arquivo_3d" if modelo else "imagem_descricao" if imagens else "contato_inicial"
             detalhes = (
@@ -1233,7 +1258,7 @@ def orcamento():
                 nome=nome, email=email,
             )
 
-    return render_template("orcamento.html", **contexto_orcamento(resultado))
+    return render_template(template_orcamento, **contexto_orcamento(resultado))
 
 
 @app.route("/api/projetos/mensagem-pendente")

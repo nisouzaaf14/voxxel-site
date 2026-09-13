@@ -1,0 +1,6 @@
+<nav class="project-modes" aria-label="Modos de projeto">
+  <a href="{{ url_for('projetos') }}">Visão geral</a>
+  <a href="{{ url_for('simplificado') }}" {{ 'aria-current=page' if request.endpoint == 'simplificado' }}>Simplificado</a>
+  <a href="{{ url_for('orcamento') }}" {{ 'aria-current=page' if request.endpoint == 'orcamento' }}>Projetos</a>
+  <a href="{{ url_for('empresas') }}" {{ 'aria-current=page' if request.endpoint == 'empresas' }}>Empresas</a>
+</nav>
