@@ -95,32 +95,76 @@ CONFIG_PADRAO = {
 
 PRODUTOS_SEED = [
     # nome, categoria, preço, descrição, ângulo do placeholder, estoque, material
-    ("Suporte Geométrico para Plantas", "decoracao", 64.90, "Cachepô facetado para vasos pequenos, produzido sob demanda com acabamento fosco.", "15deg", None, "pla"),
-    ("Porta Talheres Poligonal", "decoracao", 69.90, "Organizador de bancada com divisórias e desenho geométrico contemporâneo.", "80deg", None, "pla"),
-    ("Escultura Facetada de Mesa", "decoracao", 69.90, "Peça decorativa de linhas facetadas para estantes, nichos e mesas.", "270deg", None, "pla"),
-    ("Porta-Caneta Poligonal", "decoracao", 49.90, "Organizador compacto para canetas e pequenos acessórios de escritório.", "190deg", None, "pla"),
-    ("Estrutura para Luminária Geométrica", "decoracao", 109.90, "Cúpula decorativa de mesa com desenho vazado; componentes elétricos não inclusos.", "235deg", None, "pla"),
-    ("Organizador Modular de Gaveta", "decoracao", 64.90, "Módulos combináveis para organizar utensílios, acessórios e objetos pequenos.", "305deg", None, "pla"),
 
-    ("Máscara Cosplay Cavaleiro", "cosplay", 159.90, "Máscara cenográfica leve, entregue pronta para acabamento e pintura.", "150deg", None, "pla"),
-    ("Punho de Manopla Infinity", "cosplay", 179.90, "Acessório cenográfico modular produzido em partes para facilitar a montagem.", "45deg", None, "pla"),
-    ("Capacete Modular para Cosplay", "cosplay", 649.90, "Capacete cenográfico dividido em módulos, pronto para acabamento personalizado.", "110deg", None, "pla"),
-    ("Ombreira Cenográfica Modular", "cosplay", 189.90, "Par de ombreiras leves com pontos de fixação para compor trajes e armaduras.", "170deg", None, "pla"),
-    ("Emblema Personalizado para Traje", "cosplay", 39.90, "Emblema em relevo para roupa, acessório ou exposição, feito sob demanda.", "255deg", None, "pla"),
-    ("Suporte Expositor para Máscaras", "cosplay", 89.90, "Base de exposição estável para organizar e destacar máscaras e capacetes.", "335deg", None, "pla"),
+    # Catálogo original — preços alinhados à matriz V22
+    ("Suporte Geométrico para Plantas", "decoracao", 99.90, "Cachepô facetado para vasos pequenos, produzido sob demanda com acabamento fosco.", "15deg", None, "pla"),
+    ("Porta Talheres Poligonal", "decoracao", 109.90, "Organizador de bancada com divisórias e desenho geométrico contemporâneo.", "80deg", None, "pla"),
+    ("Escultura Facetada de Mesa", "decoracao", 129.90, "Peça decorativa de linhas facetadas para estantes, nichos e mesas.", "270deg", None, "pla"),
+    ("Porta-Caneta Poligonal", "decoracao", 69.90, "Organizador compacto para canetas e pequenos acessórios de escritório.", "190deg", None, "pla"),
+    ("Estrutura para Luminária Geométrica", "decoracao", 169.90, "Cúpula decorativa de mesa com desenho vazado; componentes elétricos não inclusos.", "235deg", None, "pla"),
+    ("Organizador Modular de Gaveta", "decoracao", 109.90, "Módulos combináveis para organizar utensílios, acessórios e objetos pequenos.", "305deg", None, "pla"),
 
-    ("Suporte de Celular Articulado", "tecnica", 69.90, "Suporte ajustável de mesa para posicionar o celular em diferentes ângulos.", "220deg", None, "petg"),
-    ("Organizador de Ferramentas", "tecnica", 79.90, "Suporte modular para manter ferramentas e acessórios acessíveis na bancada.", "320deg", None, "pla"),
-    ("Suporte para Fones", "tecnica", 79.90, "Suporte de bancada para headset com base estável e formato compacto.", "300deg", None, "pla"),
-    ("Adaptador para Mangueira e Aspirador", "tecnica", 59.90, "Adaptador funcional sob medida para conectar bocais e mangueiras compatíveis.", "65deg", None, "petg"),
-    ("Kit de Presilhas e Guias para Cabos", "tecnica", 39.90, "Conjunto de guias para organizar cabos em mesas, paredes e equipamentos.", "125deg", None, "petg"),
+    ("Máscara Cosplay Cavaleiro", "cosplay", 219.90, "Máscara cenográfica leve, entregue pronta para acabamento e pintura.", "150deg", None, "pla"),
+    ("Punho de Manopla Infinity", "cosplay", 299.90, "Acessório cenográfico modular produzido em partes para facilitar a montagem.", "45deg", None, "pla"),
+    ("Capacete Modular para Cosplay", "cosplay", 599.90, "Capacete cenográfico dividido em módulos, pronto para acabamento personalizado.", "110deg", None, "pla"),
+    ("Ombreira Cenográfica Modular", "cosplay", 329.90, "Par de ombreiras leves com pontos de fixação para compor trajes e armaduras.", "170deg", None, "pla"),
+    ("Emblema Personalizado para Traje", "cosplay", 49.90, "Emblema em relevo para roupa, acessório ou exposição, feito sob demanda.", "255deg", None, "pla"),
+    ("Suporte Expositor para Máscaras", "cosplay", 139.90, "Base de exposição estável para organizar e destacar máscaras e capacetes.", "335deg", None, "pla"),
+
+    ("Suporte de Celular Articulado", "tecnica", 109.90, "Suporte ajustável de mesa para posicionar o celular em diferentes ângulos.", "220deg", None, "petg"),
+    ("Organizador de Ferramentas", "tecnica", 139.90, "Suporte modular para manter ferramentas e acessórios acessíveis na bancada.", "320deg", None, "pla"),
+    ("Suporte para Fones", "tecnica", 89.90, "Suporte de bancada para headset com base estável e formato compacto.", "300deg", None, "pla"),
+    ("Adaptador para Mangueira e Aspirador", "tecnica", 69.90, "Adaptador funcional sob medida para conectar bocais e mangueiras compatíveis.", "65deg", None, "petg"),
+    ("Kit de Presilhas e Guias para Cabos", "tecnica", 59.90, "Conjunto de guias para organizar cabos em mesas, paredes e equipamentos.", "125deg", None, "petg"),
     ("Manopla de Reposição Personalizada", "tecnica", 69.90, "Manopla funcional com encaixe ajustável às medidas informadas no pedido.", "285deg", None, "petg"),
+
+    # Expansão V21/V22 — Decoração & Utilitário
+    ("Porta-Chaves Modular de Parede", "decoracao", 89.90, "Sistema compacto de parede com módulos para chaves, chaveiros e pequenos objetos de entrada.", "25deg", None, "pla"),
+    ("Bandeja Organizadora Empilhável", "decoracao", 109.90, "Bandeja modular para acessórios, escritório e pequenos objetos, com encaixe para empilhamento.", "55deg", None, "pla"),
+    ("Organizador Modular de Maquiagem", "decoracao", 129.90, "Organizador de bancada com divisórias para pincéis, batons, lápis e itens pequenos.", "95deg", None, "pla"),
+    ("Porta-Cápsulas de Café Vertical", "decoracao", 149.90, "Organizador vertical para cápsulas de café, pensado para ocupar pouca área de bancada.", "135deg", None, "pla"),
+    ("Suporte Ajustável para Livro e Tablet", "decoracao", 149.90, "Suporte de mesa com múltiplas posições de inclinação para livros, tablets e receitas.", "175deg", None, "petg"),
+    ("Kit Porta-Copos Geométricos", "decoracao", 99.90, "Conjunto de quatro porta-copos geométricos com base para armazenamento.", "215deg", None, "pla"),
+    ("Vaso Autoirrigável Compacto", "decoracao", 119.90, "Vaso decorativo compacto com reservatório separado para reduzir a frequência de rega.", "245deg", None, "petg"),
+    ("Porta-Joias Modular com Divisórias", "decoracao", 129.90, "Sistema de bandejas para anéis, brincos, correntes e acessórios, combinável por módulos.", "275deg", None, "pla"),
+    ("Organizador de Mesa para Controles Remotos", "decoracao", 89.90, "Base de bancada com espaços separados para controles e pequenos dispositivos domésticos.", "315deg", None, "pla"),
+    ("Dispenser Compacto de Sacolas", "decoracao", 139.90, "Organizador vertical para armazenar e retirar sacolas de forma mais organizada.", "345deg", None, "pla"),
+    ("Suporte de Parede para Vasos Pequenos", "decoracao", 119.90, "Suporte decorativo para vasos pequenos, pensado para composições de parede.", "35deg", None, "petg"),
+    ("Luminária Lithophane Personalizada", "decoracao", 219.90, "Estrutura decorativa para lithophane personalizada a partir de fotografia; componentes elétricos não inclusos.", "75deg", None, "pla"),
+
+    # Expansão V21/V22 — Peça Técnica
+    ("Suporte Elevado para Notebook", "tecnica", 119.90, "Base inclinada para elevar notebook, melhorar ergonomia e liberar passagem de ar.", "105deg", None, "petg"),
+    ("Suporte VESA para Mini PC", "tecnica", 109.90, "Estrutura para instalar mini PC atrás de monitor compatível ou em superfície vertical.", "145deg", None, "petg"),
+    ("Suporte Articulado para Webcam ou Câmera", "tecnica", 89.90, "Suporte compacto com ajuste de ângulo para webcam, câmera leve ou sensor de bancada.", "185deg", None, "petg"),
+    ("Caixa Modular para Eletrônica", "tecnica", 99.90, "Gabinete genérico para pequenos projetos eletrônicos, com tampa removível e áreas para adaptação.", "225deg", None, "petg"),
+    ("Organizador de Bits e Brocas", "tecnica", 89.90, "Base de bancada com posições para bits, brocas e pequenos acessórios de ferramentas.", "265deg", None, "pla"),
+    ("Suporte de Bancada para Multímetro", "tecnica", 89.90, "Base inclinada para manter multímetro visível e estável durante medições.", "305deg", None, "petg"),
+    ("Organizador de Pilhas AA e AAA", "tecnica", 99.90, "Dispenser compacto para armazenar pilhas separadas por formato.", "335deg", None, "pla"),
+    ("Passa-Cabos de Mesa com Tampa", "tecnica", 49.90, "Acabamento para passagem de cabos em mesa ou bancada, com tampa removível.", "15deg", None, "petg"),
+    ("Suporte Sob Mesa para Fonte ou Carregador", "tecnica", 79.90, "Estrutura para fixação inferior de fontes, hubs ou carregadores sob mesa.", "45deg", None, "petg"),
+    ("Gabarito de Furação em 90 Graus", "tecnica", 89.90, "Guia para auxiliar furos perpendiculares em trabalhos leves de montagem e marcenaria.", "85deg", None, "petg"),
+    ("Suporte de Parede para Roteador ou Modem", "tecnica", 99.90, "Base ventilada para instalação vertical de roteador, modem ou equipamento de rede.", "125deg", None, "petg"),
+    ("Suporte para Ferro de Solda e Acessórios", "tecnica", 119.90, "Base para organizar ferro de solda desligado, pontas e acessórios; não substitui suporte térmico durante uso.", "165deg", None, "petg"),
+
+    # Expansão V21/V22 — Cosplay & Acessório
+    ("Máscara Oni Estilizada", "cosplay", 229.90, "Máscara cenográfica estilizada produzida para acabamento, pintura e composição de fantasia.", "205deg", None, "pla"),
+    ("Máscara Cyberpunk Modular", "cosplay", 269.90, "Máscara cenográfica futurista formada por módulos para facilitar montagem e personalização.", "245deg", None, "pla"),
+    ("Colar de Armadura Futurista", "cosplay", 299.90, "Peça cenográfica modular para região do pescoço e ombros, adaptável ao traje.", "285deg", None, "pla"),
+    ("Coroa Fantasia Modular", "cosplay", 139.90, "Coroa cenográfica desmontável para fantasia, ensaio ou exposição.", "325deg", None, "pla"),
+    ("Tiara Temática com Encaixes", "cosplay", 89.90, "Base de tiara com pontos de encaixe para elementos decorativos intercambiáveis.", "5deg", None, "petg"),
+    ("Bracelete Tecnológico Cenográfico", "cosplay", 159.90, "Bracelete de visual sci-fi com peças modulares e espaço para detalhes decorativos.", "45deg", None, "pla"),
+    ("Peitoral Modular Cenográfico", "cosplay", 649.90, "Conjunto frontal de armadura leve dividido em módulos para montagem e adaptação ao usuário.", "85deg", None, "pla"),
+    ("Caneleira Modular Cenográfica", "cosplay", 499.90, "Peça de armadura leve para perna, segmentada para montagem e ajuste visual.", "125deg", None, "pla"),
+    ("Cinto Modular para Cosplay", "cosplay", 379.90, "Sistema de cinto cenográfico com módulos para acessórios e personalização temática.", "165deg", None, "petg"),
+    ("Fivela Personalizável para Cinto", "cosplay", 109.90, "Fivela cenográfica com área frontal personalizável para símbolo, nome ou identidade visual.", "205deg", None, "petg"),
+    ("Kit de Conectores para Armadura Cosplay", "cosplay", 129.90, "Conjunto de presilhas, conectores e uniões para montagem de armadura cenográfica.", "245deg", None, "petg"),
+    ("Chifres Modulares Cenográficos", "cosplay", 189.90, "Par de chifres decorativos desmontáveis com sistema de montagem pensado para transporte.", "285deg", None, "pla"),
 ]
 
-# Preços de catálogo revisados em 2026-09 para posicionamento médio/premium.
-# A referência combina custo de produção, porte/complexidade e comparáveis de varejo.
-# Projetos personalizados continuam usando a calculadora técnica.
-PRECOS_CATALOGO_V20 = {produto[0]: produto[2] for produto in PRODUTOS_SEED}
+# Matriz comercial V22 aplicada ao catálogo. A migração abaixo atualiza uma
+# única vez o banco já publicado; futuras alterações manuais do admin continuam
+# preservadas após a aplicação do marcador catalogo_precos_v22.
+PRECOS_CATALOGO_V22 = {produto[0]: produto[2] for produto in PRODUTOS_SEED}
 
 PRODUTOS_ILUSTRACOES = {
     "Suporte Geométrico para Plantas": "suporte-geometrico-plantas.webp",
@@ -671,17 +715,17 @@ def _criar_tabelas(conn, is_new_sqlite):
     # revisada sem ficar sobrescrevendo futuras alterações feitas pelo admin.
     marcador_preco = conn.execute(
         "SELECT valor FROM configuracoes WHERE chave = ?",
-        ("catalogo_precos_v20",),
+        ("catalogo_precos_v22",),
     ).fetchone()
     if not marcador_preco:
-        for nome, preco in PRECOS_CATALOGO_V20.items():
+        for nome, preco in PRECOS_CATALOGO_V22.items():
             conn.execute(
                 "UPDATE produtos SET preco = ? WHERE LOWER(nome) = LOWER(?)",
                 (preco, nome),
             )
         conn.execute(
             "INSERT INTO configuracoes (chave, valor) VALUES (?, ?)",
-            ("catalogo_precos_v20", "1"),
+            ("catalogo_precos_v22", "1"),
         )
         conn.commit()
     # Ilustrações próprias dos itens de demonstração. Fotos reais enviadas
