@@ -4,3 +4,128 @@
 .project-side{display:flex;flex-direction:column;gap:14px}.project-side-card{padding:20px}.project-side-card h2{font-size:1rem;margin:0 0 14px}.project-facts{display:grid;gap:10px}.project-fact{display:flex;justify-content:space-between;gap:16px;padding-bottom:10px;border-bottom:1px solid var(--line);font-size:.8rem}.project-fact:last-child{border:0;padding-bottom:0}.project-fact span{color:var(--muted)}.project-fact strong{text-align:right}.project-reference-badge{padding:13px;border-radius:13px;background:rgba(147,92,255,.08);border:1px solid rgba(160,110,255,.2);font-size:.8rem;line-height:1.5}.project-actions{display:grid;gap:9px}.project-actions form{margin:0}.project-actions button{width:100%}.project-action-note{font-size:.72rem;color:var(--muted);line-height:1.5;margin:0}.unread-dot{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:#8d52ff;color:white;font:700 .66rem/1 'Space Mono',monospace}
 @media(max-width:900px){.project-hub-grid{grid-template-columns:1fr}.project-side{order:-1}.project-side-card:first-child{display:none}}@media(max-width:620px){.project-hub{padding-top:24px}.project-top{padding:20px;flex-direction:column}.project-brief,.project-files,.project-chat{padding:18px}.project-brief-grid-view,.project-file-grid{grid-template-columns:1fr}.project-brief-item.wide{grid-column:auto}.chat-msg{max-width:92%}}
 .project-file-image{padding:0;display:grid;grid-template-columns:78px minmax(0,1fr);overflow:hidden}.project-file-thumb{width:78px;height:66px;object-fit:cover;display:block;background:var(--panel-2)}.project-file-image .project-file-copy{padding-right:12px}
+
+
+/* V2 — project hub mobile polish */
+@media(max-width:900px){
+  .project-hub-page .project-side{
+    order:-1;
+  }
+  .project-hub-page .project-side-card.highlight{
+    order:-2;
+  }
+  .project-hub-page .project-side-card:first-child{
+    display:block;
+    order:-1;
+  }
+  .project-hub-page .project-side-card:nth-child(2){
+    display:none;
+  }
+}
+@media(max-width:620px){
+  .project-hub-page .project-hub{
+    padding:22px 0 68px;
+  }
+  .project-hub-page .project-hub-grid{
+    gap:10px;
+  }
+  .project-hub-page .project-main,
+  .project-hub-page .project-side-card{
+    border-radius:18px;
+  }
+  .project-hub-page .project-side{
+    gap:8px;
+  }
+  .project-hub-page .project-side-card{
+    padding:15px;
+  }
+  .project-hub-page .project-side-card h2{
+    margin-bottom:10px;
+    font-size:.84rem;
+  }
+  .project-hub-page .project-next-title{
+    margin-bottom:8px;
+  }
+  .project-hub-page .project-next-title span{
+    font-size:.62rem;
+  }
+  .project-hub-page .project-facts{
+    grid-template-columns:1fr 1fr;
+    gap:0 12px;
+  }
+  .project-hub-page .project-fact{
+    display:grid;
+    gap:4px;
+    padding:9px 0;
+    font-size:.7rem;
+  }
+  .project-hub-page .project-fact strong{
+    text-align:left;
+    font-size:.73rem;
+  }
+  .project-hub-page .project-top{
+    padding:17px;
+    gap:12px;
+  }
+  .project-hub-page .project-top h1{
+    font-size:1.15rem;
+    line-height:1.35;
+  }
+  .project-hub-page .project-top p{
+    font-size:.68rem!important;
+  }
+  .project-hub-page .project-top-actions{
+    width:100%;
+  }
+  .project-hub-page .project-status{
+    min-height:34px;
+    padding:7px 10px;
+    font-size:.66rem;
+  }
+  .project-hub-page .project-timeline{
+    padding:13px 16px 15px;
+  }
+  .project-hub-page .project-brief,
+  .project-hub-page .project-files,
+  .project-hub-page .project-chat{
+    padding:16px;
+  }
+  .project-hub-page .project-section-title{
+    margin-bottom:10px;
+    font-size:.66rem;
+  }
+  .project-hub-page .project-brief-item{
+    padding:12px;
+    border-radius:12px;
+  }
+  .project-hub-page .project-brief-item p{
+    font-size:.78rem;
+  }
+  .project-hub-page .project-file{
+    min-height:58px;
+  }
+  .project-hub-page .chat-thread{
+    max-height:420px;
+  }
+  .project-hub-page .chat-msg{
+    max-width:94%;
+    padding:10px 12px;
+  }
+  .project-hub-page .chat-msg p{
+    font-size:.78rem;
+  }
+  .project-hub-page .chat-compose textarea{
+    min-height:78px;
+    font-size:16px;
+  }
+  .project-hub-page .chat-compose-bottom{
+    align-items:stretch;
+    flex-direction:column;
+  }
+  .project-hub-page .chat-compose-actions{
+    width:100%;
+  }
+  .project-hub-page .chat-compose-actions .btn{
+    width:100%;
+  }
+}
