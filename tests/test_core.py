@@ -56,6 +56,32 @@ class MarketplaceDatabaseTests(unittest.TestCase):
         self.assertEqual(row["ativo"], 0)
         self.assertEqual(row["status_cadastro"], "pendente")
 
+    def test_catalog_seed_is_balanced_and_idempotent(self):
+        conn = database.get_db()
+        before = {
+            row["categoria"]: row["total"]
+            for row in conn.execute(
+                "SELECT categoria, COUNT(*) AS total FROM produtos GROUP BY categoria"
+            ).fetchall()
+        }
+        conn.close()
+
+        database.init_db()
+
+        conn = database.get_db()
+        after = {
+            row["categoria"]: row["total"]
+            for row in conn.execute(
+                "SELECT categoria, COUNT(*) AS total FROM produtos GROUP BY categoria"
+            ).fetchall()
+        }
+        total = conn.execute("SELECT COUNT(*) AS total FROM produtos").fetchone()["total"]
+        conn.close()
+
+        self.assertEqual(before, {"cosplay": 6, "decoracao": 6, "tecnica": 6})
+        self.assertEqual(after, before)
+        self.assertEqual(total, 18)
+
     def test_cancelled_order_cannot_accept_offer(self):
         conn = database.get_db()
         partner_id = database.criar_impressora(conn, "Parceiro", "41999999999", "hash", "pla")

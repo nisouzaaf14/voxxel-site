@@ -94,15 +94,27 @@ CONFIG_PADRAO = {
 }
 
 PRODUTOS_SEED = [
-    ("Suporte Geométrico para Plantas", "decoracao", 59.90, "Vaso facetado em PLA, acabamento fosco.", "15deg"),
-    ("Porta Talheres Poligonal", "decoracao", 44.90, "Organizador de bancada com design low poly.", "80deg"),
-    ("Máscara Cosplay Cavaleiro", "cosplay", 129.90, "Réplica pronta para pintura, tamanho único.", "150deg"),
-    ("Suporte de Celular Articulado", "tecnica", 34.90, "Peça técnica ajustável para mesa.", "220deg"),
-    ("Escultura Facetada de Mesa", "decoracao", 39.90, "Peça geométrica decorativa colecionável.", "270deg"),
-    ("Organizador de Ferramentas", "tecnica", 49.90, "Suporte modular para bancada de trabalho.", "320deg"),
-    ("Punho de Manopla Infinity", "cosplay", 139.90, "Réplica de manopla, montagem em partes.", "45deg"),
-    ("Porta-Caneta Poligonal", "decoracao", 29.90, "Organizador de mesa com faces geométricas.", "190deg"),
-    ("Suporte para Fones", "tecnica", 32.90, "Suporte de bancada para headset.", "300deg"),
+    # nome, categoria, preço, descrição, ângulo do placeholder, estoque, material
+    ("Suporte Geométrico para Plantas", "decoracao", 59.90, "Cachepô facetado para vasos pequenos, produzido sob demanda com acabamento fosco.", "15deg", None, "pla"),
+    ("Porta Talheres Poligonal", "decoracao", 44.90, "Organizador de bancada com divisórias e desenho geométrico contemporâneo.", "80deg", None, "pla"),
+    ("Escultura Facetada de Mesa", "decoracao", 39.90, "Peça decorativa de linhas facetadas para estantes, nichos e mesas.", "270deg", None, "pla"),
+    ("Porta-Caneta Poligonal", "decoracao", 29.90, "Organizador compacto para canetas e pequenos acessórios de escritório.", "190deg", None, "pla"),
+    ("Estrutura para Luminária Geométrica", "decoracao", 79.90, "Cúpula decorativa de mesa com desenho vazado; componentes elétricos não inclusos.", "235deg", None, "pla"),
+    ("Organizador Modular de Gaveta", "decoracao", 39.90, "Módulos combináveis para organizar utensílios, acessórios e objetos pequenos.", "305deg", None, "pla"),
+
+    ("Máscara Cosplay Cavaleiro", "cosplay", 129.90, "Máscara cenográfica leve, entregue pronta para acabamento e pintura.", "150deg", None, "pla"),
+    ("Punho de Manopla Infinity", "cosplay", 139.90, "Acessório cenográfico modular produzido em partes para facilitar a montagem.", "45deg", None, "pla"),
+    ("Capacete Modular para Cosplay", "cosplay", 189.90, "Capacete cenográfico dividido em módulos, pronto para acabamento personalizado.", "110deg", None, "pla"),
+    ("Ombreira Cenográfica Modular", "cosplay", 89.90, "Par de ombreiras leves com pontos de fixação para compor trajes e armaduras.", "170deg", None, "pla"),
+    ("Emblema Personalizado para Traje", "cosplay", 24.90, "Emblema em relevo para roupa, acessório ou exposição, feito sob demanda.", "255deg", None, "pla"),
+    ("Suporte Expositor para Máscaras", "cosplay", 49.90, "Base de exposição estável para organizar e destacar máscaras e capacetes.", "335deg", None, "pla"),
+
+    ("Suporte de Celular Articulado", "tecnica", 34.90, "Suporte ajustável de mesa para posicionar o celular em diferentes ângulos.", "220deg", None, "petg"),
+    ("Organizador de Ferramentas", "tecnica", 49.90, "Suporte modular para manter ferramentas e acessórios acessíveis na bancada.", "320deg", None, "pla"),
+    ("Suporte para Fones", "tecnica", 32.90, "Suporte de bancada para headset com base estável e formato compacto.", "300deg", None, "pla"),
+    ("Adaptador para Mangueira e Aspirador", "tecnica", 39.90, "Adaptador funcional sob medida para conectar bocais e mangueiras compatíveis.", "65deg", None, "petg"),
+    ("Kit de Presilhas e Guias para Cabos", "tecnica", 19.90, "Conjunto de guias para organizar cabos em mesas, paredes e equipamentos.", "125deg", None, "petg"),
+    ("Manopla de Reposição Personalizada", "tecnica", 29.90, "Manopla funcional com encaixe ajustável às medidas informadas no pedido.", "285deg", None, "petg"),
 ]
 
 
@@ -399,9 +411,6 @@ def _criar_tabelas(conn, is_new_sqlite):
         conn.execute("ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS impressora_id INTEGER REFERENCES impressoras(id)")
         conn.commit()
 
-        # Popula os produtos de exemplo só se a tabela ainda estiver vazia
-        row = conn.execute("SELECT COUNT(*) AS total FROM produtos").fetchone()
-        precisa_seed = row["total"] == 0
     else:
         conn.execute(
             """
@@ -606,14 +615,20 @@ def _criar_tabelas(conn, is_new_sqlite):
         except sqlite3.OperationalError:
             pass
         conn.commit()
-        precisa_seed = is_new_sqlite
-
-    if precisa_seed:
-        conn.executemany(
-            "INSERT INTO produtos (nome, categoria, preco, descricao, imagem_ang) VALUES (?, ?, ?, ?, ?)",
-            PRODUTOS_SEED,
+    # Carga incremental do catálogo: inclui lançamentos também nos bancos que
+    # já estão em uso, mas preserva produtos existentes e alterações do admin.
+    # A comparação pelo nome torna a operação idempotente em SQLite/Postgres.
+    for produto in PRODUTOS_SEED:
+        conn.execute(
+            """INSERT INTO produtos
+               (nome, categoria, preco, descricao, imagem_ang, estoque, material)
+               SELECT ?, ?, ?, ?, ?, ?, ?
+               WHERE NOT EXISTS (
+                   SELECT 1 FROM produtos WHERE LOWER(nome) = LOWER(?)
+               )""",
+            (*produto, produto[0]),
         )
-        conn.commit()
+    conn.commit()
 
     # Snapshot dos itens de pedidos do catálogo. Além de preservar o preço e
     # material no momento da compra, permite reservar estoque de forma
