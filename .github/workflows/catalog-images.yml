@@ -1,0 +1,103 @@
+name: Persist catalog images
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  persist-images:
+    if: github.event_name == 'workflow_dispatch' || !contains(github.event.head_commit.message, '[catalog-images]')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Pillow
+        run: python -m pip install --disable-pip-version-check Pillow==11.3.0
+
+      - name: Download and optimize catalog images
+        run: |
+          python <<'PY'
+          import ast
+          import io
+          import json
+          import re
+          import unicodedata
+          from pathlib import Path
+          from urllib.request import Request, urlopen
+          from PIL import Image
+
+          source = Path("database.py").read_text(encoding="utf-8")
+          tree = ast.parse(source)
+
+          urls = None
+          for node in tree.body:
+              if isinstance(node, ast.Assign):
+                  for target in node.targets:
+                      if isinstance(target, ast.Name) and target.id == "PRODUTOS_IMAGENS_REMOTAS_V23":
+                          urls = ast.literal_eval(node.value)
+                          break
+              if urls is not None:
+                  break
+
+          if not urls or len(urls) != 36:
+              raise SystemExit(f"Esperava 36 imagens, encontrei {0 if not urls else len(urls)}")
+
+          def slugify(value):
+              value = unicodedata.normalize("NFKD", value).encode("ascii", "ignore").decode("ascii")
+              value = re.sub(r"[^a-zA-Z0-9]+", "-", value).strip("-").lower()
+              return value
+
+          out_dir = Path("static/images/products")
+          out_dir.mkdir(parents=True, exist_ok=True)
+          manifest = {}
+
+          for index, (name, url) in enumerate(urls.items(), start=1):
+              filename = f"{slugify(name)}.webp"
+              dest = out_dir / filename
+              manifest[name] = filename
+
+              if dest.exists() and dest.stat().st_size > 1000:
+                  print(f"[{index:02}/36] já existe: {filename}")
+                  continue
+
+              req = Request(url, headers={"User-Agent": "VoxxelCatalog/1.0"})
+              with urlopen(req, timeout=30) as response:
+                  raw = response.read(10 * 1024 * 1024 + 1)
+
+              if not raw or len(raw) > 10 * 1024 * 1024:
+                  raise RuntimeError(f"Imagem inválida para {name}")
+
+              with Image.open(io.BytesIO(raw)) as image:
+                  image = image.convert("RGB")
+                  image.thumbnail((900, 900), Image.Resampling.LANCZOS)
+                  image.save(dest, "WEBP", quality=84, method=6, optimize=True)
+
+              print(f"[{index:02}/36] salvo: {filename} ({dest.stat().st_size} bytes)")
+
+          (out_dir / "catalog-v23-manifest.json").write_text(
+              json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
+              encoding="utf-8",
+          )
+          PY
+
+      - name: Commit images
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add static/images/products
+          if git diff --cached --quiet; then
+            echo "Nenhuma imagem nova para publicar."
+            exit 0
+          fi
+          git commit -m "Adiciona imagens permanentes do catálogo [catalog-images]"
+          git push
