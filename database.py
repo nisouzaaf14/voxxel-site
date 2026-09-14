@@ -3,8 +3,12 @@ import re
 import time
 import math
 import sqlite3
+from io import BytesIO
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
+from urllib.request import Request, urlopen
+
+from PIL import Image
 
 DB_PATH = Path(__file__).parent / "voxxel.db"
 
@@ -206,6 +210,96 @@ PRODUTOS_CATALOGO_ATIVOS_V24 = {
     "Chifres Modulares Cenográficos",
     "Suporte Expositor para Máscaras",
 }
+
+
+# Imagens de estúdio V25 para os 30 produtos ativos. São importadas uma única
+# vez no banco de produção e passam a ter prioridade sobre os arquivos antigos.
+PRODUTOS_IMAGENS_ESTUDIO_V25 = {
+    "Porta-Chaves Modular de Parede": "https://d2jqrm6oza8nb6.cloudfront.net/datasets/67e93ec8-a3c4-4bed-8b0e-fead61bd0571.png?_jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJrZXlIYXNoIjoiNDczYTc1OWFhZmYwZTIwNCIsImJ1Y2tldCI6InJ1bndheS1kYXRhc2V0cyIsInN0YWdlIjoicHJvZCIsImV4cCI6MTc4OTUzMTkzMH0.k4w3FZDW8erqwHsErHadlboCpsdem5ypE-wUX9F-vxY",
+    "Bandeja Organizadora Empilhável": "https://d2jqrm6oza8nb6.cloudfront.net/datasets/40a40833-a0a2-404d-afb3-219aa7f12fc4.png?_jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJrZXlIYXNoIjoiNzNlZWNjMDI1ZmZmNGRmNiIsImJ1Y2tldCI6InJ1bndheS1kYXRhc2V0cyIsInN0YWdlIjoicHJvZCIsImV4cCI6MTc4OTUwOTYzNH0.FPtVeILPlJTBK5lwOjHTlGKNLqez5kTnk9Xme_A02h0",
+    "Organizador Modular de Maquiagem": "https://d2jqrm6oza8nb6.cloudfront.net/datasets/3d38724c-ff41-452c-b5f1-79563d36d242.png?_jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJrZXlIYXNoIjoiODBmY2Y4NmFjMGYwNGI3MSIsImJ1Y2tldCI6InJ1bndheS1kYXRhc2V0cyIsInN0YWdlIjoicHJvZCIsImV4cCI6MTc4OTUxODMxNH0.1QmHLmnuaDFqlaZ6rb5h65PBnAOpjLqXg9jqSBFH5z0",
+    "Porta-Cápsulas de Café Vertical": "https://d2jqrm6oza8nb6.cloudfront.net/datasets/c6561bde-82e3-4869-8e89-6f5e49d423ac.png?_jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJrZXlIYXNoIjoiNGQ5ZWY3ZGU3Y2UxMjRmMSIsImJ1Y2tldCI6InJ1bndheS1kYXRhc2V0cyIsInN0YWdlIjoicHJvZCIsImV4cCI6MTc4OTU1OTc3NH0.RC8pNqwfwRXmgAOCE3GeFuPtBizu2dM07dx2POa7HAo",
+    "Suporte Ajustável para Livro e Tablet": "https://d2jqrm6oza8nb6.cloudfront.net/datasets/42bab2fe-ee9c-49f9-b7d5-8ae6bd9579fb.png?_jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJrZXlIYXNoIjoiZWEwODk2NTBiYWM5ZGViMyIsImJ1Y2tldCI6InJ1bndheS1kYXRhc2V0cyIsInN0YWdlIjoicHJvZCIsImV4cCI6MTc4OTUwMDExMn0.hoFSCVdvmSvYBl_8CFNa0JyFy62kNkDhOR2lg3mVIUQ",
+    "Kit Porta-Copos Geométricos": "https://d2jqrm6oza8nb6.cloudfront.net/datasets/7883450d-367e-4a1a-87dc-d8b686840a0f.png?_jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJrZXlIYXNoIjoiZjJjNjIyOGU1OWU5NTA5YyIsImJ1Y2tldCI6InJ1bndheS1kYXRhc2V0cyIsInN0YWdlIjoicHJvZCIsImV4cCI6MTc4OTUxOTI0Nn0.Bjtjkm2tqB9UKWDMSItgUoZQs0FlLhse97S2jFMS59Y",
+    "Vaso Autoirrigável Compacto": "https://d2jqrm6oza8nb6.cloudfront.net/datasets/2b65768a-9058-4418-9b57-c85ab056e13b.png?_jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJrZXlIYXNoIjoiMDNhYjRiZjRlZjI1MDQ3NSIsImJ1Y2tldCI6InJ1bndheS1kYXRhc2V0cyIsInN0YWdlIjoicHJvZCIsImV4cCI6MTc4OTU1Nzc0OH0.vdkEp56uSaeY3FOhN4akfUf8_9Un9lPcg8VQJFZZcIs",
+    "Porta-Joias Modular com Divisórias": "https://d2jqrm6oza8nb6.cloudfront.net/datasets/0382ee44-0fce-4590-bbeb-fb6297d46d8a.png?_jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJrZXlIYXNoIjoiYTFkMjcyMjc0OTEwNmRjNyIsImJ1Y2tldCI6InJ1bndheS1kYXRhc2V0cyIsInN0YWdlIjoicHJvZCIsImV4cCI6MTc4OTQ5MzE1OX0.-Tonpin--D4ITFSIHy_Yie8YpKKx6NKTFNCYzoSOE90",
+    "Organizador de Mesa para Controles Remotos": "https://d2jqrm6oza8nb6.cloudfront.net/datasets/4b539828-3af3-4cf3-b80b-585c5bd5a1dc.png?_jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJrZXlIYXNoIjoiZjFkZGQ4ZjJjMGM5ZTE1ZSIsImJ1Y2tldCI6InJ1bndheS1kYXRhc2V0cyIsInN0YWdlIjoicHJvZCIsImV4cCI6MTc4OTUwMjQ1MH0.rqrOCmGjKnSS_HVx5hLuKSogDstQa_gZ62kuB0W5ke0",
+    "Luminária Lithophane Personalizada": "https://d2jqrm6oza8nb6.cloudfront.net/datasets/280d3d10-213c-4f7a-9477-8acc0aba10e8.png?_jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJrZXlIYXNoIjoiMTJmYjIwODM2NGJiODU5MyIsImJ1Y2tldCI6InJ1bndheS1kYXRhc2V0cyIsInN0YWdlIjoicHJvZCIsImV4cCI6MTc4OTQ5NDE0N30.J84h5UeGJCYa5vTar7vVsvde4EtJ0Zm5gzcPSSQpWug",
+    "Suporte para Fones": "https://d2jqrm6oza8nb6.cloudfront.net/datasets/15aaa460-f91e-4acb-98c8-8e2db28d4ebf.png?_jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJrZXlIYXNoIjoiMWFjN2NlN2JkMDQyZDZkZCIsImJ1Y2tldCI6InJ1bndheS1kYXRhc2V0cyIsInN0YWdlIjoicHJvZCIsImV4cCI6MTc4OTUzODkzOX0.5Grx3BhyteoZOn40vTJy7x1jTKj49YnY36-uGOtWJNY",
+    "Suporte de Celular Articulado": "https://d2jqrm6oza8nb6.cloudfront.net/datasets/4272ea20-68b0-4a49-93ed-30faa4b5ba50.png?_jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJrZXlIYXNoIjoiYzJhMjEwOWMzMjc0ZDQwNSIsImJ1Y2tldCI6InJ1bndheS1kYXRhc2V0cyIsInN0YWdlIjoicHJvZCIsImV4cCI6MTc4OTUxNjE4OH0.2aqHlly-BENi61fEierHTLCL3ZFbXoZTudo0lQ46bKQ",
+    "Suporte Elevado para Notebook": "https://d2jqrm6oza8nb6.cloudfront.net/datasets/0dc0b1f4-32f9-4f6e-873f-e0628470e675.png?_jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJrZXlIYXNoIjoiM2ZjNDNkNmM1NGRiMjJjYSIsImJ1Y2tldCI6InJ1bndheS1kYXRhc2V0cyIsInN0YWdlIjoicHJvZCIsImV4cCI6MTc4OTUzNzM4OH0.pKVEIXYlJjPOSd6qAKNHmz_xktc2MCSSKhEU9BlqF-s",
+    "Suporte VESA para Mini PC": "https://d2jqrm6oza8nb6.cloudfront.net/datasets/d9343c5c-da77-40af-aa02-2d21d3380663.png?_jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJrZXlIYXNoIjoiNTI3MWQyYzFlOWI4NzIxYSIsImJ1Y2tldCI6InJ1bndheS1kYXRhc2V0cyIsInN0YWdlIjoicHJvZCIsImV4cCI6MTc4OTUzMDQzM30.mMTvMi9S3w_OIQEivM7SlcrOjn47coy_n8eikYnzXCs",
+    "Caixa Modular para Eletrônica": "https://d2jqrm6oza8nb6.cloudfront.net/datasets/f5410ccb-18a9-44ea-a52e-2031819c6350.png?_jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJrZXlIYXNoIjoiYTdmYzU4Zjk2MjY3ZGM0OSIsImJ1Y2tldCI6InJ1bndheS1kYXRhc2V0cyIsInN0YWdlIjoicHJvZCIsImV4cCI6MTc4OTU2ODEyMX0.kYHDblPsK0rAfhzLHTSQrfYtjtJR-TwWK1YK-6rh6EE",
+    "Organizador de Bits e Brocas": "https://d2jqrm6oza8nb6.cloudfront.net/datasets/1920fa62-ada0-4ccf-b171-1ec94d7df166.png?_jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJrZXlIYXNoIjoiMWExZjJlOTZmMTNjNzI1YiIsImJ1Y2tldCI6InJ1bndheS1kYXRhc2V0cyIsInN0YWdlIjoicHJvZCIsImV4cCI6MTc4OTU0NzE1OH0.03CdzWru0AnLqy4oq2p5uykZhbxjkDdzdgrpU16PcYg",
+    "Passa-Cabos de Mesa com Tampa": "https://d2jqrm6oza8nb6.cloudfront.net/datasets/7f4bd6df-e945-48c7-b9d3-d8fc9718b1f8.png?_jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJrZXlIYXNoIjoiYjI3ZmQxZWE3M2FlNTIwYyIsImJ1Y2tldCI6InJ1bndheS1kYXRhc2V0cyIsInN0YWdlIjoicHJvZCIsImV4cCI6MTc4OTUyNzY1OH0.SOH_RvygvF0PJSXFp5_VvjKNYzy_bzxFEdPDd2D84sU",
+    "Suporte Sob Mesa para Fonte ou Carregador": "https://d2jqrm6oza8nb6.cloudfront.net/datasets/52b5d2c5-29ba-403a-81e4-13dc30e566b8.png?_jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJrZXlIYXNoIjoiMmUzNmU4ZTg0MDVhMDlhMSIsImJ1Y2tldCI6InJ1bndheS1kYXRhc2V0cyIsInN0YWdlIjoicHJvZCIsImV4cCI6MTc4OTUxMzcwNH0.r12pte6_yZW_rs5Uljnxhnyf2LsjkwEV_5xpWIQPxd0",
+    "Suporte de Parede para Roteador ou Modem": "https://d2jqrm6oza8nb6.cloudfront.net/datasets/0d3df422-983e-45d4-82e1-0bbf5d071908.png?_jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJrZXlIYXNoIjoiZTU1YTk4ZmU2Y2EzYzY5ZiIsImJ1Y2tldCI6InJ1bndheS1kYXRhc2V0cyIsInN0YWdlIjoicHJvZCIsImV4cCI6MTc4OTUyNjI3MH0.197cvbmJqLwvKkhAe3kbf7A3jKbwvg6hzjQcnLRAgng",
+    "Suporte para Ferro de Solda e Acessórios": "https://d2jqrm6oza8nb6.cloudfront.net/datasets/8aa0a72d-cd62-4721-8152-97bcca097ce5.png?_jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJrZXlIYXNoIjoiZGEyNjEyZjQ3OWM2MTNlZSIsImJ1Y2tldCI6InJ1bndheS1kYXRhc2V0cyIsInN0YWdlIjoicHJvZCIsImV4cCI6MTc4OTU0MTEwOH0.SYM6IF4PtFtoLEdzDScwr0wnzYSQS0Y8JkYDqwkjiyo",
+    "Máscara Oni Estilizada": "https://d2jqrm6oza8nb6.cloudfront.net/datasets/0404f42b-133b-452a-9f52-fae3f8e3f4a0.png?_jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJrZXlIYXNoIjoiMzgwN2Y0YzM0NjE2NzAyNiIsImJ1Y2tldCI6InJ1bndheS1kYXRhc2V0cyIsInN0YWdlIjoicHJvZCIsImV4cCI6MTc4OTUzMDMwN30.mxbsNeAKAgbNTgcjcrh_lDbCcM9bV-PCBYvucGE6iwY",
+    "Máscara Cyberpunk Modular": "https://d2jqrm6oza8nb6.cloudfront.net/datasets/91f44433-f49b-4e73-8f92-41dc852a1e4c.png?_jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJrZXlIYXNoIjoiNDFkNWFjNzVjNTIyNDY1ZSIsImJ1Y2tldCI6InJ1bndheS1kYXRhc2V0cyIsInN0YWdlIjoicHJvZCIsImV4cCI6MTc4OTUwMTU1N30.XxbsQ1rx3P6VSOXTGqRW7aVZKnvHo6WGp1kS7EW8xDw",
+    "Coroa Fantasia Modular": "https://d2jqrm6oza8nb6.cloudfront.net/datasets/e6ed453a-8df6-4398-9387-a76c869009bb.png?_jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJrZXlIYXNoIjoiMjI2NzlhNjI0NWRkYWFmNSIsImJ1Y2tldCI6InJ1bndheS1kYXRhc2V0cyIsInN0YWdlIjoicHJvZCIsImV4cCI6MTc4OTQ5MzQ3NH0.6izuYFSKI_ZlY_VRhIREAsbGjtl0cKsU23aybuCXNuY",
+    "Tiara Temática com Encaixes": "https://d2jqrm6oza8nb6.cloudfront.net/datasets/fe73dca3-e0ee-40d1-8e87-22a3df485a24.png?_jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJrZXlIYXNoIjoiYmI0N2RhNDkxNzY0OWRhMiIsImJ1Y2tldCI6InJ1bndheS1kYXRhc2V0cyIsInN0YWdlIjoicHJvZCIsImV4cCI6MTc4OTU0MjcyOX0.6afrq76RWwxisU2XVzIz9D2jwQJKEM7_Izo3FtiucQo",
+    "Bracelete Tecnológico Cenográfico": "https://d2jqrm6oza8nb6.cloudfront.net/datasets/7e298e00-214f-4ea2-8ce6-7210a261b3f8.png?_jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJrZXlIYXNoIjoiZGZkMTU0ZTNkNzliMWU5MyIsImJ1Y2tldCI6InJ1bndheS1kYXRhc2V0cyIsInN0YWdlIjoicHJvZCIsImV4cCI6MTc4OTUyNDMyM30.Bc0wKcA_eqeo3O3_8XLgFK4vxMvfXF5x7SzSBV0L_Mo",
+    "Cinto Modular para Cosplay": "https://d2jqrm6oza8nb6.cloudfront.net/datasets/6f827354-ae55-452c-b375-b6a4212cde22.png?_jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJrZXlIYXNoIjoiNDNiNDlhZDkwMTZmNDJmOCIsImJ1Y2tldCI6InJ1bndheS1kYXRhc2V0cyIsInN0YWdlIjoicHJvZCIsImV4cCI6MTc4OTUyNTU5M30.RE9X-VTmt68nepZHs36qL3D5S15z2QVdAQSfMpENuyA",
+    "Fivela Personalizável para Cinto": "https://d2jqrm6oza8nb6.cloudfront.net/datasets/47783dc6-c451-4670-89e2-e9ec919337a8.png?_jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJrZXlIYXNoIjoiYmZhNmViYjg3NDI3NmQwMSIsImJ1Y2tldCI6InJ1bndheS1kYXRhc2V0cyIsInN0YWdlIjoicHJvZCIsImV4cCI6MTc4OTUyODM3Nn0.gZrlwUrUZK6zwGFlBa15ZwwxSMRkyU91uYzIZtKz69A",
+    "Kit de Conectores para Armadura Cosplay": "https://d2jqrm6oza8nb6.cloudfront.net/datasets/43e2a8c1-1f2b-4da3-89fc-02d6e4661caf.png?_jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJrZXlIYXNoIjoiODJhZDc5NzhhNjY2OGZjYyIsImJ1Y2tldCI6InJ1bndheS1kYXRhc2V0cyIsInN0YWdlIjoicHJvZCIsImV4cCI6MTc4OTUyMzcwNH0.JTAfdgDHu0otoWQLYHAAHIyppzYq-T5tmkt76DJxMMo",
+    "Chifres Modulares Cenográficos": "https://d2jqrm6oza8nb6.cloudfront.net/datasets/284b0fa3-ba87-4486-a51e-e49634c043b8.png?_jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJrZXlIYXNoIjoiOTc4OTVkYTdlNThlMTkzYSIsImJ1Y2tldCI6InJ1bndheS1kYXRhc2V0cyIsInN0YWdlIjoicHJvZCIsImV4cCI6MTc4OTU1ODgyM30.WQecw03-U3yaDqNAvsTbBGcCj2X-excoGCgoCvs1REg",
+    "Suporte Expositor para Máscaras": "https://d2jqrm6oza8nb6.cloudfront.net/datasets/d2389f9b-1282-4447-aed0-5ff0cfddafdb.png?_jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJrZXlIYXNoIjoiMTNkNTYzN2Q1YWQwMjllYyIsImJ1Y2tldCI6InJ1bndheS1kYXRhc2V0cyIsInN0YWdlIjoicHJvZCIsImV4cCI6MTc4OTU0MjE0MX0.yk0hIQ0evIUz17ky_S0TiYQdGFRrImUyYLcoIdzOeV0",
+}
+
+
+def _baixar_imagem_estudio_v25(url):
+    req = Request(url, headers={"User-Agent": "VoxxelStudio/1.0"})
+    with urlopen(req, timeout=20) as response:
+        raw = response.read(10 * 1024 * 1024 + 1)
+    if not raw or len(raw) > 10 * 1024 * 1024:
+        raise ValueError("imagem de estúdio inválida")
+    with Image.open(BytesIO(raw)) as imagem:
+        imagem = imagem.convert("RGB")
+        imagem.thumbnail((1000, 1000), Image.Resampling.LANCZOS)
+        buffer = BytesIO()
+        imagem.save(buffer, format="WEBP", quality=88, method=6)
+        return buffer.getvalue()
+
+
+def _sincronizar_imagens_estudio_v25(conn):
+    if not USING_POSTGRES:
+        return
+    marcador = conn.execute(
+        "SELECT valor FROM configuracoes WHERE chave = ?",
+        ("catalogo_imagens_estudio_v25",),
+    ).fetchone()
+    if marcador:
+        return
+
+    concluidas = 0
+    for nome, url in PRODUTOS_IMAGENS_ESTUDIO_V25.items():
+        row = conn.execute(
+            "SELECT id FROM produtos WHERE LOWER(nome)=LOWER(?)",
+            (nome,),
+        ).fetchone()
+        if not row:
+            continue
+        try:
+            dados = _baixar_imagem_estudio_v25(url)
+            conn.execute(
+                """UPDATE produtos
+                   SET imagem_dados=?, imagem_mimetype='image/webp',
+                       imagem_tipo='ilustrativa_ia'
+                   WHERE id=?""",
+                (dados, row["id"]),
+            )
+            conn.commit()
+            concluidas += 1
+        except Exception as exc:
+            print(f"[catalogo-estudio] pendente para {nome}: {exc}")
+
+    if concluidas == len(PRODUTOS_IMAGENS_ESTUDIO_V25):
+        conn.execute(
+            "INSERT INTO configuracoes (chave, valor) VALUES (?, ?)",
+            ("catalogo_imagens_estudio_v25", "30"),
+        )
+        conn.commit()
 
 
 PRODUTOS_ILUSTRACOES = {
