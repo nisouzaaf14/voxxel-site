@@ -30,7 +30,7 @@
         </div>
         <div class="product-media-note">
           <span>Visual do produto</span>
-          <span>{% if p['imagem_tipo'] == 'ilustrativa' %}Representação ilustrativa · o resultado final pode variar{% elif p['tem_imagem'] %}Foto do produto{% else %}Visual confirmado antes da produção{% endif %}</span>
+          <span>{% if p['imagem_tipo'] in ['ilustrativa', 'ilustrativa_ia'] %}Representação ilustrativa · o resultado final pode variar{% elif p['tem_imagem'] %}Foto do produto{% else %}Visual confirmado antes da produção{% endif %}</span>
         </div>
       </div>
 
@@ -112,7 +112,7 @@
       {% for r in relacionados %}
       <div class="produto-card">
         <a href="{{ url_for('produto_detalhe', produto_id=r['id']) }}" class="produto-thumb" style="--ang:{{ r['imagem_ang'] }}" {% if r['tem_imagem'] %}data-tem-foto="1"{% endif %}>
-          {% if r['tem_imagem'] %}<img src="{{ url_for('produto_imagem', produto_id=r['id']) }}" alt="{{ r['nome'] }}{{ ' — imagem ilustrativa' if r['imagem_tipo'] == 'ilustrativa' }}" loading="lazy">{% else %}<div class="product-no-photo"><img src="{{ url_for('static', filename='images/voxxel-mark.png') }}" alt="" width="44" height="44"></div>{% endif %}
+          {% if r['tem_imagem'] %}<img src="{{ url_for('produto_imagem', produto_id=r['id']) }}" alt="{{ r['nome'] }}{{ ' — imagem ilustrativa' if r['imagem_tipo'] in ['ilustrativa', 'ilustrativa_ia'] }}" loading="lazy">{% else %}<div class="product-no-photo"><img src="{{ url_for('static', filename='images/voxxel-mark.png') }}" alt="" width="44" height="44"></div>{% endif %}
         </a>
         <div class="produto-info">
           <div class="produto-cat">{{ categorias[r['categoria']] }}</div>
