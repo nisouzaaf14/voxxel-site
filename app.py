@@ -576,7 +576,14 @@ def produto_detalhe(produto_id):
     if not produto:
         flash("Esse produto não está mais disponível.")
         return redirect(url_for("loja"))
-    return render_template("produto_detalhe.html", p=produto, relacionados=relacionados)
+    galeria = False
+    if produto["imagem_tipo"] in ("ilustrativa", "ilustrativa_ia") and produto["imagem_arquivo"]:
+        nome = produto["imagem_arquivo"]
+        pasta = Path(app.static_folder) / "images" / "products"
+        if os.path.basename(nome) == nome and nome.endswith(".webp"):
+            galeria = all((pasta / (nome[:-5] + suffix + ".webp")).is_file()
+                          for suffix in ("", "-2", "-3"))
+    return render_template("produto_detalhe.html", p=produto, relacionados=relacionados, galeria=galeria)
 
 
 @app.route("/carrinho/adicionar/<int:produto_id>", methods=["POST"])

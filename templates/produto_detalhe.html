@@ -19,7 +19,7 @@
       <div class="product-visual-column">
         <div class="pdp-media product-media" style="--ang:{{ p['imagem_ang'] }}" {% if p['tem_imagem'] %}data-tem-foto="1"{% endif %}>
           {% if p['tem_imagem'] %}
-            <img src="{{ url_for('produto_imagem', produto_id=p['id']) }}" alt="{{ p['nome'] }}">
+            <img id="product-gallery-main" src="{{ url_for('produto_imagem', produto_id=p['id']) }}" alt="{{ p['nome'] }} — vista frontal em três quartos">
           {% else %}
             <div class="product-no-photo product-placeholder">
               <img src="{{ url_for('static', filename='images/voxxel-mark.png') }}" alt="" width="68" height="68">
@@ -28,8 +28,21 @@
             </div>
           {% endif %}
         </div>
+        {% if galeria %}
+        <div class="product-gallery-thumbs" aria-label="Ângulos do produto">
+          <button type="button" class="product-gallery-thumb is-active" data-gallery-src="{{ url_for('produto_imagem', produto_id=p['id']) }}" data-gallery-alt="{{ p['nome'] }} — vista frontal em três quartos" aria-label="Ver ângulo frontal" aria-pressed="true">
+            <img src="{{ url_for('produto_imagem', produto_id=p['id']) }}" alt="" loading="lazy">
+          </button>
+          <button type="button" class="product-gallery-thumb" data-gallery-src="{{ url_for('static', filename='images/products/' ~ p['imagem_arquivo']|replace('.webp', '-2.webp')) }}" data-gallery-alt="{{ p['nome'] }} — vista lateral" aria-label="Ver ângulo lateral" aria-pressed="false">
+            <img src="{{ url_for('static', filename='images/products/' ~ p['imagem_arquivo']|replace('.webp', '-2.webp')) }}" alt="" loading="lazy">
+          </button>
+          <button type="button" class="product-gallery-thumb" data-gallery-src="{{ url_for('static', filename='images/products/' ~ p['imagem_arquivo']|replace('.webp', '-3.webp')) }}" data-gallery-alt="{{ p['nome'] }} — vista traseira em três quartos" aria-label="Ver ângulo traseiro" aria-pressed="false">
+            <img src="{{ url_for('static', filename='images/products/' ~ p['imagem_arquivo']|replace('.webp', '-3.webp')) }}" alt="" loading="lazy">
+          </button>
+        </div>
+        {% endif %}
         <div class="product-media-note">
-          <span>Visual do produto</span>
+          <span>{% if galeria %}3 ângulos do produto{% else %}Visual do produto{% endif %}</span>
           <span>{% if p['imagem_tipo'] in ['ilustrativa', 'ilustrativa_ia'] %}Representação ilustrativa · o resultado final pode variar{% elif p['tem_imagem'] %}Foto do produto{% else %}Visual confirmado antes da produção{% endif %}</span>
         </div>
       </div>
@@ -133,6 +146,20 @@
 
 {% block scripts %}
 <script>
+  const galleryMain = document.getElementById('product-gallery-main');
+  document.querySelectorAll('.product-gallery-thumb').forEach(thumb => {
+    thumb.addEventListener('click', () => {
+      if (!galleryMain) return;
+      galleryMain.src = thumb.dataset.gallerySrc;
+      galleryMain.alt = thumb.dataset.galleryAlt;
+      document.querySelectorAll('.product-gallery-thumb').forEach(item => {
+        const active = item === thumb;
+        item.classList.toggle('is-active', active);
+        item.setAttribute('aria-pressed', active ? 'true' : 'false');
+      });
+    });
+  });
+
   const qtdInput = document.getElementById('pdp-qtd');
   if (qtdInput) {
     document.querySelectorAll('.qty-btn').forEach(btn => {
