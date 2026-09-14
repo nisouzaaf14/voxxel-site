@@ -82,6 +82,20 @@ class MarketplaceDatabaseTests(unittest.TestCase):
         self.assertEqual(after, before)
         self.assertEqual(total, 54)
 
+        conn = database.get_db()
+        ativos = {
+            row["categoria"]: row["total"]
+            for row in conn.execute(
+                "SELECT categoria, COUNT(*) AS total FROM produtos WHERE ativo=1 GROUP BY categoria"
+            ).fetchall()
+        }
+        total_ativos = conn.execute(
+            "SELECT COUNT(*) AS total FROM produtos WHERE ativo=1"
+        ).fetchone()["total"]
+        conn.close()
+        self.assertEqual(ativos, {"cosplay": 10, "decoracao": 10, "tecnica": 10})
+        self.assertEqual(total_ativos, 30)
+
     def test_cancelled_order_cannot_accept_offer(self):
         conn = database.get_db()
         partner_id = database.criar_impressora(conn, "Parceiro", "41999999999", "hash", "pla")
