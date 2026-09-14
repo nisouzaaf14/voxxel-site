@@ -1,8 +1,6 @@
 name: Persist catalog images
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -10,7 +8,6 @@ permissions:
 
 jobs:
   persist-images:
-    if: github.event_name == 'workflow_dispatch' || !contains(github.event.head_commit.message, '[catalog-images]')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
