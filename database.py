@@ -166,6 +166,48 @@ PRODUTOS_SEED = [
 # preservadas após a aplicação do marcador catalogo_precos_v22.
 PRECOS_CATALOGO_V22 = {produto[0]: produto[2] for produto in PRODUTOS_SEED}
 
+# Curadoria V24: catálogo público enxuto para permitir modelagem STL própria,
+# produção repetível e escala. Os demais itens do seed permanecem no banco,
+# apenas inativos, preservando IDs, imagens e histórico de pedidos.
+PRODUTOS_CATALOGO_ATIVOS_V24 = {
+    # Decoração & Utilitário
+    "Porta-Chaves Modular de Parede",
+    "Bandeja Organizadora Empilhável",
+    "Organizador Modular de Maquiagem",
+    "Porta-Cápsulas de Café Vertical",
+    "Suporte Ajustável para Livro e Tablet",
+    "Kit Porta-Copos Geométricos",
+    "Vaso Autoirrigável Compacto",
+    "Porta-Joias Modular com Divisórias",
+    "Organizador de Mesa para Controles Remotos",
+    "Luminária Lithophane Personalizada",
+
+    # Peça Técnica
+    "Suporte para Fones",
+    "Suporte de Celular Articulado",
+    "Suporte Elevado para Notebook",
+    "Suporte VESA para Mini PC",
+    "Caixa Modular para Eletrônica",
+    "Organizador de Bits e Brocas",
+    "Passa-Cabos de Mesa com Tampa",
+    "Suporte Sob Mesa para Fonte ou Carregador",
+    "Suporte de Parede para Roteador ou Modem",
+    "Suporte para Ferro de Solda e Acessórios",
+
+    # Cosplay & Acessório
+    "Máscara Oni Estilizada",
+    "Máscara Cyberpunk Modular",
+    "Coroa Fantasia Modular",
+    "Tiara Temática com Encaixes",
+    "Bracelete Tecnológico Cenográfico",
+    "Cinto Modular para Cosplay",
+    "Fivela Personalizável para Cinto",
+    "Kit de Conectores para Armadura Cosplay",
+    "Chifres Modulares Cenográficos",
+    "Suporte Expositor para Máscaras",
+}
+
+
 PRODUTOS_ILUSTRACOES = {
     "Suporte Geométrico para Plantas": "suporte-geometrico-plantas.webp",
     "Porta Talheres Poligonal": "porta-talheres-poligonal.webp",
@@ -771,6 +813,26 @@ def _criar_tabelas(conn, is_new_sqlite):
             ("catalogo_precos_v22", "1"),
         )
         conn.commit()
+    # Curadoria única do catálogo público: atua apenas nos produtos do seed,
+    # sem alterar produtos que o admin venha a cadastrar futuramente.
+    marcador_curadoria = conn.execute(
+        "SELECT valor FROM configuracoes WHERE chave = ?",
+        ("catalogo_curadoria_v24",),
+    ).fetchone()
+    if not marcador_curadoria:
+        for produto in PRODUTOS_SEED:
+            nome = produto[0]
+            ativo = 1 if nome in PRODUTOS_CATALOGO_ATIVOS_V24 else 0
+            conn.execute(
+                "UPDATE produtos SET ativo = ? WHERE LOWER(nome) = LOWER(?)",
+                (ativo, nome),
+            )
+        conn.execute(
+            "INSERT INTO configuracoes (chave, valor) VALUES (?, ?)",
+            ("catalogo_curadoria_v24", "30_produtos"),
+        )
+        conn.commit()
+
     # Ilustrações próprias dos itens de demonstração. Fotos reais enviadas
     # pelo admin (BLOB) continuam tendo prioridade e nunca são sobrescritas.
     for nome, arquivo in PRODUTOS_ILUSTRACOES.items():
