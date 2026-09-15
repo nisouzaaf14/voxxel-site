@@ -2,7 +2,41 @@
 {% block title %}{{ p['nome'] }} — Voxxel{% endblock %}
 {% block meta_description %}{{ p['descricao']|striptags|truncate(155) }}{% endblock %}
 {% block body_class %}commerce-v8 commerce-page product-page product-page-v8{% endblock %}
-{% block extra_styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/commerce.css') }}">{% endblock %}
+{% block extra_styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/commerce.css') }}">
+<style>
+  /* Clip the photograph itself; internal image padding leaves square corners. */
+  .product-page-v8 .pdp-media.product-media[data-tem-foto="1"] {
+    display: block;
+    aspect-ratio: auto;
+    height: auto;
+    min-height: 0;
+    max-height: none;
+    padding: 0;
+    overflow: hidden;
+    border-radius: 24px;
+    background: #eeebf2;
+  }
+  .product-page-v8 .pdp-media.product-media[data-tem-foto="1"] #product-gallery-main {
+    display: block;
+    position: relative;
+    inset: auto;
+    width: 100%;
+    height: auto;
+    max-height: none;
+    margin: 0;
+    padding: 0;
+    border-radius: inherit;
+    object-fit: contain;
+    transform: none;
+  }
+  @media (max-width: 760px) {
+    .product-page-v8 .pdp-media.product-media[data-tem-foto="1"] {
+      border-radius: 18px;
+    }
+  }
+</style>
+{% endblock %}
 {% block content %}
 
 <section class="product-shell">
