@@ -1945,18 +1945,33 @@ def admin_produto_toggle(produto_id):
 def produto_imagem(produto_id):
     conn = get_db()
     row = conn.execute(
-        "SELECT imagem_dados, imagem_mimetype, imagem_arquivo FROM produtos WHERE id = ?", (produto_id,)
+        """SELECT imagem_dados, imagem_mimetype, imagem_arquivo, imagem_tipo
+           FROM produtos WHERE id = ?""",
+        (produto_id,),
     ).fetchone()
     conn.close()
     if not row:
         return "", 404
-    if row["imagem_mimetype"] and row["imagem_dados"]:
+
+    nome = os.path.basename(row["imagem_arquivo"] or "")
+    caminho = Path(app.static_folder) / "images" / "products" / nome
+    arquivo_local_valido = (
+        bool(nome)
+        and nome == row["imagem_arquivo"]
+        and caminho.is_file()
+    )
+    ilustracao_versionada = (
+        row["imagem_tipo"] in ("ilustrativa", "ilustrativa_ia")
+        and arquivo_local_valido
+    )
+
+    # Ilustrações do catálogo ficam versionadas junto do site. Fotos reais
+    # enviadas pelo admin continuam tendo prioridade quando existirem no banco.
+    if ilustracao_versionada:
+        resposta = send_file(caminho, mimetype="image/webp")
+    elif row["imagem_mimetype"] and row["imagem_dados"]:
         resposta = Response(bytes(row["imagem_dados"]), mimetype=row["imagem_mimetype"])
-    elif row["imagem_arquivo"]:
-        nome = os.path.basename(row["imagem_arquivo"])
-        caminho = Path(app.static_folder) / "images" / "products" / nome
-        if nome != row["imagem_arquivo"] or not caminho.is_file():
-            return "", 404
+    elif arquivo_local_valido:
         resposta = send_file(caminho, mimetype="image/webp")
     else:
         return "", 404
