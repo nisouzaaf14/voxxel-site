@@ -77,7 +77,7 @@
           {% for i in itens %}
           <div class="checkout-mini-product-v8">
             <span class="checkout-mini-thumb-v8">
-              {% if i.produto['tem_imagem'] %}<img src="{{ url_for('produto_imagem', produto_id=i.produto['id']) }}" alt="">
+              {% if i.produto['tem_imagem'] %}<img src="{{ url_for('produto_imagem', produto_id=i.produto['id'], v='studio-v26') }}" alt="">
               {% else %}<img class="mark" src="{{ url_for('static', filename='images/voxxel-mark.png') }}" alt="">{% endif %}
             </span>
             <span class="checkout-mini-copy-v8"><strong>{{ i.produto['nome'] }}</strong><span>{{ i.qtd }}× · {{ categorias[i.produto['categoria']] }}</span></span>

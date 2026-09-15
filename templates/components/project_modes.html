@@ -1,5 +1,0 @@
-<nav class="project-modes" aria-label="Tipos de projeto">
-  <a href="{{ url_for('ideias') }}" {% if request.endpoint in ['ideias','simplificado'] %}aria-current="page"{% endif %}>Ideias</a>
-  <a href="{{ url_for('orcamento') }}" {% if request.endpoint == 'orcamento' %}aria-current="page"{% endif %}>Projetos</a>
-  <a href="{{ url_for('empresas') }}" {% if request.endpoint == 'empresas' %}aria-current="page"{% endif %}>Empresas</a>
-</nav>

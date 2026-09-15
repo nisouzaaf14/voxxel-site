@@ -19,7 +19,7 @@
       <div class="product-visual-column">
         <div class="pdp-media product-media" style="--ang:{{ p['imagem_ang'] }}" {% if p['tem_imagem'] %}data-tem-foto="1"{% endif %}>
           {% if p['tem_imagem'] %}
-            <img id="product-gallery-main" src="{{ url_for('produto_imagem', produto_id=p['id']) }}" alt="{{ p['nome'] }} — vista frontal em três quartos">
+            <img id="product-gallery-main" src="{{ url_for('produto_imagem', produto_id=p['id'], v='studio-v26') }}" alt="{{ p['nome'] }} — vista frontal em três quartos">
           {% else %}
             <div class="product-no-photo product-placeholder">
               <img src="{{ url_for('static', filename='images/voxxel-mark.png') }}" alt="" width="68" height="68">
@@ -30,14 +30,14 @@
         </div>
         {% if galeria %}
         <div class="product-gallery-thumbs" aria-label="Ângulos do produto">
-          <button type="button" class="product-gallery-thumb is-active" data-gallery-src="{{ url_for('produto_imagem', produto_id=p['id']) }}" data-gallery-alt="{{ p['nome'] }} — vista frontal em três quartos" aria-label="Ver ângulo frontal" aria-pressed="true">
-            <img src="{{ url_for('produto_imagem', produto_id=p['id']) }}" alt="" loading="lazy">
+          <button type="button" class="product-gallery-thumb is-active" data-gallery-src="{{ url_for('produto_imagem', produto_id=p['id'], v='studio-v26') }}" data-gallery-alt="{{ p['nome'] }} — vista frontal em três quartos" aria-label="Ver ângulo frontal" aria-pressed="true">
+            <img src="{{ url_for('produto_imagem', produto_id=p['id'], v='studio-v26') }}" alt="" loading="lazy">
           </button>
-          <button type="button" class="product-gallery-thumb" data-gallery-src="{{ url_for('static', filename='images/products/' ~ p['imagem_arquivo']|replace('.webp', '-2.webp')) }}" data-gallery-alt="{{ p['nome'] }} — vista lateral" aria-label="Ver ângulo lateral" aria-pressed="false">
-            <img src="{{ url_for('static', filename='images/products/' ~ p['imagem_arquivo']|replace('.webp', '-2.webp')) }}" alt="" loading="lazy">
+          <button type="button" class="product-gallery-thumb" data-gallery-src="{{ url_for('static', filename='images/products/' ~ p['imagem_arquivo']|replace('.webp', '-2.webp'), v='studio-v26') }}" data-gallery-alt="{{ p['nome'] }} — vista lateral" aria-label="Ver ângulo lateral" aria-pressed="false">
+            <img src="{{ url_for('static', filename='images/products/' ~ p['imagem_arquivo']|replace('.webp', '-2.webp'), v='studio-v26') }}" alt="" loading="lazy">
           </button>
-          <button type="button" class="product-gallery-thumb" data-gallery-src="{{ url_for('static', filename='images/products/' ~ p['imagem_arquivo']|replace('.webp', '-3.webp')) }}" data-gallery-alt="{{ p['nome'] }} — vista traseira em três quartos" aria-label="Ver ângulo traseiro" aria-pressed="false">
-            <img src="{{ url_for('static', filename='images/products/' ~ p['imagem_arquivo']|replace('.webp', '-3.webp')) }}" alt="" loading="lazy">
+          <button type="button" class="product-gallery-thumb" data-gallery-src="{{ url_for('static', filename='images/products/' ~ p['imagem_arquivo']|replace('.webp', '-3.webp'), v='studio-v26') }}" data-gallery-alt="{{ p['nome'] }} — vista traseira em três quartos" aria-label="Ver ângulo traseiro" aria-pressed="false">
+            <img src="{{ url_for('static', filename='images/products/' ~ p['imagem_arquivo']|replace('.webp', '-3.webp'), v='studio-v26') }}" alt="" loading="lazy">
           </button>
         </div>
         {% endif %}
@@ -125,7 +125,7 @@
       {% for r in relacionados %}
       <div class="produto-card">
         <a href="{{ url_for('produto_detalhe', produto_id=r['id']) }}" class="produto-thumb" style="--ang:{{ r['imagem_ang'] }}" {% if r['tem_imagem'] %}data-tem-foto="1"{% endif %}>
-          {% if r['tem_imagem'] %}<img src="{{ url_for('produto_imagem', produto_id=r['id']) }}" alt="{{ r['nome'] }}{{ ' — imagem ilustrativa' if r['imagem_tipo'] in ['ilustrativa', 'ilustrativa_ia'] }}" loading="lazy">{% else %}<div class="product-no-photo"><img src="{{ url_for('static', filename='images/voxxel-mark.png') }}" alt="" width="44" height="44"></div>{% endif %}
+          {% if r['tem_imagem'] %}<img src="{{ url_for('produto_imagem', produto_id=r['id'], v='studio-v26') }}" alt="{{ r['nome'] }}{{ ' — imagem ilustrativa' if r['imagem_tipo'] in ['ilustrativa', 'ilustrativa_ia'] }}" loading="lazy">{% else %}<div class="product-no-photo"><img src="{{ url_for('static', filename='images/voxxel-mark.png') }}" alt="" width="44" height="44"></div>{% endif %}
         </a>
         <div class="produto-info">
           <div class="produto-cat">{{ categorias[r['categoria']] }}</div>

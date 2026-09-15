@@ -26,7 +26,7 @@
         <article class="cart-item-v8">
           <a class="cart-thumb-v8" href="{{ url_for('produto_detalhe', produto_id=i.produto['id']) }}" aria-label="Ver {{ i.produto['nome'] }}">
             {% if i.produto['tem_imagem'] %}
-              <img src="{{ url_for('produto_imagem', produto_id=i.produto['id']) }}" alt="{{ i.produto['nome'] }}">
+              <img src="{{ url_for('produto_imagem', produto_id=i.produto['id'], v='studio-v26') }}" alt="{{ i.produto['nome'] }}">
             {% else %}
               <img class="mark" src="{{ url_for('static', filename='images/voxxel-mark.png') }}" alt="">
             {% endif %}

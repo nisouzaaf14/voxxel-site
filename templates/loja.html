@@ -63,7 +63,7 @@
       {% for p in produtos %}
       <article class="catalog-card">
         <a href="{{ url_for('produto_detalhe', produto_id=p['id']) }}" class="catalog-media" aria-label="Ver {{ p['nome'] }}">
-          {% if p['tem_imagem'] %}<img src="{{ url_for('produto_imagem', produto_id=p['id']) }}" alt="{{ p['nome'] }}{{ ' — imagem ilustrativa' if p['imagem_tipo'] in ['ilustrativa', 'ilustrativa_ia'] }}" loading="lazy" decoding="async">
+          {% if p['tem_imagem'] %}<img src="{{ url_for('produto_imagem', produto_id=p['id'], v='studio-v26') }}" alt="{{ p['nome'] }}{{ ' — imagem ilustrativa' if p['imagem_tipo'] in ['ilustrativa', 'ilustrativa_ia'] }}" loading="lazy" decoding="async">
           {% else %}<div class="catalog-image-placeholder" aria-hidden="true"><div class="catalog-image-placeholder-inner"><img src="{{ url_for('static', filename='images/voxxel-mark.png') }}" alt="" width="68" height="68"></div></div>{% endif %}
           {% if p['imagem_tipo'] in ['ilustrativa', 'ilustrativa_ia'] %}<span class="catalog-image-kind">Imagem ilustrativa</span>{% endif %}
           {% if p['estoque'] is not none and p['estoque'] <= 0 %}<span class="catalog-badge out">Indisponível</span>{% elif p['estoque'] is none %}<span class="catalog-badge">Sob demanda</span>{% elif p['estoque'] <= 3 %}<span class="catalog-badge">{{ p['estoque'] }} disponíveis</span>{% endif %}

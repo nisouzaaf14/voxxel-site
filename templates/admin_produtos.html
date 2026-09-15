@@ -31,7 +31,7 @@
       <td>
         <div class="seller-row-product">
           {% if p['tem_imagem'] %}
-          <div class="admin-thumb" style="background-image:url('{{ url_for('produto_imagem', produto_id=p['id']) }}');"></div>
+          <div class="admin-thumb" style="background-image:url('{{ url_for('produto_imagem', produto_id=p['id'], v='studio-v26') }}');"></div>
           {% else %}
           <div class="admin-thumb admin-thumb-vazio" style="--ang:{{ p['imagem_ang'] }}"></div>
           {% endif %}
