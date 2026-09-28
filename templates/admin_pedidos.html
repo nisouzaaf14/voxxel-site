@@ -28,7 +28,8 @@
   <div class="order-card">
     <div class="order-card-main">
       <div class="order-card-id">Pedido #{{ p['id'] }} · {{ p['criado_em'] }}</div>
-      <div class="order-card-tipo">{{ 'Catálogo' if p['tipo'] == 'loja' else 'Projeto personalizado' }}</div>
+      <div class="order-card-tipo">{{ 'Peça da live' if p['lead_origem'] == 'ao_vivo' else 'Catálogo' if p['tipo'] == 'loja' else 'Projeto personalizado' }}</div>
+      {% if p['tipo'] == 'orcamento' %}<a href="{{ url_for('pedido_projeto', pedido_id=p['id']) }}">Analisar projeto e definir valor →</a>{% endif %}
       {% if p['cliente_nome'] or p['cliente_telefone'] %}
       <div class="order-card-cliente">
         {{ p['cliente_nome'] or 'Cliente sem nome' }}
@@ -62,7 +63,7 @@
       {% endif %}
     </div>
     <div class="order-card-side">
-      <div class="order-card-valor">R$ {{ "%.2f"|format(p['valor_estimado'])|replace('.', ',') }}</div>
+      <div class="order-card-valor">{% if p['lead_origem'] == 'ao_vivo' and not p['valor_estimado'] %}Valor em análise{% else %}R$ {{ "%.2f"|format(p['valor_estimado'])|replace('.', ',') }}{% endif %}</div>
       <div class="order-card-pag">
         <span class="badge {{ 'badge-concluido' if p['status_pagamento'] == 'confirmado' else ('badge-andamento' if p['status_pagamento'] == 'informado' else 'badge-novo') }}">
           {% if p['status_pagamento'] == 'confirmado' %}Pagamento confirmado{% elif p['status_pagamento'] == 'informado' %}Aguardando conferência{% elif p['status_pagamento'] == 'recusado' %}Pagamento não aprovado{% else %}Aguardando pagamento{% endif %}
@@ -73,7 +74,9 @@
           {% else %}A combinar{% endif %}
         </span>
       </div>
-      {% if p['status_pagamento'] != 'confirmado' %}
+      {% if p['lead_origem'] == 'ao_vivo' and not p['valor_estimado'] %}
+      <small>Defina o valor do projeto antes de receber pagamento.</small>
+      {% elif p['status_pagamento'] != 'confirmado' %}
       <form method="post" action="{{ url_for('admin_pedido_pagamento', pedido_id=p['id']) }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <input type="hidden" name="acao" value="confirmar">

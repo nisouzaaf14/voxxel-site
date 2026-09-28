@@ -4,7 +4,7 @@
 {% block og_title %}Voxxel — Da ideia à peça física{% endblock %}
 {% block og_description %}Peças sob medida, impressão de arquivos 3D e produção sob demanda para empresas.{% endblock %}
 {% block body_class %}home-refined home-v12{% endblock %}
-{% block extra_styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/home.css') }}"><link rel="stylesheet" href="{{ url_for('static', filename='css/home-commercial-v15.css') }}">{% endblock %}
+{% block extra_styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/home.css') }}"><link rel="stylesheet" href="{{ url_for('static', filename='css/home-commercial-v15.css') }}"><link rel="stylesheet" href="{{ url_for('static', filename='css/live.css') }}">{% endblock %}
 {% macro arrow() %}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6"/></svg>{% endmacro %}
 {% block content %}
 <section class="home-hero">
@@ -15,7 +15,7 @@
       <p class="home-lead">Tem uma ideia, uma peça quebrada, uma foto ou um arquivo 3D? A Voxxel analisa o projeto e ajuda você a transformá-lo em uma peça física.</p>
       <div class="home-actions">
         <a class="btn btn-primary" href="{{ url_for('projetos') }}">Começar meu projeto {{ arrow() }}</a>
-        <a class="btn btn-outline" href="{{ url_for('loja') }}">Explorar catálogo</a>
+        <a class="btn btn-outline" href="{{ url_for('ao_vivo') }}">Ver impressora ao vivo</a>
       </div>
     </div>
     <figure class="home-visual">
@@ -40,20 +40,16 @@
 <section class="home-section" id="como-funciona"><div class="wrap">
   <div class="home-section-head"><div><p class="home-kicker">COMO FUNCIONA</p><h2>Um pedido claro do início ao acompanhamento.</h2></div><p>A Voxxel centraliza o que normalmente ficaria espalhado entre mensagens, arquivos e fornecedores diferentes.</p></div>
   <div class="home-flow">
-    <article><span>01</span><h3>Você envia</h3><p>Escolha um produto ou descreva seu projeto com arquivo, imagens e informações essenciais.</p></article>
+    <article><span>01</span><h3>Você envia</h3><p>Descreva seu projeto e anexe uma foto ou arquivo 3D, se tiver.</p></article>
     <article><span>02</span><h3>A Voxxel conecta</h3><p>A rede procura parceiros disponíveis e compatíveis com os materiais exigidos pelo pedido.</p></article>
     <article><span>03</span><h3>O parceiro analisa</h3><p>Antes de produzir, o parceiro revisa o trabalho e alinha dúvidas quando necessário.</p></article>
     <article><span>04</span><h3>Você acompanha</h3><p>Status, conversa, aprovação e pagamento permanecem organizados na mesma plataforma.</p></article>
   </div>
 </div></section>
 
-<section class="home-section home-catalog" id="categorias"><div class="wrap">
-  <div class="home-section-head"><div><p class="home-kicker">CATÁLOGO VOXXEL</p><h2>Comece por algo que já está pronto para pedir.</h2></div><a class="home-text-link" href="{{ url_for('loja') }}">Ver catálogo completo {{ arrow() }}</a></div>
-  <div class="home-category-grid">
-    <a href="{{ url_for('loja', categoria='tecnica') }}"><span>PEÇAS TÉCNICAS</span><h3>Suportes, encaixes e soluções funcionais.</h3>{{ arrow() }}</a>
-    <a href="{{ url_for('loja', categoria='cosplay') }}"><span>COSPLAY & ACESSÓRIOS</span><h3>Formas que ajudam personagens a sair da tela.</h3>{{ arrow() }}</a>
-    <a href="{{ url_for('loja', categoria='decoracao') }}"><span>DECORAÇÃO & UTILITÁRIOS</span><h3>Objetos para casa, bancada e organização.</h3>{{ arrow() }}</a>
-  </div>
+<section class="home-section home-live-preview"><div class="wrap home-live-preview-grid">
+  <div><p class="home-kicker">A PRIMEIRA IMPRESSORA DA VOXXEL</p><h2>Veja uma ideia ganhar forma.</h2><p>Acompanhe nossa produção e envie seu pedido na própria página da transmissão. Cada peça passa por análise antes de confirmar valor e prazo.</p><a class="btn btn-primary" href="{{ url_for('ao_vivo') }}">Conhecer o espaço ao vivo {{ arrow() }}</a></div>
+  <img src="{{ url_for('static', filename='images/products/organizador-modular-gaveta.webp') }}" alt="Imagem ilustrativa de uma peça impressa em 3D" loading="lazy" width="600" height="600">
 </div></section>
 
 <section class="home-section home-value" id="sobre"><div class="wrap home-value-grid">

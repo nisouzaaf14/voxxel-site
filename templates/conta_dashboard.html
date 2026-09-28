@@ -11,7 +11,7 @@
   <div class="wrap">
     <header class="dash-head fade-up">
       <div><div class="dash-eyebrow">Minha Voxxel</div><h1>Seus pedidos, sem mistério.</h1><p>Veja onde cada projeto está na Rede Voxxel, o que já aconteceu e se existe alguma ação esperando por você.</p></div>
-      <div class="dash-head-actions"><a class="btn btn-primary" href="{{ url_for('orcamento') }}">Novo projeto</a><a class="btn btn-outline" href="{{ url_for('loja') }}">Catálogo</a><a class="btn btn-outline" href="{{ url_for('conta_perfil') }}">Meus dados</a><form class="inline-logout-form" method="post" action="{{ url_for('conta_sair') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" class="dash-link">Sair</button></form></div>
+      <div class="dash-head-actions"><a class="btn btn-primary" href="{{ url_for('orcamento') }}">Novo projeto</a><a class="btn btn-outline" href="{{ url_for('ao_vivo') }}">Ao vivo</a><a class="btn btn-outline" href="{{ url_for('conta_perfil') }}">Meus dados</a><form class="inline-logout-form" method="post" action="{{ url_for('conta_sair') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" class="dash-link">Sair</button></form></div>
     </header>
 
     <div class="dash-stats fade-up">
@@ -42,7 +42,7 @@
           </div>
         </article>
       {% endfor %}</div>
-      {% else %}<div class="dash-empty"><strong>Seu primeiro pedido começa aqui.</strong><p>Configure uma peça personalizada ou escolha um item do catálogo. Quando o pedido entrar na Rede Voxxel, você acompanha cada etapa nesta tela.</p><div class="dash-empty-actions"><a class="btn btn-primary" href="{{ url_for('orcamento') }}">Configurar projeto</a><a class="btn btn-outline" href="{{ url_for('loja') }}">Explorar catálogo</a></div></div>{% endif %}
+      {% else %}<div class="dash-empty"><strong>Seu primeiro pedido começa aqui.</strong><p>Conte sua ideia ou envie um pedido pela página Ao vivo. Você acompanha cada etapa nesta tela.</p><div class="dash-empty-actions"><a class="btn btn-primary" href="{{ url_for('orcamento') }}">Configurar projeto</a><a class="btn btn-outline" href="{{ url_for('ao_vivo') }}">Ver Ao vivo</a></div></div>{% endif %}
     </div>
   </div>
 </section>

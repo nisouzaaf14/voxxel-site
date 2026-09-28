@@ -106,7 +106,7 @@
           <a href="{{ url_for('conta_dashboard') }}" class="btn btn-outline">Acompanhar meus pedidos</a>
           {% if whatsapp_numero %}<a class="btn btn-ghost" target="_blank" rel="noopener" href="https://wa.me/{{ whatsapp_numero }}?text={{ ('Olá! Quero falar sobre o pedido #' ~ pedido['id'])|urlencode }}">Preciso de atendimento</a>{% endif %}
         </div>
-        <a href="{{ url_for('loja') }}" class="payment-back-v8">← Voltar para o catálogo</a>
+        <a href="{{ url_for('ao_vivo') }}" class="payment-back-v8">← Voltar para Ao vivo</a>
       </aside>
     </div>
   </div>

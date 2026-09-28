@@ -37,6 +37,13 @@ import distribuicao
 SECRET_KEY_ENV = os.environ.get("VOXXEL_SECRET_KEY", "").strip()
 ADMIN_PASSWORD = os.environ.get("VOXXEL_ADMIN_PASSWORD", "").strip()
 CHAT_WEBHOOK_URL = os.environ.get("VOXXEL_CHAT_WEBHOOK_URL", "").strip()
+TWITCH_CHANNEL = os.environ.get("VOXXEL_TWITCH_CHANNEL", "").strip().lower()
+if not re.fullmatch(r"[a-z0-9_]{4,25}", TWITCH_CHANNEL):
+    TWITCH_CHANNEL = ""
+LIVE_PRODUCT_IDS = {
+    int(value) for value in os.environ.get("VOXXEL_LIVE_PRODUCT_IDS", "").split(",")
+    if value.strip().isdigit() and int(value) > 0
+}
 
 # Nunca mantenha credenciais reais no repositório. Em produção, defina
 # VOXXEL_SECRET_KEY e VOXXEL_ADMIN_PASSWORD nas variáveis de ambiente.
@@ -281,7 +288,7 @@ def adicionar_headers_seguranca(resposta):
         "font-src 'self' https://fonts.gstatic.com; "
         "img-src 'self' data:; "
         "connect-src 'self' https:; "
-        "frame-src 'none'; frame-ancestors 'none'; "
+        "frame-src https://player.twitch.tv; frame-ancestors 'none'; "
         "base-uri 'self'; "
         "form-action 'self'; "
         "object-src 'none'"
@@ -418,6 +425,75 @@ def inject_globals():
 def home():
     # A seção de projetos só aparece quando houver conteúdo real aprovado.
     return render_template("index.html", projetos_realizados=[])
+
+
+@app.route("/ao-vivo", methods=["GET", "POST"])
+def ao_vivo():
+    """Vitrine da primeira impressora, com pedidos sujeitos à análise humana."""
+    if request.method == "POST":
+        nome = texto_seguro(request.form.get("nome"), 120)
+        telefone = normalizar_telefone(request.form.get("telefone"))
+        email = texto_seguro(request.form.get("email"), 180).lower()
+        descricao = texto_seguro(request.form.get("descricao"), 1400)
+        if not nome or not 10 <= len(telefone) <= 13 or not email_valido(email) or len(descricao) < 12:
+            flash("Preencha nome, WhatsApp com DDD, e-mail válido e descreva sua peça.")
+            return redirect(url_for("ao_vivo", _anchor="pedir"))
+        try:
+            modelo = validar_modelo_3d(request.files.get("modelo_3d"))
+            imagem = validar_imagem_referencia(request.files.get("imagem_referencia"))
+        except ValueError as erro:
+            flash(str(erro))
+            return redirect(url_for("ao_vivo", _anchor="pedir"))
+
+        token = None if session.get("cliente_id") else secrets.token_urlsafe(32)
+        conn = get_db()
+        try:
+            config_pagamento = get_configs(conn)
+            forma_pagamento = (
+                "pix" if pix.chave_valida(config_pagamento.get("pix_chave", "")) else
+                "cartao" if config_pagamento.get("mp_access_token", "").strip() else "combinar"
+            )
+            pedido_id = criar_pedido(
+                conn, "orcamento", "Pedido da página Ao vivo: " + descricao,
+                0, nome, telefone, forma_pagamento, cliente_id=session.get("cliente_id"),
+                cliente_email=email, lead_origem="ao_vivo",
+                acesso_token_hash=hash_token_acesso(token) if token else None,
+                commit=False,
+            )
+            conn.execute(
+                """UPDATE pedidos SET descricao_projeto=?, referencia_status=?,
+                   fluxo_status='recebido' WHERE id=?""",
+                (descricao, "arquivo_3d" if modelo else "imagem_descricao" if imagem else "contato_inicial", pedido_id),
+            )
+            if modelo:
+                inserir_referencia(conn, pedido_id, "modelo_3d", modelo)
+            if imagem:
+                inserir_referencia(conn, pedido_id, "imagem", imagem)
+            _mensagem_sistema(conn, pedido_id, "Pedido da live recebido. A Voxxel confirmará preço, prazo e disponibilidade antes do pagamento e da produção.")
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
+        if session.get("cliente_id"):
+            flash("Pedido recebido! Vamos analisar sua peça antes de confirmar o valor.")
+            return redirect(url_for("pedido_projeto", pedido_id=pedido_id))
+        ids = list(session.get("pedidos_avulsos", []))
+        ids.append(pedido_id)
+        session["pedidos_avulsos"] = ids[-10:]
+        return render_template("orcamento_enviado.html", pedido_id=pedido_id, token=token, nome=nome, email=email)
+
+    conn = get_db()
+    produtos = []
+    if LIVE_PRODUCT_IDS:
+        marcadores = ",".join("?" for _ in LIVE_PRODUCT_IDS)
+        produtos = conn.execute(
+            f"SELECT {COLUNAS_PRODUTO_LISTA} FROM produtos WHERE ativo = 1 AND id IN ({marcadores}) ORDER BY nome",
+            tuple(sorted(LIVE_PRODUCT_IDS)),
+        ).fetchall()
+    conn.close()
+    return render_template("ao_vivo.html", canal_twitch=TWITCH_CHANNEL, produtos_live=produtos)
 
 
 PAGINAS_COMERCIAIS = {

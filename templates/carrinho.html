@@ -65,7 +65,7 @@
         <div class="cart-summary-total-v8"><span>Subtotal</span><strong>R$ {{ '%.2f'|format(total)|replace('.', ',') }}</strong></div>
         <div class="commerce-note-v8"><i>i</i><span>Os itens ainda não estão reservados. Entrega ou retirada e prazo são definidos na próxima etapa quando necessário.</span></div>
         <a class="btn btn-primary" href="{{ url_for('checkout') }}" style="margin-top:16px;">Continuar pedido</a>
-        <a class="continue-link-v8" href="{{ url_for('loja') }}">Continuar explorando o catálogo</a>
+        <a class="continue-link-v8" href="{{ url_for('ao_vivo') }}">Voltar às peças da live</a>
         {% if not session.get('cliente_id') %}<p style="margin:15px 0 0;color:#746e7a;font-size:.62rem;line-height:1.55;text-align:center;">Você poderá entrar ou criar uma conta sem perder este carrinho.</p>{% endif %}
       </aside>
     </div>
@@ -75,7 +75,7 @@
       <h2>Seu carrinho está vazio</h2>
       <p>Explore o catálogo ou envie um projeto personalizado para começar.</p>
       <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
-        <a class="btn btn-primary" href="{{ url_for('loja') }}">Explorar catálogo</a>
+        <a class="btn btn-primary" href="{{ url_for('ao_vivo') }}">Ver peças da live</a>
         <a class="btn btn-outline" href="{{ url_for('orcamento') }}">Enviar projeto</a>
       </div>
     </div>

@@ -23,6 +23,15 @@ execução, já com 18 produtos distribuídos entre as três categorias do catá
 - `/imprimir-stl` — envio de STL, OBJ ou 3MF para análise de produção.
 - `/empresas` — contato B2B para protótipos, gabaritos e pequenos lotes.
 - `/orcamento` — formulário simplificado, sem login obrigatório no primeiro envio.
+- `/ao-vivo` — transmissão da primeira impressora e pedido rápido para análise.
+
+### Página Ao vivo
+
+- `VOXXEL_TWITCH_CHANNEL`: nome público do canal Twitch (sem `@` ou URL). Sem ele, a página mostra o estado de transmissão ainda não configurada e continua recebendo pedidos.
+- `VOXXEL_LIVE_PRODUCT_IDS`: IDs de produtos já existentes, separados por vírgula (ex.: `3,12,19`). Só os IDs escolhidos e ativos aparecem como **Peças da live**; não há publicação automática do catálogo geral. Confira preço, estoque e tempo de produção antes de selecionar os IDs.
+- Os pedidos personalizados de `/ao-vivo` são registrados para análise com origem `ao_vivo`, sem preço definido e sem cobrança ou início automático. Imagens e arquivos 3D opcionais usam as validações do formulário de projeto. O admin encontra esses pedidos em `/admin/pedidos`.
+- Produtos selecionados usam o carrinho e o checkout já existentes. A retirada da peça da mesa e a liberação da próxima impressão continuam sob controle humano.
+- O OBS transmite a câmera para a Twitch. O site incorpora o player; não exponha a URL local da câmera ou o painel de controle da impressora ao público.
 
 Leads anônimos recebem um token opaco de acompanhamento. Se o visitante criar
 ou acessar uma conta posteriormente, o pedido é vinculado à conta e o token é
