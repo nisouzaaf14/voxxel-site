@@ -143,7 +143,7 @@ def login_obrigatorio(rota):
 
 def login_cliente_obrigatorio(rota):
     """Mesma ideia do `login_obrigatorio`, mas para a conta do cliente --
-    protege checkout e áreas que exigem uma conta persistente."""
+    protege áreas que exigem uma conta persistente."""
     @wraps(rota)
     def rota_protegida(*args, **kwargs):
         if not session.get("cliente_id"):
@@ -692,6 +692,24 @@ def carrinho_adicionar(produto_id):
     return redirect(redirecionamento_seguro(url_for("loja")))
 
 
+@app.route("/ao-vivo/comprar/<int:produto_id>", methods=["POST"])
+def comprar_peca_live(produto_id):
+    """Uma peça selecionada leva direto ao checkout, sem etapa de carrinho."""
+    if produto_id not in LIVE_PRODUCT_IDS:
+        abort(404)
+    conn = get_db()
+    produto = conn.execute(
+        "SELECT id, estoque FROM produtos WHERE id=? AND ativo=1", (produto_id,)
+    ).fetchone()
+    conn.close()
+    if not produto or (produto["estoque"] is not None and produto["estoque"] <= 0):
+        flash("Essa peça não está disponível agora.")
+        return redirect(url_for("ao_vivo", _anchor="pedir"))
+    session["carrinho"] = {str(produto_id): 1}
+    session["origem_carrinho"] = "ao_vivo"
+    return redirect(url_for("checkout"))
+
+
 @app.route("/carrinho/atualizar/<int:produto_id>", methods=["POST"])
 def carrinho_atualizar(produto_id):
     try:
@@ -729,7 +747,6 @@ def carrinho():
 
 
 @app.route("/checkout", methods=["GET", "POST"])
-@login_cliente_obrigatorio
 def checkout():
     conn = get_db()
     carrinho_anterior = dict(carrinho_sessao())
@@ -739,19 +756,18 @@ def checkout():
         return redirect(url_for("carrinho"))
     if not itens:
         conn.close()
-        return redirect(url_for("loja"))
+        return redirect(url_for("ao_vivo"))
 
-    cliente = buscar_cliente_por_id(conn, session["cliente_id"])
+    cliente = buscar_cliente_por_id(conn, session["cliente_id"]) if session.get("cliente_id") else None
     config = get_configs(conn)
     pagamentos = {"combinar": "Definir após confirmação"}
     if pix.chave_valida(config.get("pix_chave", "")):
         pagamentos["pix"] = "Pix"
-    if config["mp_access_token"].strip():
-        pagamentos["cartao"] = "Cartão"
 
     if request.method == "POST":
         nome = texto_seguro(request.form.get("nome"), 120)
         telefone = texto_seguro(request.form.get("telefone"), 40)
+        email = texto_seguro(request.form.get("email"), 180).lower()
         forma_pagamento = request.form.get("forma_pagamento", "combinar")
         if forma_pagamento not in pagamentos:
             forma_pagamento = "combinar"
@@ -760,14 +776,14 @@ def checkout():
         if recebimento not in ("combinar", "retirada", "entrega"):
             recebimento = "combinar"
         endereco = texto_seguro(request.form.get("endereco"), 350)
-        observacoes = texto_seguro(request.form.get("observacoes"), 500)
         telefone_digitos = "".join(c for c in telefone if c.isdigit())
         if recebimento != "retirada":
             forma_pagamento = "combinar"
-        if not nome or not 10 <= len(telefone_digitos) <= 13 or (recebimento == "entrega" and len(endereco) < 15):
-            flash("Confira seu nome, telefone com DDD e, para entrega, o endereço completo com CEP.")
+        if (not nome or not 10 <= len(telefone_digitos) <= 13 or
+                not email_valido(email) or (recebimento == "entrega" and len(endereco) < 15)):
+            flash("Confira nome, WhatsApp, e-mail e, para entrega, endereço completo com CEP.")
             conn.close()
-            return render_template("checkout.html", itens=itens, total=total, cliente=cliente, pagamentos=pagamentos)
+            return render_template("checkout_rapido.html", itens=itens, total=total, cliente=cliente, pagamentos=pagamentos)
 
         linhas = [
             (f"{i['qtd']}x {i['produto']['nome']} · "
@@ -779,12 +795,7 @@ def checkout():
         linhas.append("Recebimento: " + nomes_recebimento[recebimento])
         if recebimento == "entrega":
             linhas.append("Endereço: " + endereco)
-        if observacoes:
-            linhas.append("Observações: " + observacoes)
         detalhes = "\n".join(linhas)
-
-        cliente_lat = ler_coordenada_formulario(request.form.get("cliente_lat"), -90, 90)
-        cliente_lng = ler_coordenada_formulario(request.form.get("cliente_lng"), -180, 180)
 
         materiais_pedido = sorted({
             (i["produto"]["material"] or "pla").strip().lower() for i in itens
@@ -792,10 +803,13 @@ def checkout():
         # O pedido + snapshot dos itens + reserva de estoque formam uma só
         # transação. Se outra compra levar a última unidade entre a tela e
         # este POST, a atualização condicional falha e nada é gravado.
+        token = secrets.token_urlsafe(32) if not session.get("cliente_id") else None
         pedido_id = criar_pedido(
             conn, "loja", detalhes, total, nome, telefone, forma_pagamento,
-            cliente_id=session["cliente_id"], cliente_lat=cliente_lat, cliente_lng=cliente_lng,
-            material_requisito=",".join(materiais_pedido), commit=False,
+            cliente_id=session.get("cliente_id"), cliente_email=email,
+            material_requisito=",".join(materiais_pedido),
+            lead_origem=session.get("origem_carrinho", "loja"),
+            acesso_token_hash=hash_token_acesso(token) if token else None, commit=False,
         )
         estoque_ok = True
         for item in itens:
@@ -827,12 +841,19 @@ def checkout():
         conn.close()
 
         session["carrinho"] = {}
+        session.pop("origem_carrinho", None)
+        if token:
+            ids = list(session.get("pedidos_avulsos", []))
+            session["pedidos_avulsos"] = (ids + [pedido_id])[-10:]
+            links = dict(session.get("links_pedidos", {}))
+            links[str(pedido_id)] = token
+            session["links_pedidos"] = dict(list(links.items())[-10:])
         session.modified = True
 
         return redirect(url_for("pedido_pagamento", pedido_id=pedido_id))
 
     conn.close()
-    return render_template("checkout.html", itens=itens, total=total, cliente=cliente, pagamentos=pagamentos)
+    return render_template("checkout_rapido.html", itens=itens, total=total, cliente=cliente, pagamentos=pagamentos)
 
 
 @app.route("/pedido/<int:pedido_id>/pagamento")
@@ -867,7 +888,7 @@ def pedido_pagamento(pedido_id):
     return render_template(
         "pagamento.html", pedido=pedido, pix_disponivel=pix_disponivel,
         cartao_disponivel=cartao_disponivel, pix_payload=pix_payload, config=config,
-        impressora=impressora,
+        impressora=impressora, token_acesso=session.get("links_pedidos", {}).get(str(pedido_id)),
     )
 
 
@@ -1146,7 +1167,7 @@ def acompanhar_projeto(token):
         abort(404)
     conn = get_db()
     pedido = conn.execute(
-        "SELECT id FROM pedidos WHERE acesso_token_hash=?", (hash_token_acesso(token),)
+        "SELECT id, tipo FROM pedidos WHERE acesso_token_hash=?", (hash_token_acesso(token),)
     ).fetchone()
     conn.close()
     if not pedido:
@@ -1156,7 +1177,11 @@ def acompanhar_projeto(token):
     if pedido["id"] not in ids:
         ids.append(pedido["id"])
     session["pedidos_avulsos"] = ids[-10:]
-    return redirect(url_for("pedido_projeto", pedido_id=pedido["id"]))
+    links = dict(session.get("links_pedidos", {}))
+    links[str(pedido["id"])] = token
+    session["links_pedidos"] = dict(list(links.items())[-10:])
+    destino = "pedido_pagamento" if pedido["tipo"] == "loja" else "pedido_projeto"
+    return redirect(url_for(destino, pedido_id=pedido["id"]))
 
 
 def _mensagem_sistema(conn, pedido_id, texto):

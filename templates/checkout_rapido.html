@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}Checkout rápido — Voxxel{% endblock %}
+{% block meta_description %}Finalize seu pedido Voxxel em uma página e pague por Pix quando a retirada estiver disponível.{% endblock %}
+{% block body_class %}quick-checkout-page{% endblock %}
+{% block extra_styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/quick-checkout.css') }}">{% endblock %}
+{% block content %}
+<section class="quick-checkout wrap">
+  <div class="quick-checkout-heading">
+    <p>CHECKOUT VOXXEL</p>
+    <h1>Seu pedido, sem complicação.</h1>
+    <span>Preencha seus dados uma vez. Você não precisa criar uma conta.</span>
+  </div>
+  <form method="post" class="quick-checkout-grid" id="quick-checkout-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="quick-checkout-fields">
+      <section class="quick-card">
+        <div class="quick-section-title"><span>01</span><div><h2>Seus dados</h2><p>Para identificar o pedido e combinar a entrega ou retirada.</p></div></div>
+        <div class="quick-two">
+          <label>Nome <input name="nome" required maxlength="120" autocomplete="name" value="{{ request.form.get('nome', cliente['nome'] if cliente else '') }}"></label>
+          <label>WhatsApp com DDD <input name="telefone" type="tel" required maxlength="40" autocomplete="tel" placeholder="(41) 99999-9999" value="{{ request.form.get('telefone', cliente['telefone'] if cliente else '') }}"></label>
+        </div>
+        <label>E-mail <input name="email" type="email" required maxlength="180" autocomplete="email" placeholder="voce@exemplo.com" value="{{ request.form.get('email', '') }}"></label>
+      </section>
+      <section class="quick-card">
+        <div class="quick-section-title"><span>02</span><div><h2>Como receber?</h2><p>Escolha a opção que faz sentido para você.</p></div></div>
+        {% set recebimento = request.form.get('recebimento', 'retirada') %}
+        <div class="quick-options">
+          <label><input type="radio" name="recebimento" value="retirada" {{ 'checked' if recebimento == 'retirada' }}><span><strong>Quero retirar</strong><small>Local e horário serão confirmados pela Voxxel.</small></span></label>
+          <label><input type="radio" name="recebimento" value="entrega" {{ 'checked' if recebimento == 'entrega' }}><span><strong>Consultar entrega</strong><small>Confirmamos frete e prazo antes de cobrar.</small></span></label>
+        </div>
+        <label id="quick-address" hidden>Endereço para consulta <textarea name="endereco" rows="3" maxlength="350" autocomplete="street-address" placeholder="CEP, rua, número, bairro, cidade e estado">{{ request.form.get('endereco', '') }}</textarea></label>
+      </section>
+      <section class="quick-card">
+        <div class="quick-section-title"><span>03</span><div><h2>Pagamento</h2><p>O valor abaixo é das peças; frete é consultado separadamente.</p></div></div>
+        {% if 'pix' in pagamentos %}
+        <div class="quick-options">
+          <label id="quick-pix-option"><input type="radio" name="forma_pagamento" value="pix" {{ 'checked' if request.form.get('forma_pagamento', 'pix') == 'pix' }}><span><strong>Pix direto para a Voxxel</strong><small>O QR Code e o copia e cola aparecem após enviar o pedido.</small></span></label>
+          <label><input type="radio" name="forma_pagamento" value="combinar" {{ 'checked' if request.form.get('forma_pagamento') == 'combinar' }}><span><strong>Combinar depois</strong><small>Confirmamos disponibilidade, local e horário primeiro.</small></span></label>
+        </div>
+        {% else %}
+        <input type="hidden" name="forma_pagamento" value="combinar">
+        <p class="quick-payment-note">Pagamento a combinar: a chave Pix da Voxxel ainda não está configurada.</p>
+        {% endif %}
+        <p class="quick-payment-note" id="quick-delivery-note" hidden>Para entrega, o frete será confirmado antes de liberar o Pix.</p>
+      </section>
+    </div>
+    <aside class="quick-summary quick-card">
+      <p class="quick-kicker">RESUMO DO PEDIDO</p>
+      {% for i in itens %}
+      <div class="quick-item">
+        {% if i.produto['tem_imagem'] %}<img src="{{ url_for('produto_imagem', produto_id=i.produto['id']) }}" alt="" loading="lazy">{% else %}<img src="{{ url_for('static', filename='images/voxxel-mark.png') }}" alt="">{% endif %}
+        <span><strong>{{ i.produto['nome'] }}</strong><small>{{ i.qtd }} unidade{{ 's' if i.qtd != 1 }}</small></span>
+        <b>R$ {{ '%.2f'|format(i.subtotal)|replace('.', ',') }}</b>
+      </div>
+      {% endfor %}
+      <div class="quick-total"><span>Subtotal</span><strong>R$ {{ '%.2f'|format(total)|replace('.', ',') }}</strong></div>
+      <p class="quick-summary-note">A impressão e a retirada são programadas depois que a Voxxel confirma os detalhes. Para entrega, o frete não está incluído.</p>
+      <button type="submit" id="quick-submit">Finalizar pedido →</button>
+      <small>Ao continuar, você aceita os <a href="{{ url_for('termos') }}" target="_blank" rel="noopener">Termos</a> e a <a href="{{ url_for('privacidade') }}" target="_blank" rel="noopener">Política de Privacidade</a>.</small>
+      <a class="quick-back" href="{{ url_for('carrinho') }}">Editar itens do pedido</a>
+    </aside>
+  </form>
+</section>
+{% endblock %}
+{% block scripts %}<script>
+const receiving = document.querySelectorAll('input[name="recebimento"]');
+const payment = document.querySelectorAll('input[name="forma_pagamento"]');
+const address = document.querySelector('#quick-address');
+function refreshCheckout() {
+  const delivery = document.querySelector('input[name="recebimento"]:checked').value === 'entrega';
+  address.hidden = !delivery;
+  address.querySelector('textarea').required = delivery;
+  const pix = document.querySelector('#quick-pix-option');
+  if (pix) {
+    pix.hidden = delivery;
+    if (delivery && pix.querySelector('input').checked) document.querySelector('input[name="forma_pagamento"][value="combinar"]').checked = true;
+  }
+  document.querySelector('#quick-delivery-note').hidden = !delivery;
+  document.querySelector('#quick-submit').textContent = !delivery && pix && pix.querySelector('input').checked ? 'Finalizar e ver Pix →' : 'Enviar pedido →';
+}
+receiving.forEach(input => input.addEventListener('change', refreshCheckout));
+payment.forEach(input => input.addEventListener('change', refreshCheckout));
+refreshCheckout();
+</script>{% endblock %}

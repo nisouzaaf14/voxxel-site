@@ -66,14 +66,14 @@
         <div class="commerce-note-v8"><i>i</i><span>Os itens ainda não estão reservados. Entrega ou retirada e prazo são definidos na próxima etapa quando necessário.</span></div>
         <a class="btn btn-primary" href="{{ url_for('checkout') }}" style="margin-top:16px;">Continuar pedido</a>
         <a class="continue-link-v8" href="{{ url_for('ao_vivo') }}">Voltar às peças da live</a>
-        {% if not session.get('cliente_id') %}<p style="margin:15px 0 0;color:#746e7a;font-size:.62rem;line-height:1.55;text-align:center;">Você poderá entrar ou criar uma conta sem perder este carrinho.</p>{% endif %}
+        {% if not session.get('cliente_id') %}<p style="margin:15px 0 0;color:#746e7a;font-size:.62rem;line-height:1.55;text-align:center;">Você pode finalizar sem criar uma conta.</p>{% endif %}
       </aside>
     </div>
     {% else %}
     <div class="commerce-panel-v8 cart-empty-v8 fade-up">
       <img src="{{ url_for('static', filename='images/voxxel-mark.png') }}" alt="">
       <h2>Seu carrinho está vazio</h2>
-      <p>Explore o catálogo ou envie um projeto personalizado para começar.</p>
+      <p>Veja as peças da live ou envie um projeto personalizado para começar.</p>
       <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
         <a class="btn btn-primary" href="{{ url_for('ao_vivo') }}">Ver peças da live</a>
         <a class="btn btn-outline" href="{{ url_for('orcamento') }}">Enviar projeto</a>

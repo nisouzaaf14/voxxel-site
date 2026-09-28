@@ -28,6 +28,7 @@ execução, já com 18 produtos distribuídos entre as três categorias do catá
 ### Página Ao vivo
 
 - `VOXXEL_TWITCH_CHANNEL`: nome público do canal Twitch (sem `@` ou URL). Sem ele, a página mostra o estado de transmissão ainda não configurada e continua recebendo pedidos.
+- As peças selecionadas da live podem seguir direto para `/checkout`, sem cadastro. Na opção de retirada, se houver chave Pix válida nas configurações do admin, o pedido abre o QR Code e o código copia e cola diretamente para a Voxxel. O pagamento Pix é conferido manualmente; clicar em "Já fiz o pagamento" não confirma a transação. Para entrega, frete e pagamento ficam a combinar. Pedidos avulsos recebem um link de acesso para guardar ou vincular a uma conta.
 - `VOXXEL_LIVE_PRODUCT_IDS`: IDs de produtos já existentes, separados por vírgula (ex.: `3,12,19`). Só os IDs escolhidos e ativos aparecem como **Peças da live**; não há publicação automática do catálogo geral. Confira preço, estoque e tempo de produção antes de selecionar os IDs.
 - Os pedidos personalizados de `/ao-vivo` são registrados para análise com origem `ao_vivo`, sem preço definido e sem cobrança ou início automático. Imagens e arquivos 3D opcionais usam as validações do formulário de projeto. O admin encontra esses pedidos em `/admin/pedidos`.
 - Produtos selecionados usam o carrinho e o checkout já existentes. A retirada da peça da mesa e a liberação da próxima impressão continuam sob controle humano.

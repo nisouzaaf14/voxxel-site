@@ -1014,8 +1014,8 @@ def criar_pedido(conn, tipo, detalhes, valor_estimado, cliente_nome="", cliente_
                   acesso_token_hash=None, commit=True):
     """Insere um pedido (venda da loja ou orçamento) e devolve o id gerado,
     já lidando com a diferença de sintaxe entre SQLite e Postgres.
-    `cliente_id` liga o pedido à conta logada -- fica None só para pedidos
-    antigos, de antes de existir login (checkout hoje exige conta).
+    `cliente_id` liga o pedido à conta logada; pedidos avulsos usam um
+    token de acesso opaco para o comprador acompanhar sem cadastro.
     `cliente_lat`/`cliente_lng` vêm da geolocalização do navegador (podem
     vir None se o cliente não permitiu) -- usados por distribuicao.py pra
     achar a impressora mais próxima."""
