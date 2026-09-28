@@ -27,12 +27,12 @@
     <article class="live-product">
       {% if p['tem_imagem'] %}<img src="{{ url_for('produto_imagem', produto_id=p['id']) }}" alt="{{ p['nome'] }}{{ ' — imagem ilustrativa' if p['imagem_tipo'] in ['ilustrativa', 'ilustrativa_ia'] }}" loading="lazy">{% else %}<img src="{{ url_for('static', filename='images/voxxel-mark.png') }}" alt="" loading="lazy">{% endif %}
       <div><small>PEÇA DA LIVE{% if p['imagem_tipo'] in ['ilustrativa', 'ilustrativa_ia'] %} · IMAGEM ILUSTRATIVA{% endif %}</small><h3>{{ p['nome'] }}</h3><p>{{ p['descricao'] }}</p><strong>R$ {{ '%.2f'|format(p['preco'])|replace('.', ',') }}</strong>
-        <form method="post" action="{{ url_for('carrinho_adicionar', produto_id=p['id']) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="quantidade" value="1"><button type="submit" {% if p['estoque'] is not none and p['estoque'] <= 0 %}disabled{% endif %}>{{ 'Indisponível' if p['estoque'] is not none and p['estoque'] <= 0 else 'Adicionar ao pedido →' }}</button></form>
+        <form method="post" action="{{ url_for('comprar_peca_live', produto_id=p['id']) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" {% if p['estoque'] is not none and p['estoque'] <= 0 %}disabled{% endif %}>{{ 'Indisponível' if p['estoque'] is not none and p['estoque'] <= 0 else 'Comprar rápido →' }}</button></form>
       </div>
     </article>
     {% endfor %}
   </div>
-  <p class="live-order-note">Depois de adicionar, abra o carrinho para escolher retirada ou entrega. Prazo e início da impressão são confirmados pela Voxxel.</p>
+  <p class="live-order-note">Compra rápida sem cadastro. Para retirada, o Pix aparece depois de finalizar. Prazo e local são confirmados pela Voxxel.</p>
   {% else %}
   <div class="live-curation"><span>PEÇAS DA LIVE</span><p>A seleção de peças prontas está sendo preparada. Seu pedido personalizado já pode ser enviado abaixo.</p></div>
   {% endif %}
