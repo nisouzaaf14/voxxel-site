@@ -1,0 +1,60 @@
+{% extends "impressora_base.html" %}
+{% block title %}Ganhos — Impressora parceira — Voxxel{% endblock %}
+{% block eyebrow %}Marketplace{% endblock %}
+{% block page_title %}Ganhos{% endblock %}
+
+{% block admin_content %}
+
+<div class="stat-grid" style="margin-bottom:var(--space-3);">
+  <div class="stat-card">
+    <div class="stat-label">Hoje</div>
+    <div class="stat-value">R$ {{ "%.2f"|format(ganho_hoje)|replace('.', ',') }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Esta semana</div>
+    <div class="stat-value">R$ {{ "%.2f"|format(ganho_semana)|replace('.', ',') }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Este mês</div>
+    <div class="stat-value">R$ {{ "%.2f"|format(ganho_mes)|replace('.', ',') }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Total acumulado</div>
+    <div class="stat-value">R$ {{ "%.2f"|format(ganho_total)|replace('.', ',') }}</div>
+  </div>
+</div>
+
+<div class="section-head" style="text-align:left; align-items:flex-start; margin-bottom:16px; max-width:none;">
+  <h2 style="font-size:1.15rem;">Extrato por pedido</h2>
+</div>
+
+{% if pedidos %}
+<table class="seller-table">
+  <thead>
+    <tr>
+      <th>Pedido</th>
+      <th>Data</th>
+      <th>Valor do pedido</th>
+      <th>Comissão Voxxel</th>
+      <th>Você recebe</th>
+      <th>Status</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for p in pedidos %}
+    <tr>
+      <td>#{{ p['id'] }}</td>
+      <td>{{ p['criado_em'] }}</td>
+      <td>R$ {{ "%.2f"|format(p['valor_estimado'])|replace('.', ',') }}</td>
+      <td>R$ {{ "%.2f"|format(p['comissao_voxxel'] or 0)|replace('.', ',') }}</td>
+      <td>R$ {{ "%.2f"|format(p['valor_estimado'] - (p['comissao_voxxel'] or 0))|replace('.', ',') }}</td>
+      <td><span class="badge badge-{{ p['status'] }}">{{ p['status'] }}</span></td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<div class="empty-state">Nenhum pedido atribuído a você ainda.</div>
+{% endif %}
+
+{% endblock %}

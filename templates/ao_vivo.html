@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Ao vivo — Voxxel{% endblock %}
+{% block meta_description %}Acompanhe a primeira impressora da Voxxel e envie seu pedido de impressão 3D na mesma página.{% endblock %}
+{% block body_class %}live-page{% endblock %}
+{% block extra_styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/live.css') }}">{% endblock %}
+{% block content %}
+<section class="live-hero wrap">
+  <div class="live-heading">
+    <div><p class="live-eyebrow"><span></span> PRIMEIRA IMPRESSORA VOXXEL</p><h1>Acompanhe a peça<br><em>ganhar forma.</em></h1><p>Veja a produção e peça a sua peça logo abaixo. Nós conferimos cada solicitação e combinamos valor, prazo e entrega antes de produzir.</p></div>
+    <a href="#pedir" class="btn btn-primary">Fazer um pedido ↓</a>
+  </div>
+  <div class="live-player-shell">
+    {% if canal_twitch %}
+    <iframe title="Transmissão ao vivo da primeira impressora Voxxel" src="https://player.twitch.tv/?channel={{ canal_twitch|urlencode }}&parent={{ request.host.split(':')[0]|urlencode }}&muted=true" allow="autoplay; fullscreen" allowfullscreen loading="lazy" referrerpolicy="strict-origin-when-cross-origin"></iframe>
+    {% else %}
+    <div class="live-offline"><img src="{{ url_for('static', filename='images/voxxel-mark.png') }}" alt="" width="76" height="76"><span>ESTÚDIO VOXXEL</span><h2>A transmissão chega em breve.</h2><p>Você já pode enviar sua ideia. A próxima impressão pode ser a sua.</p><a href="#pedir">Enviar meu pedido ↓</a></div>
+    {% endif %}
+  </div>
+  <div class="live-player-foot"><span>01 / Ender-3 V3 KE</span><span>Os pedidos passam por revisão e confirmação da mesa antes de entrar em produção.</span></div>
+</section>
+
+<section class="live-order wrap" id="pedir">
+  <div class="live-section-heading"><p class="live-eyebrow">PARTICIPE DA PRODUÇÃO</p><h2>O que você quer ver nascer?</h2><p>Escolha uma peça preparada para a live ou conte sua ideia. A venda e o acompanhamento acontecem na Voxxel.</p></div>
+  {% if produtos_live %}
+  <div class="live-products">
+    {% for p in produtos_live %}
+    <article class="live-product">
+      {% if p['tem_imagem'] %}<img src="{{ url_for('produto_imagem', produto_id=p['id']) }}" alt="{{ p['nome'] }}{{ ' — imagem ilustrativa' if p['imagem_tipo'] in ['ilustrativa', 'ilustrativa_ia'] }}" loading="lazy">{% else %}<img src="{{ url_for('static', filename='images/voxxel-mark.png') }}" alt="" loading="lazy">{% endif %}
+      <div><small>PEÇA DA LIVE{% if p['imagem_tipo'] in ['ilustrativa', 'ilustrativa_ia'] %} · IMAGEM ILUSTRATIVA{% endif %}</small><h3>{{ p['nome'] }}</h3><p>{{ p['descricao'] }}</p><strong>R$ {{ '%.2f'|format(p['preco'])|replace('.', ',') }}</strong>
+        <form method="post" action="{{ url_for('carrinho_adicionar', produto_id=p['id']) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="quantidade" value="1"><button type="submit" {% if p['estoque'] is not none and p['estoque'] <= 0 %}disabled{% endif %}>{{ 'Indisponível' if p['estoque'] is not none and p['estoque'] <= 0 else 'Adicionar ao pedido →' }}</button></form>
+      </div>
+    </article>
+    {% endfor %}
+  </div>
+  <p class="live-order-note">Depois de adicionar, abra o carrinho para escolher retirada ou entrega. Prazo e início da impressão são confirmados pela Voxxel.</p>
+  {% else %}
+  <div class="live-curation"><span>PEÇAS DA LIVE</span><p>A seleção de peças prontas está sendo preparada. Seu pedido personalizado já pode ser enviado abaixo.</p></div>
+  {% endif %}
+
+  <div class="live-request-grid">
+    <div class="live-request-intro"><span>SEU PROJETO</span><h3>Uma peça que só você imaginou?</h3><p>Descreva o que precisa e anexe uma foto ou arquivo 3D, se tiver. Você receberá uma análise antes de qualquer cobrança.</p><img src="{{ url_for('static', filename='images/products/organizador-modular-gaveta.webp') }}" alt="Imagem ilustrativa de objeto impresso em 3D" loading="lazy"></div>
+    <form class="live-request-form" method="post" action="{{ url_for('ao_vivo') }}" enctype="multipart/form-data">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label>Seu nome <input name="nome" required maxlength="120" autocomplete="name"></label>
+      <div class="live-fields"><label>WhatsApp com DDD <input name="telefone" type="tel" required maxlength="40" autocomplete="tel"></label><label>E-mail <input name="email" type="email" required maxlength="180" autocomplete="email"></label></div>
+      <label>Conte sobre a peça <textarea name="descricao" required minlength="12" maxlength="1400" rows="5" placeholder="Para que serve, tamanho aproximado, cor e quantidade desejada..."></textarea></label>
+      <div class="live-fields"><label>Foto ou referência <input type="file" name="imagem_referencia" accept="image/png,image/jpeg,image/webp"></label><label>Arquivo 3D <input type="file" name="modelo_3d" accept=".stl,.obj,.3mf"></label></div>
+      <p>O envio é gratuito. Orçamento, frete e posição na programação serão confirmados antes da produção.</p>
+      <button class="btn btn-primary" type="submit">Solicitar análise da minha peça →</button>
+    </form>
+  </div>
+</section>
+
+<section class="live-how wrap"><div><span>01</span><h3>Peça enviada</h3><p>Seu pedido chega à Voxxel com as referências.</p></div><div><span>02</span><h3>Análise e valor</h3><p>Confirmamos material, preço e forma de entrega.</p></div><div><span>03</span><h3>Produção</h3><p>Com tudo aprovado, programamos a impressão.</p></div></section>
+{% endblock %}

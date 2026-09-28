@@ -1,0 +1,54 @@
+{% extends "impressora_base.html" %}
+{% block title %}Pedidos — Impressora parceira — Voxxel{% endblock %}
+{% block eyebrow %}Marketplace{% endblock %}
+{% block page_title %}Pedidos{% endblock %}
+
+{% block admin_content %}
+
+<div class="admin-filter-chips" style="margin-bottom:24px;">
+  <a class="chip {{ 'active' if status_filtro == 'todos' }}" href="{{ url_for('impressora_pedidos') }}">
+    Todos <span class="chip-count">{{ contagens.todos }}</span>
+  </a>
+  <a class="chip {{ 'active' if status_filtro == 'novo' }}" href="{{ url_for('impressora_pedidos', status='novo') }}">
+    Novo <span class="chip-count">{{ contagens.novo }}</span>
+  </a>
+  <a class="chip {{ 'active' if status_filtro == 'andamento' }}" href="{{ url_for('impressora_pedidos', status='andamento') }}">
+    Em andamento <span class="chip-count">{{ contagens.andamento }}</span>
+  </a>
+  <a class="chip {{ 'active' if status_filtro == 'concluido' }}" href="{{ url_for('impressora_pedidos', status='concluido') }}">
+    Concluído <span class="chip-count">{{ contagens.concluido }}</span>
+  </a>
+</div>
+
+{% if pedidos %}
+<div class="order-list">
+  {% for p in pedidos %}
+  <div class="order-card">
+    <div class="order-card-main">
+      <div class="order-card-id">Pedido #{{ p['id'] }} · {{ p['criado_em'] }}</div>
+      <div class="order-card-tipo">{{ 'Loja' if p['tipo'] == 'loja' else 'Orçamento' }}</div>
+      {% if p['cliente_nome'] or p['cliente_telefone'] %}
+      <div class="order-card-cliente">
+        {{ p['cliente_nome'] or 'Cliente sem nome' }}
+        {% if p['cliente_telefone'] %}
+        · <a href="https://wa.me/55{{ p['cliente_telefone']|replace('(','')|replace(')','')|replace('-','')|replace(' ','') }}" target="_blank" rel="noopener">{{ p['cliente_telefone'] }}</a>
+        {% endif %}
+      </div>
+      {% endif %}
+      <div class="order-card-detalhes">{{ p['detalhes'] }}</div>
+    </div>
+    <div class="order-card-side">
+      <div class="order-card-valor">R$ {{ "%.2f"|format(p['valor_estimado'] - (p['comissao_voxxel'] or 0))|replace('.', ',') }}</div>
+      {% if p['comissao_voxxel'] %}
+      <div class="order-card-impressora">pedido de R$ {{ "%.2f"|format(p['valor_estimado'])|replace('.', ',') }} · comissão Voxxel R$ {{ "%.2f"|format(p['comissao_voxxel'])|replace('.', ',') }}</div>
+      {% endif %}
+      <span class="badge badge-{{ p['status'] }}">{{ p['status'] }}</span>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">Nenhum pedido{{ ' com esse status' if status_filtro != 'todos' else '' }} atribuído a você ainda.</div>
+{% endif %}
+
+{% endblock %}
